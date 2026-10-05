@@ -1,0 +1,309 @@
+* {
+    box-sizing: border-box;
+}
+
+/* ---------- Table checkbox column ---------- */
+
+.th-checkbox {
+    width: 36px;
+    text-align: center !important;
+}
+
+.th-checkbox input {
+    cursor: pointer;
+}
+
+/* ---------- Sortable headers ---------- */
+
+.th-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.th-sortable:hover {
+    color: #2c4a9e;
+}
+
+.sort-icon {
+    color: #c6cdd6;
+    margin-left: 2px;
+    vertical-align: -1px;
+    transition: transform 0.12s ease;
+}
+
+.sort-icon.active {
+    color: #2c4a9e;
+}
+
+.sort-icon.flipped {
+    transform: rotate(180deg);
+}
+
+/* ---------- User cell (avatar + name/id) ---------- */
+
+.user-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.row-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: #eef1fb;
+    color: #2c4a9e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.user-cell-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+
+.user-cell-name {
+    font-weight: 500;
+    color: #1a1f26;
+}
+
+.user-cell-id {
+    font-size: 11px;
+    color: #8a919c;
+}
+
+/* ---------- Role badges ---------- */
+
+.role-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.role-admin {
+    background-color: #f1e9fb;
+    color: #6a3fb5;
+    border-color: #e0cef5;
+}
+
+.role-staff {
+    background-color: #e6ecfd;
+    color: #2c4a9e;
+    border-color: #c9d6f7;
+}
+
+.role-organizer {
+    background-color: #fdf1e0;
+    color: #a15c00;
+    border-color: #efd9ae;
+}
+
+.role-student {
+    background-color: #e8f3ea;
+    color: #276739;
+    border-color: #c3e0c9;
+}
+
+/* ---------- Row selection ---------- */
+
+.row-selected {
+    background-color: #eef1fb !important;
+}
+
+/* ---------- Bulk action bar ---------- */
+
+.bulk-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #eef1fb;
+    border: 1px solid #c9d6f7;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #2c4a9e;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.bulk-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-danger-outline {
+    color: #a3271f;
+    border-color: #f0c4c1;
+}
+
+.btn-danger-outline:hover {
+    background-color: #fbe9e8;
+}
+
+.btn-clear {
+    background: none;
+    border: none;
+    color: #2c4a9e;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+}
+
+/* ---------- Row action links ---------- */
+
+.cell-action-danger {
+    color: #a3271f;
+    text-decoration: none;
+    font-size: 12.5px;
+}
+
+.cell-action-danger:hover {
+    text-decoration: underline;
+}
+
+/* ---------- Edit/Add modal ---------- */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(10, 22, 40, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 16px;
+}
+
+.modal-card {
+    background-color: #ffffff;
+    border: 1px solid #dfe2e8;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(10, 22, 40, 0.14);
+    width: 100%;
+    max-width: 440px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid #eceef2;
+}
+
+.modal-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #0a1628;
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    color: #8a919c;
+    cursor: pointer;
+    padding: 2px 6px;
+}
+
+.modal-close:hover {
+    color: #1a1f26;
+}
+
+.modal-body {
+    padding: 18px;
+}
+
+.modal-body .form-group {
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-body .form-row-split {
+    display: flex;
+    gap: 12px;
+}
+
+.modal-body .form-row-split .form-group {
+    flex: 1;
+}
+
+.modal-body label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #1a1f26;
+    margin-bottom: 5px;
+}
+
+.modal-body input,
+.modal-body select {
+    padding: 8px 10px;
+    border: 1px solid #c6cdd6;
+    border-radius: 4px;
+    font-size: 13.5px;
+    color: #1a1f26;
+    font-family: inherit;
+}
+
+.modal-body input:focus,
+.modal-body select:focus {
+    outline: none;
+    border-color: #2c4a9e;
+    box-shadow: 0 0 0 2px rgba(44, 74, 158, 0.1);
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 18px;
+    border-top: 1px solid #eceef2;
+}
+
+/* ---------- CSV import modal ---------- */
+
+.import-file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.import-filename {
+    font-size: 12.5px;
+    color: #5f6b7c;
+    word-break: break-all;
+}
+
+.import-report {
+    border-top: 1px solid #eceef2;
+    padding-top: 12px;
+    font-size: 12.5px;
+    color: #1a1f26;
+}
+
+.import-report-skipped {
+    color: #a3271f;
+}
+
+.import-report ul {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    max-height: 160px;
+    overflow-y: auto;
+    color: #5f6b7c;
+}

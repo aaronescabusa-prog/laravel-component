@@ -1,0 +1,27 @@
+# ---------------------------------------------------------------------------
+# Project-root hardening.
+#
+# This file only matters when the Laravel PROJECT ROOT is web-reachable (for
+# example /xampp/htdocs/laravel-component). Laravel is meant to be served from
+# its "public" directory, so reachable source, storage and dot-files here are a
+# direct data leak (.env, database/*.sqlite, storage/logs/*.log, vendor/...).
+#
+# The rules below deny those paths with 403 without touching requests that
+# belong to public/ (e.g. /laravel-component/public/index.php), so the app
+# keeps working if it is opened through public/.
+# ---------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1. Never serve dot-files such as .env, .env.backup or .git (allow ACME).
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
+    # 2. Never serve application source, storage, tests or dependencies.
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests|vendor)(/|$) - [F,L]
+
+    # 3. Never serve build/tooling manifests.
+    RewriteRule ^(artisan|composer\.json|composer\.lock|package\.json|package-lock\.json|phpunit\.xml|vite\.config\.js)$ - [F,L]
+
+    # 4. No directory listings anywhere in the project root.
+    Options -Indexes
+</IfModule>

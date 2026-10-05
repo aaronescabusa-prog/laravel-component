@@ -1,0 +1,365 @@
+/* Check-In desk.
+   The page reuses the shared `regs-` shell, table and button classes, which the
+   global ui.css layer already styles, so only the parts unique to a check-in
+   desk live here: the session tabs, the punch affordances and the poster. */
+
+.checkin-page-subtitle {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--ui-text-muted);
+}
+
+.checkin-empty {
+    margin: 0 0 10px;
+    color: var(--ui-text-muted);
+}
+
+/*
+ * Empty state for an event with no sessions.
+ *
+ * Every punch and mark button is gated on an active session, so this is the one
+ * place a registrar can get unstuck. Stacked and centred so the recovery
+ * button reads as the next action rather than trailing inline after a sentence.
+ */
+.checkin-empty-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 20px;
+    margin: 14px 0;
+    border: 1px dashed var(--ui-border-strong);
+    border-radius: 10px;
+    background: var(--ui-surface);
+    text-align: center;
+}
+
+.checkin-empty-panel p {
+    margin: 0;
+    max-width: 46ch;
+}
+
+/* ---------- status pills ---------- */
+
+.checkin-status {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--ui-border);
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.checkin-status-present,
+.checkin-status-completed,
+.checkin-status-approved {
+    background: var(--ui-success-bg);
+    border-color: var(--ui-success-border);
+    color: var(--ui-success);
+}
+
+.checkin-status-late,
+.checkin-status-pending,
+.checkin-status-draft {
+    background: var(--ui-warning-bg);
+    border-color: var(--ui-warning-border);
+    color: var(--ui-warning);
+}
+
+.checkin-status-absent,
+.checkin-status-rejected,
+.checkin-status-cancelled {
+    background: var(--ui-danger-bg);
+    border-color: var(--ui-danger-border);
+    color: var(--ui-danger);
+}
+
+.checkin-status-excused {
+    background: var(--ui-primary-soft);
+    border-color: var(--ui-border-strong);
+    color: var(--ui-primary);
+}
+
+/* ---------- session tabs ---------- */
+
+.checkin-session-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 0 14px;
+}
+
+.checkin-session-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 148px;
+    padding: 10px 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.checkin-session-tab:hover {
+    border-color: var(--ui-border-strong);
+}
+
+.checkin-session-tab.active {
+    border-color: var(--ui-accent);
+    box-shadow: 0 0 0 2px rgba(76, 110, 245, 0.16);
+}
+
+.checkin-session-label {
+    font-weight: 650;
+}
+
+.checkin-session-window {
+    font-size: 12px;
+    color: var(--ui-text-muted);
+}
+
+.checkin-session-state {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ui-success);
+}
+
+.checkin-session-state-closed {
+    color: var(--ui-danger);
+}
+
+/* ---------- session toolbar ---------- */
+
+.checkin-session-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: var(--ui-surface-muted);
+}
+
+.checkin-session-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--ui-text-muted);
+}
+
+.checkin-session-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.checkin-open-badge,
+.checkin-closed-badge {
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.checkin-open-badge {
+    background: var(--ui-success-bg);
+    border: 1px solid var(--ui-success-border);
+    color: var(--ui-success);
+}
+
+.checkin-closed-badge {
+    background: var(--ui-danger-bg);
+    border: 1px solid var(--ui-danger-border);
+    color: var(--ui-danger);
+}
+
+/* ---------- window editor ---------- */
+
+.checkin-window-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+    border: 1px dashed var(--ui-border-strong);
+    border-radius: 10px;
+    background: var(--ui-surface);
+}
+
+.checkin-window-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ui-text-muted);
+}
+
+.checkin-window-form input {
+    padding: 7px 9px;
+    border: 1px solid var(--ui-border-strong);
+    border-radius: 8px;
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    font: inherit;
+}
+
+.checkin-window-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* ---------- bulk actions ---------- */
+
+.checkin-bulk {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: var(--ui-surface-muted);
+    font-size: 12px;
+    color: var(--ui-text-muted);
+}
+
+.checkin-bulk > span:first-child {
+    margin-right: 4px;
+    font-weight: 600;
+}
+
+.checkin-check-col {
+    width: 38px;
+    text-align: center;
+}
+
+.checkin-cell-note {
+    font-size: 11px;
+    color: var(--ui-text-soft);
+}
+
+/* ---------- poster ---------- */
+
+.checkin-poster {
+    max-width: 380px;
+}
+
+.checkin-poster-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+}
+
+.checkin-poster-body h4 {
+    margin: 6px 0 0;
+    font-size: 17px;
+}
+
+.checkin-poster-body p {
+    margin: 0;
+    color: var(--ui-text-muted);
+}
+
+.checkin-poster-hint {
+    margin-top: 6px !important;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.checkin-poster-url {
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: var(--ui-surface-muted);
+    border: 1px solid var(--ui-border);
+    font-family: var(--ui-font-mono);
+    font-size: 11px;
+    color: var(--ui-text-muted);
+    word-break: break-all;
+}
+
+/* The poster is the one screen meant for a printer, so drop the chrome. */
+@media print {
+    /*
+     * Print the poster and nothing else.
+     *
+     * Hiding the chrome alone is not enough: the overlay is a child of the same
+     * page as the roster, so un-hiding it for print leaves the participant
+     * table and session tabs printed underneath the QR. Everything is hidden by
+     * default and only the poster subtree is revealed again, which keeps the
+     * modal's own layout intact.
+     */
+    body * {
+        visibility: hidden;
+    }
+
+    .regs-modal-overlay,
+    .regs-modal-overlay * {
+        visibility: visible;
+    }
+
+    .regs-modal-overlay {
+        position: absolute !important;
+        inset: 0 auto auto 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        padding: 0 !important;
+        background: none !important;
+        overflow: visible !important;
+    }
+
+    .checkin-poster {
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    .regs-modal-footer {
+        display: none !important;
+    }
+}
+
+/* ---------- sortable column headers ---------- */
+
+.checkin-th-sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.checkin-th-sortable:hover {
+    color: var(--ui-accent);
+}
+
+.checkin-sort-icon {
+    color: var(--ui-border-strong);
+    margin-left: 2px;
+    vertical-align: -1px;
+    transition: transform 0.12s ease;
+}
+
+.checkin-sort-icon.active {
+    color: var(--ui-accent);
+}
+
+.checkin-sort-icon.flipped {
+    transform: rotate(180deg);
+}

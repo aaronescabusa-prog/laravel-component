@@ -1,0 +1,218 @@
+/* ==========================================================================
+   TMC EventEase — design tokens & global base
+   Every visual decision is driven by the custom properties below so the whole
+   system (admin shell + auth pages) stays consistent and easy to re-theme.
+   ========================================================================== */
+
+:root {
+  /* Typography & Variable Scalable Fonts */
+  --ui-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ui-font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+  /* Fluid Variable Typography Scale (clamp-based) */
+  --ui-font-size-display: clamp(1.75rem, 1.25rem + 1.8vw, 2.35rem);
+  --ui-font-size-h1: clamp(1.25rem, 1.05rem + 0.9vw, 1.65rem);
+  --ui-font-size-h2: clamp(1.05rem, 0.95rem + 0.4vw, 1.25rem);
+  --ui-font-size-h3: clamp(0.925rem, 0.88rem + 0.2vw, 1.05rem);
+  --ui-font-size-body: clamp(0.85rem, 0.82rem + 0.12vw, 0.925rem);
+  --ui-font-size-small: clamp(0.75rem, 0.72rem + 0.1vw, 0.825rem);
+  --ui-font-size-xs: clamp(0.68rem, 0.66rem + 0.08vw, 0.75rem);
+
+  /* Spacing Scale */
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-space-8: 32px;
+  --ui-space-10: 40px;
+
+  /* Surfaces & Invisibility */
+  --ui-bg: #f6f8fc;
+  --ui-bg-soft: #eef2f9;
+  --ui-surface: #ffffff;
+  --ui-surface-muted: #f8fafc;
+  --ui-surface-hover: #f8fafd;
+  --ui-surface-glass: rgba(255, 255, 255, 0.88);
+
+  /* Lines & Borders */
+  --ui-border: #e2e8f0;
+  --ui-border-subtle: rgba(226, 232, 240, 0.8);
+  --ui-border-strong: #cbd5e1;
+
+  /* High-Contrast Visual Hierarchy Text */
+  --ui-text: #0f172a;
+  --ui-text-muted: #475569;
+  --ui-text-soft: #64748b;
+  --ui-text-invert: #ffffff;
+
+  /* Brand Colors */
+  --ui-primary: #1e3a8a;
+  --ui-primary-strong: #172554;
+  --ui-primary-soft: #eff6ff;
+  --ui-primary-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  --ui-accent: #3b82f6;
+
+  /* Sidebar (Navy) */
+  --ui-navy-900: #0b1628;
+  --ui-navy-800: #12233d;
+  --ui-navy-700: #1b3252;
+  --ui-sidebar-text: #ccd7ea;
+  --ui-sidebar-text-muted: #8fa2c4;
+
+  /* Semantic Status Colors with Accessible Contrast */
+  --ui-success: #15803d;
+  --ui-success-bg: #f0fdf4;
+  --ui-success-border: #bbf7d0;
+  --ui-warning: #b45309;
+  --ui-warning-bg: #fffbeb;
+  --ui-warning-border: #fde68a;
+  --ui-danger: #b91c1c;
+  --ui-danger-bg: #fef2f2;
+  --ui-danger-border: #fecaca;
+  --ui-info: #1d4ed8;
+  --ui-info-bg: #eff6ff;
+  --ui-info-border: #bfdbfe;
+  --ui-neutral: #475569;
+  --ui-neutral-bg: #f1f5f9;
+  --ui-neutral-border: #e2e8f0;
+
+  /* Radii */
+  --ui-radius-xs: 6px;
+  --ui-radius-sm: 8px;
+  --ui-radius: 12px;
+  --ui-radius-lg: 16px;
+  --ui-radius-xl: 20px;
+  --ui-radius-pill: 9999px;
+
+  /* Elevation */
+  --ui-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --ui-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --ui-shadow-md: 0 4px 14px -3px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+  --ui-shadow-lg: 0 12px 28px -6px rgba(15, 23, 42, 0.12), 0 4px 10px -3px rgba(15, 23, 42, 0.06);
+  --ui-shadow-xl: 0 24px 48px -12px rgba(15, 23, 42, 0.18);
+
+  /* Modern Bento Grid Cards */
+  --ui-bento-bg: #ffffff;
+  --ui-bento-border: #e2e8f0;
+  --ui-bento-border-hover: #cbd5e1;
+  --ui-bento-radius: 16px;
+  --ui-bento-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px -2px rgba(15, 23, 42, 0.05);
+  --ui-bento-shadow-hover: 0 8px 24px -4px rgba(15, 23, 42, 0.1), 0 2px 8px -2px rgba(15, 23, 42, 0.04);
+
+  /* Subtle Motion & Micro-interactions */
+  --ui-transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --ui-transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --ui-transition-slow: 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  --ui-ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ui-ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  /* Layout */
+  --ui-sidebar-width: 256px;
+  --ui-topbar-height: 68px;
+  --ui-ring: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* ------------------------------ Base reset ------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background-color: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: var(--ui-primary);
+}
+
+/* Consistent, accessible keyboard focus everywhere. */
+:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background-color: rgba(76, 110, 245, 0.22);
+}
+
+/* Slim modern scrollbars (progressive enhancement). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c3ccdd transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #cbd5e5;
+  border: 3px solid transparent;
+  border-radius: var(--ui-radius-pill);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #aebbd2;
+}
+
+/* Respect users who prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
