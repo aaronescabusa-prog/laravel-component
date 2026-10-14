@@ -12,7 +12,7 @@ body {
     font-family: "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
     font-size: 14px;
     color: #24292f;
-    background-color: #f5f6f8;
+    background: linear-gradient(180deg, #edf3fb 0%, #f8faff 100%);
 }
 
 /* ---------- Sidebar ---------- */
@@ -175,23 +175,28 @@ body {
 
 .page-content {
     padding: 20px 24px 32px 24px;
+    background: transparent;
 }
 
 /* ---------- KPI strip ---------- */
 
 .kpi-strip {
     display: flex;
-    background-color: #ffffff;
-    border: 1px solid #dfe2e8;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    border: 1px solid #dfe7f5;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
 .kpi-item {
     flex: 1;
-    padding: 14px 18px;
-    border-left: 1px solid #dfe2e8;
+    padding: 18px 20px 16px;
+    border-left: 1px solid #e3ebf6;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.65), rgba(248,250,255,0.92));
 }
 
 .kpi-item:first-child {
@@ -200,17 +205,20 @@ body {
 
 .kpi-label {
     font-size: 12px;
-    color: #6b7280;
+    color: #64748b;
+    letter-spacing: 0.01em;
 }
 
 .kpi-value {
-    font-size: 22px;
-    font-weight: 600;
-    color: #1a1f26;
+    font-size: 28px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
 }
 
 .kpi-alert .kpi-value {
-    color: #b5651d;
+    color: #c7781b;
 }
 
 .kpi-trend {
@@ -243,21 +251,24 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  margin: 12px 0 18px;
+  padding: 0 2px;
 }
 
 .dash-refresh-bar .data-timestamp {
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 
 .dash-refresh-stamp {
   font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: #64748b;
 }
 
 .dash-refresh-actions {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 20px;
 }
 
 .dash-refresh-auto {
@@ -265,25 +276,30 @@ body {
   align-items: center;
   gap: 6px;
   font-size: 11.5px;
-  color: #5b6270;
+  color: #475569;
   cursor: pointer;
   user-select: none;
 }
 
+.dash-refresh-auto input {
+  accent-color: #1d4ed8;
+}
+
 .dash-refresh-btn {
-  padding: 5px 12px;
-  border: 1px solid var(--ui-border, #d8dee9);
-  border-radius: 8px;
-  background: #fff;
-  color: #2c3444;
+  padding: 7px 14px;
+  border: 1px solid #d7e2f1;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff, #f5f9ff);
+  color: #1d4ed8;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(30, 64, 175, 0.08);
 }
 
 .dash-refresh-btn:hover:not(:disabled) {
-  border-color: #1a56db;
-  color: #1a56db;
+  border-color: #1d4ed8;
+  background: linear-gradient(180deg, #eef4ff, #e8f0ff);
 }
 
 .dash-refresh-btn:disabled {
@@ -513,35 +529,33 @@ tbody tr:hover {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin-bottom: 20px;
+    margin: 0 0 20px;
 }
 
 .dash-action-link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 8px 16px;
-    background-color: var(--ui-surface, #ffffff);
-    border: 1px solid var(--ui-border, #e2e8f0);
-    border-radius: var(--ui-radius-pill, 9999px);
-    color: var(--ui-text, #0f172a);
+    padding: 10px 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f4f8ff 100%);
+    border: 1px solid #d9e6fb;
+    border-radius: 9999px;
+    color: #17376d;
     text-decoration: none;
     font-size: 13px;
-    font-weight: 550;
-    box-shadow: var(--ui-shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.05));
-    transition: transform var(--ui-transition-fast, 120ms ease),
-                border-color var(--ui-transition, 180ms ease),
-                background-color var(--ui-transition, 180ms ease),
-                box-shadow var(--ui-transition, 180ms ease),
-                color var(--ui-transition, 180ms ease);
+    font-weight: 700;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+    transition: transform 120ms ease,
+                border-color 180ms ease,
+                box-shadow 180ms ease,
+                background 180ms ease;
 }
 
 .dash-action-link:hover {
-    background-color: var(--ui-primary-soft, #eff6ff);
-    border-color: var(--ui-accent, #3b82f6);
-    color: var(--ui-primary, #1e3a8a);
+    background: linear-gradient(180deg, #eef4ff 0%, #e6f0ff 100%);
+    border-color: #93b5ff;
+    box-shadow: 0 6px 16px rgba(29, 78, 216, 0.1);
     transform: translateY(-1px);
-    box-shadow: var(--ui-shadow-sm, 0 2px 4px rgba(15, 23, 42, 0.08));
 }
 
 .dash-action-link:active {
@@ -557,20 +571,20 @@ tbody tr:hover {
 }
 
 .dash-bento-card {
-    background-color: var(--ui-bento-bg, #ffffff);
-    border: 1px solid var(--ui-bento-border, #e2e8f0);
-    border-radius: var(--ui-bento-radius, 16px);
-    box-shadow: var(--ui-bento-shadow, 0 1px 3px rgba(15, 23, 42, 0.04));
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+    border: 1px solid #dfe8f7;
+    border-radius: 18px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
     padding: 22px;
-    transition: transform var(--ui-transition, 180ms ease),
-                box-shadow var(--ui-transition, 180ms ease),
-                border-color var(--ui-transition, 180ms ease);
+    transition: transform 180ms ease,
+                box-shadow 180ms ease,
+                border-color 180ms ease;
 }
 
 .dash-bento-card:hover {
     transform: translateY(-2px);
-    border-color: var(--ui-bento-border-hover, #cbd5e1);
-    box-shadow: var(--ui-bento-shadow-hover, 0 8px 24px -4px rgba(15, 23, 42, 0.1));
+    border-color: #bfd1f8;
+    box-shadow: 0 10px 28px -8px rgba(37, 99, 235, 0.12);
 }
 
 .dash-bento-card.bento-wide {
@@ -616,14 +630,14 @@ tbody tr:hover {
     align-items: center;
     margin-bottom: 14px;
     padding-bottom: 12px;
-    border-bottom: 1px solid var(--ui-border, #e2e8f0);
+    border-bottom: 1px solid #edf2fb;
 }
 
 .dash-panel-header h2 {
-    font-size: var(--ui-font-size-h2, 16px);
-    font-weight: 650;
+    font-size: 16px;
+    font-weight: 700;
     margin: 0;
-    color: var(--ui-text, #0f172a);
+    color: #0f172a;
     letter-spacing: -0.01em;
 }
 

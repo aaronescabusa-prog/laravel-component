@@ -11,20 +11,7 @@ import { downloadCSV, dateStamp } from "./lib/csv";
 import { usePagination } from "./lib/usePagination";
 import Pagination from "./components/Pagination";
 import { roleLabel, useLogout, useUser } from "./lib/session";
-
-const NAV_ITEMS = [
-    { to: "/dashboard", label: "Dashboard" },
-    { to: "/users", label: "User Accounts" },
-    { to: "/events", label: "Events" },
-    { to: "/registrations", label: "Registrations" },
-    { to: "/check-in", label: "Check-In" },
-    { to: "/certificates", label: "Certificates" },
-    { to: "/evaluations", label: "Evaluations" },
-    { to: "/announcements", label: "Announcements" },
-    { to: "/activity-logs", label: "Activity Logs" },
-    { to: "/reports", label: "Reports" },
-    { to: "/settings", label: "Settings" },
-];
+import { visibleNavItems } from "./lib/nav";
 
 const STATUS_LABELS = {
     Present: "Present",
@@ -101,6 +88,7 @@ function nextAction(sessionState) {
 
 function Shell({ children, title, subtitle, navOpen, setNavOpen, user, handleLogout }) {
     const closeNav = () => setNavOpen(false);
+    const navItems = visibleNavItems(user?.role);
 
     return (
         <div className={`regs-shell${navOpen ? " nav-open" : ""}`}>
@@ -114,7 +102,7 @@ function Shell({ children, title, subtitle, navOpen, setNavOpen, user, handleLog
                 </div>
 
                 <nav className="regs-sidebar-nav">
-                    {NAV_ITEMS.map((item) => (
+                    {navItems.map((item) => (
                         <NavLink
                             key={item.to}
                             to={item.to}
@@ -195,7 +183,9 @@ function EventPicker({ user, handleLogout, navOpen, setNavOpen, showToast }) {
     useEffect(() => {
         let active = true;
 
-        api.list("events", { per_page: "all" })
+        (user.role === "Scanner"
+            ? checkinApi.assignedEvents()
+            : api.list("events", { per_page: "all" }))
             .then((rows) => {
                 if (active) setEvents((Array.isArray(rows) ? rows : []).map(mapEventFromApi));
             })
@@ -245,8 +235,11 @@ function EventPicker({ user, handleLogout, navOpen, setNavOpen, showToast }) {
     async function openEvent(event) {
         setBusyRef(event.id);
         try {
-            const poster = await checkinApi.poster(event.id);
-            navigate(`/check-in/${poster.token}`);
+            const token = user.role === "Scanner"
+                ? event.checkinToken
+                : (await checkinApi.poster(event.id)).token;
+            if (!token) throw new Error("This assigned event has no check-in token. Contact an administrator.");
+            navigate(`/check-in/${token}`);
         } catch (err) {
             showToast(err.message, "danger");
         } finally {
@@ -293,7 +286,13 @@ function EventPicker({ user, handleLogout, navOpen, setNavOpen, showToast }) {
                                 <tr><td className="regs-empty-row" colSpan={5}>Loading events…</td></tr>
                             )}
                             {!loading && filtered.length === 0 && (
-                                <tr><td className="regs-empty-row" colSpan={5}>No events match that search.</td></tr>
+                                <tr>
+                                    <td className="regs-empty-row" colSpan={5}>
+                                        {user.role === "Scanner" && events.length === 0
+                                            ? "You have no approved events assigned for scanning."
+                                            : "No events match that search."}
+                                    </td>
+                                </tr>
                             )}
                             {pager.pageRows.map((event) => (
                                 <tr key={event.id}>
@@ -343,6 +342,7 @@ function EventPicker({ user, handleLogout, navOpen, setNavOpen, showToast }) {
 /* ------------------------------------------------------------- check-in desk */
 
 function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast }) {
+    const canManageSessions = user.role === "Admin";
     const [poster, setPoster] = useState(null);
     const [roster, setRoster] = useState(null);
     const [sessions, setSessions] = useState([]);
@@ -389,6 +389,14 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
             setLoading(false);
         }
     }, [token]);
+
+    // Auto-refresh roster so mobile scans appear on web admin without manual refresh
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (!loading && !busy) load();
+        }, 10000);
+        return () => clearInterval(interval);
+    }, [load, loading, busy]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -738,7 +746,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                 <div className="regs-panel-header">
                     <h2>{poster?.title ?? "Roster"}</h2>
                     <div className="regs-panel-actions">
-                        {sessions.length > 0 && !addingSession && (
+                        {canManageSessions && sessions.length > 0 && !addingSession && (
                             <button
                                 type="button"
                                 className="regs-btn regs-btn-secondary"
@@ -749,9 +757,11 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                                 Add session
                             </button>
                         )}
-                        <button type="button" className="regs-btn regs-btn-secondary" onClick={() => setShowPoster(true)}>
-                            QR poster
-                        </button>
+                        {canManageSessions && (
+                            <button type="button" className="regs-btn regs-btn-secondary" onClick={() => setShowPoster(true)}>
+                                QR poster
+                            </button>
+                        )}
                         <button type="button" className="regs-btn regs-btn-secondary" onClick={() => void load()}>
                             Refresh
                         </button>
@@ -815,7 +825,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                 {sessions.length === 0 ? (
                     <div className="checkin-empty-panel">
                         <p>This event has no check-in windows yet, so there is nothing to record against.</p>
-                        {poster?.event_date ? (
+                        {canManageSessions && poster?.event_date ? (
                             <button
                                 type="button"
                                 className="regs-btn regs-btn-primary"
@@ -824,11 +834,13 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                             >
                                 {busy ? "Setting up…" : "Set up morning and afternoon"}
                             </button>
-                        ) : (
+                        ) : canManageSessions ? (
                             <p>
                                 Give the event a date on the Events page first — sessions are built
                                 from it.
                             </p>
+                        ) : (
+                            <p>Check-in sessions are not configured yet. Contact an administrator.</p>
                         )}
                     </div>
                 ) : (
@@ -871,24 +883,24 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                         </div>
 
                         <div className="checkin-session-actions">
-                            {!editingWindow && (
+                            {canManageSessions && !editingWindow && (
                                 <button type="button" className="regs-btn regs-btn-secondary" onClick={startEditWindow}>
                                     Edit window
                                 </button>
                             )}
-                            <button
+                            {canManageSessions && <button
                                 type="button"
                                 className="regs-btn regs-btn-secondary"
                                 disabled={busy}
                                 onClick={() => void toggleSessionLock()}
                             >
                                 {activeSession.open ? "Close session" : "Reopen session"}
-                            </button>
+                            </button>}
                         </div>
                     </div>
                 )}
 
-                {editingWindow && activeSession && (
+                {canManageSessions && editingWindow && activeSession && (
                     <form className="checkin-window-form" onSubmit={saveWindow}>
                         <label>
                             Opens
@@ -1096,7 +1108,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                 )}
             </section>
 
-            {showPoster && (
+            {canManageSessions && showPoster && (
                 <div className="regs-modal-overlay" role="dialog" aria-modal="true" aria-label="QR poster">
                     <div className="regs-modal-card checkin-poster">
                         <div className="regs-modal-header">

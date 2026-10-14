@@ -9,14 +9,16 @@
  * Keep the `to` values in sync with the <Route> paths in App.jsx.
  */
 export const NAV_ITEMS = [
-    { to: "/dashboard", label: "Dashboard" },
+    { to: "/dashboard", label: "Dashboard", roles: ["Admin", "Staff", "Organizer"] },
     { to: "/users", label: "User Accounts", roles: ["Admin", "Staff", "Organizer"] },
-    { to: "/events", label: "Events" },
+    { to: "/events", label: "Events", roles: ["Admin", "Staff", "Organizer", "Student"] },
+    { to: "/scanner-permissions", label: "Scanner Permissions", roles: ["Admin"] },
+    { to: "/attendance-reports", label: "Attendance Reports", roles: ["Admin"] },
     { to: "/registrations", label: "Registrations", roles: ["Admin", "Staff", "Organizer"] },
-    { to: "/check-in", label: "Check-In", roles: ["Admin", "Staff", "Organizer"] },
-    { to: "/certificates", label: "Certificates" },
-    { to: "/evaluations", label: "Evaluations" },
-    { to: "/announcements", label: "Announcements" },
+    { to: "/check-in", label: "Check-In", roles: ["Admin", "Scanner"] },
+    { to: "/certificates", label: "Certificates", roles: ["Admin", "Staff", "Organizer", "Student"] },
+    { to: "/evaluations", label: "Evaluations", roles: ["Admin"] },
+    { to: "/announcements", label: "Announcements", roles: ["Admin", "Staff", "Organizer", "Student"] },
     { to: "/activity-logs", label: "Activity Logs", roles: ["Admin", "Staff"] },
     { to: "/reports", label: "Reports", roles: ["Admin", "Staff", "Organizer"] },
     { to: "/settings", label: "Settings", roles: ["Admin", "Staff"] },
@@ -24,9 +26,6 @@ export const NAV_ITEMS = [
 
 /** Roles allowed to visit a path. `null` = any authenticated account. */
 export function rolesForPath(pathname) {
-    if (pathname === "/check-in" || pathname.startsWith("/check-in/")) {
-        return ["Admin", "Staff", "Organizer"];
-    }
     const item = NAV_ITEMS.find((entry) => entry.to === pathname);
     return item ? (item.roles ?? null) : null;
 }

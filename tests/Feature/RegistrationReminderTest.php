@@ -49,11 +49,14 @@ function reminderEvent(array $overrides = []): Event
 
 function reminderRegistration(string $reference, ?Event $event, array $overrides = []): Registration
 {
+    // The `event` title column is NOT NULL, so an "eventless" registration
+    // keeps a placeholder title while its event_id stays null; the skipped
+    // path keys off the missing relation, not the title.
     return Registration::forceCreate(array_merge([
         'reference' => $reference,
         'participant' => 'Participant '.substr($reference, -2),
         'email' => strtolower($reference).'@student.tmc.test',
-        'event' => $event?->title,
+        'event' => $event?->title ?? 'No Event Attached',
         'event_id' => $event?->id,
         'payment' => 'Free',
         'payment_status' => 'N/A',

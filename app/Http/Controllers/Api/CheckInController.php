@@ -8,6 +8,7 @@ use App\Models\AttendanceSession;
 use App\Models\Event;
 use App\Models\Registration;
 use App\Services\AttendanceRecorder;
+use App\Services\EventScannerAccess;
 use App\Services\EventSchedule;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class CheckInController extends Controller
     public function __construct(
         private readonly AttendanceRecorder $recorder,
         private readonly EventSchedule $schedule,
+        private readonly EventScannerAccess $scannerAccess,
     ) {
     }
 
@@ -42,6 +44,7 @@ class CheckInController extends Controller
     public function show(Request $request, string $token)
     {
         $event = Event::where('checkin_token', $token)->firstOrFail();
+        $this->scannerAccess->authorize($request->user(), $event);
 
         return response()->json($this->rosterPayload($event));
     }
@@ -81,6 +84,7 @@ class CheckInController extends Controller
         ]);
 
         $event = Event::where('checkin_token', $token)->firstOrFail();
+        $this->scannerAccess->authorize($request->user(), $event);
 
         $session = $this->sessionFor($event, (int) $validated['session_id']);
 
@@ -115,6 +119,64 @@ class CheckInController extends Controller
     }
 
     /**
+     * Record a mobile scan of one student's event pass.
+     */
+    public function scan(Request $request, string $token)
+    {
+        $validated = $request->validate([
+            'qr_code' => ['required', 'string', 'max:100'],
+            'session_id' => ['required', 'integer'],
+            'direction' => ['required', Rule::in(['in', 'out'])],
+        ]);
+
+        $event = Event::where('checkin_token', $token)->firstOrFail();
+        $this->scannerAccess->authorize($request->user(), $event);
+        $session = $this->sessionFor($event, (int) $validated['session_id']);
+
+        $registrations = $event->registrations()
+            ->where('qr_code', $validated['qr_code'])
+            ->limit(2)
+            ->get();
+
+        if ($registrations->isEmpty()) {
+            abort(404, 'This student pass is not registered for this event.');
+        }
+
+        if ($registrations->count() > 1) {
+            throw ValidationException::withMessages([
+                'qr_code' => 'This pass is linked to multiple registrations for this event.',
+            ]);
+        }
+
+        $registration = $registrations->first();
+        $result = $this->recorder->punchMany(
+            $session,
+            [$registration],
+            $validated['direction'],
+            null,
+            $this->actor($request),
+        );
+        $punch = $result['punched']->first();
+
+        return response()->json([
+            'message' => $punch
+                ? 'Checked '.$validated['direction'].' '.$registration->participant.'.'
+                : ($result['skipped'][$registration->reference] ?? 'The scan was not recorded.'),
+            'registration' => [
+                'reference' => $registration->reference,
+                'participant' => $registration->participant,
+            ],
+            'session' => $this->sessionPayload($session->refresh()),
+            'attendance' => $punch ? [
+                'status' => $punch->status,
+                'time_in' => $punch->time_in,
+                'time_out' => $punch->time_out,
+            ] : null,
+            'skipped' => $result['skipped'],
+        ], $result['skipped'] === [] ? 200 : 207);
+    }
+
+    /**
      * Mark participants Absent or Excused without a punch.
      */
     public function mark(Request $request, string $token)
@@ -127,6 +189,7 @@ class CheckInController extends Controller
         ]);
 
         $event = Event::where('checkin_token', $token)->firstOrFail();
+        $this->scannerAccess->authorize($request->user(), $event);
         $session = $this->sessionFor($event, (int) $validated['session_id']);
 
         $requested = collect($validated['registration_ids'])->map(fn ($id) => (int) $id)->unique();

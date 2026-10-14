@@ -11,17 +11,25 @@ use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
 
-function checkInStaff(string $role = 'Staff'): UserAccount
+function checkInStaff(string $role = 'Scanner'): UserAccount
 {
     // Reused across calls within a test: the punch helper signs a member of
     // staff in each time it runs, and user_accounts.email is unique.
-    return UserAccount::firstOrCreate(
+    $account = UserAccount::firstOrCreate(
         ['email' => strtolower($role).'-desk@tmc.test'],
         [
             'reference' => 'USR-'.$role.'-1', 'name' => 'Check In Desk',
             'role' => $role, 'status' => 'Active', 'password' => 'password',
         ]
     );
+
+    if ($role === 'Scanner') {
+        Event::query()->get()->each(fn (Event $event) => $event->scannerAccounts()->syncWithoutDetaching([
+            $account->getKey() => ['assigned_by' => null],
+        ]));
+    }
+
+    return $account;
 }
 
 function checkInStudent(): UserAccount
@@ -88,7 +96,7 @@ function punch(
 
 /* ------------------------------------------------------------ authorisation */
 
-test('a check-in needs an authenticated account with the registrations role', function () {
+test('a check-in needs an authenticated administrator or authorized scanner', function () {
     $event = checkInEvent();
 
     $this->getJson("/api/checkin/{$event->checkin_token}")
@@ -124,7 +132,7 @@ test('the roster lists every participant with both sessions for the scanned even
     checkInSessions($event);
     $attendee = checkInAttendee($event, 'Ana Cruz', 1);
 
-    Sanctum::actingAs(checkInStaff());
+    Sanctum::actingAs(checkInStaff('Admin'));
 
     $response = $this->getJson("/api/checkin/{$event->checkin_token}")
         ->assertOk()
@@ -142,7 +150,7 @@ test('the roster lists every participant with both sessions for the scanned even
 });
 
 test('an unknown token is not found', function () {
-    Sanctum::actingAs(checkInStaff());
+    Sanctum::actingAs(checkInStaff('Admin'));
 
     $this->getJson('/api/checkin/not-a-real-token')->assertNotFound();
 });
@@ -155,7 +163,7 @@ test('the roster never leaks participants from another event', function () {
     checkInAttendee($event, 'Ana Cruz', 1);
     checkInAttendee($other, 'Ben Diaz', 2);
 
-    Sanctum::actingAs(checkInStaff());
+    Sanctum::actingAs(checkInStaff('Admin'));
 
     $response = $this->getJson("/api/checkin/{$event->checkin_token}")->assertOk();
 
@@ -238,7 +246,7 @@ test('a session from another event cannot be punched through this event', functi
     $foreign = checkInSessions($other);
     $attendee = checkInAttendee($event, 'Ana Cruz', 1);
 
-    Sanctum::actingAs(checkInStaff());
+    Sanctum::actingAs(checkInStaff('Admin'));
 
     $this->postJson("/api/checkin/{$event->checkin_token}/punch", [
         'session_id' => $foreign['Morning']->id,
@@ -254,7 +262,7 @@ test('participants from another event cannot be punched through this event', fun
     $own = checkInSessions($event);
     $outsider = checkInAttendee($other, 'Ben Diaz', 2);
 
-    Sanctum::actingAs(checkInStaff());
+    Sanctum::actingAs(checkInStaff('Admin'));
 
     $this->postJson("/api/checkin/{$event->checkin_token}/punch", [
         'session_id' => $own['Morning']->id,
@@ -287,7 +295,7 @@ test('participants can be marked absent in bulk', function () {
     $one = checkInAttendee($event, 'Ana Cruz', 1);
     $two = checkInAttendee($event, 'Ben Diaz', 2);
 
-    Sanctum::actingAs(checkInStaff());
+    Sanctum::actingAs(checkInStaff('Admin'));
 
     $this->postJson("/api/checkin/{$event->checkin_token}/mark", [
         'session_id' => $sessions['Morning']->id,
@@ -342,7 +350,7 @@ test('a window accepts either HH:MM or HH:MM:SS', function () {
     $sessions = checkInSessions($event);
     $morning = $sessions['Morning'];
 
-    Sanctum::actingAs(checkInStaff());
+    Sanctum::actingAs(checkInStaff('Admin'));
 
     $this->patchJson("/api/sessions/{$morning->id}", ['time_in' => '07:30'])
         ->assertOk()
@@ -360,7 +368,7 @@ test('a window that would strand an existing punch is refused and not saved', fu
 
     punch($sessions['Morning'], $attendee)->assertOk();
 
-    Sanctum::actingAs(checkInStaff());
+    Sanctum::actingAs(checkInStaff('Admin'));
 
     // 09:00-10:00 would put the existing 08:05 punch outside the window.
     $this->patchJson("/api/sessions/{$sessions['Morning']->id}", [
@@ -382,7 +390,7 @@ test('closing a session stamps the missing check-out without erasing a late arri
     punch($sessions['Morning'], $early, 'in', '2026-10-05 08:05:00')->assertOk();
     punch($sessions['Morning'], $late, 'in', '2026-10-05 08:40:00')->assertOk();
 
-    Sanctum::actingAs(checkInStaff());
+    Sanctum::actingAs(checkInStaff('Admin'));
 
     $this->postJson("/api/sessions/{$sessions['Morning']->id}/close")->assertOk();
 
@@ -443,10 +451,10 @@ test('an event with no sessions makes nobody complete', function () {
 
 /* ------------------------------------------------------------------- poster */
 
-test('the poster exposes the QR target only to staff', function () {
+test('the poster exposes the QR target only to administrators', function () {
     $event = checkInEvent();
 
-    Sanctum::actingAs(checkInStaff());
+    Sanctum::actingAs(checkInStaff('Admin'));
 
     // Events bind routes by reference, not by id.
     $this->getJson("/api/events/{$event->reference}/checkin")

@@ -52,6 +52,11 @@ class Registration extends Model
         return $this->belongsTo(Event::class, 'event_id');
     }
 
+    public function userAccount(): BelongsTo
+    {
+        return $this->belongsTo(UserAccount::class);
+    }
+
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);

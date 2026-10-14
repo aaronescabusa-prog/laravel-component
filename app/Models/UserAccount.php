@@ -6,8 +6,10 @@ use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\HasApiTokens;
+use App\Support\AcademicStructure;
 
 class UserAccount extends Model implements AuthenticatableContract
 {
@@ -35,6 +37,28 @@ class UserAccount extends Model implements AuthenticatableContract
     protected $hidden = [
         'password',
     ];
+
+    protected $appends = [
+        'department',
+        'department_name',
+    ];
+
+    public function getDepartmentAttribute(): ?string
+    {
+        return AcademicStructure::departmentCodeForCourse($this->course);
+    }
+
+    public function getDepartmentNameAttribute(): ?string
+    {
+        return AcademicStructure::departmentName($this->department);
+    }
+
+    public function scannerEvents(): BelongsToMany
+    {
+        return $this->belongsToMany(Event::class, 'event_scanners')
+            ->withPivot('assigned_by')
+            ->withTimestamps();
+    }
 
     public function getRouteKeyName(): string
     {

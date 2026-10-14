@@ -6,7 +6,14 @@ export function dateStamp(date = new Date()) {
 
 /** Build a BOM-prefixed CSV file and trigger a browser download. */
 export function downloadCSV(filename, rows) {
-    const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const escape = (value) => {
+        const text = String(value ?? "");
+        const safe = /^[\s]*[=+\-@]/.test(text) || /^[\t\r\n]/.test(text)
+            ? `'${text}`
+            : text;
+
+        return `"${safe.replace(/"/g, '""')}"`;
+    };
     const csv = rows.map((row) => row.map(escape).join(",")).join("\n");
     const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);

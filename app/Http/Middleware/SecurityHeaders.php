@@ -58,21 +58,23 @@ class SecurityHeaders
         if (app()->environment('local')) {
             // The dev server can be advertised as localhost, 127.0.0.1 or the
             // IPv6 loopback [::1], depending on how the machine resolves the
-            // name. A browser treats those as three distinct origins when
-            // matching CSP, so all of them have to be allowed or the dev
-            // server's own client scripts are blocked and the SPA never boots.
+            // name. Keep each origin allowed for its scripts and websocket.
             $dev = implode(' ', [
                 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://[::1]:5173',
                 'ws://localhost:5173', 'ws://127.0.0.1:5173', 'ws://[::1]:5173',
                 'http://localhost:5174', 'http://127.0.0.1:5174', 'http://[::1]:5174',
                 'ws://localhost:5174', 'ws://127.0.0.1:5174', 'ws://[::1]:5174',
             ]);
+            $devImages = implode(' ', [
+                'http://localhost:5173', 'http://127.0.0.1:5173',
+                'http://localhost:5174', 'http://127.0.0.1:5174',
+            ]);
 
             return implode('; ', array_merge([
                 "default-src 'self'",
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval' {$dev}",
                 "style-src 'self' 'unsafe-inline'",
-                "img-src 'self' data: blob:",
+                "img-src 'self' data: blob: {$devImages}",
                 "font-src 'self' data:",
                 "connect-src 'self' {$dev}",
             ], $directives));

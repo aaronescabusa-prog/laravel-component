@@ -37,6 +37,42 @@ test('login issues a real Sanctum token for an active account', function () {
     expect(PersonalAccessToken::count())->toBe(1);
 });
 
+test('admin login issues a token only for active administrator accounts', function () {
+    $admin = makeAccount(['email' => 'admin-portal@tmc.edu.ph', 'role' => 'Admin']);
+
+    $this->postJson('/api/auth/admin-login', [
+        'email' => $admin->email,
+        'password' => 'password',
+    ])->assertOk()
+        ->assertJson(['user' => ['reference' => $admin->reference]])
+        ->assertJsonStructure(['token']);
+
+    expect(PersonalAccessToken::count())->toBe(1);
+});
+
+test('admin login rejects non-admin accounts without issuing a token', function () {
+    makeAccount(['email' => 'student@tmc.edu.ph', 'role' => 'Student']);
+
+    $this->postJson('/api/auth/admin-login', [
+        'email' => 'student@tmc.edu.ph',
+        'password' => 'password',
+    ])->assertStatus(422)
+        ->assertJson(['message' => 'Invalid email or password.']);
+
+    expect(PersonalAccessToken::count())->toBe(0);
+});
+
+test('mobile login remains available for active non-admin accounts', function () {
+    $student = makeAccount(['email' => 'student-mobile@tmc.edu.ph', 'role' => 'Student']);
+
+    $this->postJson('/api/auth/login', [
+        'email' => $student->email,
+        'password' => 'password',
+    ])->assertOk()
+        ->assertJson(['user' => ['role' => 'Student']])
+        ->assertJsonStructure(['token']);
+});
+
 test('login rejects invalid credentials', function () {
     makeAccount(['email' => 'admin@tmc.edu.ph']);
 

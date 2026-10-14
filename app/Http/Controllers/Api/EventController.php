@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Services\EventAudience;
 use App\Services\EventSchedule;
+use App\Support\AcademicStructure;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,6 +21,10 @@ class EventController extends Controller
     {
         $query = Event::query();
 
+        if ($request->user()?->role === 'Student') {
+            $query->where('status', 'Approved');
+        }
+
         if ($request->filled('search')) {
             $term = $request->string('search')->toString();
             $query->where(function ($q) use ($term) {
@@ -27,10 +32,6 @@ class EventController extends Controller
                     ->orWhere('description', 'like', "%{$term}%")
                     ->orWhere('organizer', 'like', "%{$term}%");
             });
-        }
-
-        if ($request->filled('category')) {
-            $query->where('category', $request->string('category')->toString());
         }
 
         if ($request->filled('status')) {
@@ -56,7 +57,6 @@ class EventController extends Controller
         $validated = $request->validate([
             'reference' => ['required', 'string', 'max:50', Rule::unique('events', 'reference')->whereNull('deleted_at')],
             'title' => ['required', 'string', 'max:255'],
-            'category' => ['required', 'string', Rule::in(['Orientation', 'Sports', 'Seminar', 'Outreach', 'Workshop', 'Cultural', 'Academic'])],
             'organizer' => ['nullable', 'string', 'max:255'],
             'event_date' => ['nullable', 'date'],
             'start_time' => ['nullable', 'string', 'max:20'],
@@ -70,9 +70,14 @@ class EventController extends Controller
             'status' => ['required', 'string', Rule::in(['Draft', 'Pending', 'Approved', 'Rejected', 'Completed', 'Cancelled'])],
             'target_role' => ['sometimes', 'string', Rule::in(['All', 'Admin', 'Staff', 'Organizer', 'Student'])],
             'target_course' => ['sometimes', 'nullable', 'string', Rule::in($this->courses())],
+            'target_department' => ['sometimes', 'nullable', 'string', Rule::in(array_column(AcademicStructure::DEPARTMENTS, 'code'))],
+            'target_year' => ['sometimes', 'nullable', 'string', Rule::in(AcademicStructure::YEARS)],
             'has_certificate' => ['sometimes', 'boolean'],
+            'penalty_type' => ['sometimes', 'string', 'max:50'],
+            'penalty_amount' => ['sometimes', 'nullable', 'integer', 'min:0'],
         ]);
 
+        $this->validateAudience($request);
         $this->validateSchedule($request);
 
         // Fill, derive the duration from the start/end range, then save once:
@@ -112,6 +117,10 @@ class EventController extends Controller
      */
     public function show(Event $event)
     {
+        if (request()->user()?->role === 'Student' && $event->status !== 'Approved') {
+            abort(404);
+        }
+
         return response()->json($event);
     }
 
@@ -123,7 +132,6 @@ class EventController extends Controller
         $validated = $request->validate([
             'reference' => ['sometimes', 'string', 'max:50', Rule::unique('events', 'reference')->ignore($event->id)],
             'title' => ['sometimes', 'required', 'string', 'max:255'],
-            'category' => ['sometimes', 'required', 'string', Rule::in(['Orientation', 'Sports', 'Seminar', 'Outreach', 'Workshop', 'Cultural', 'Academic'])],
             'organizer' => ['nullable', 'string', 'max:255'],
             'event_date' => ['nullable', 'date'],
             'start_time' => ['nullable', 'string', 'max:20'],
@@ -137,11 +145,16 @@ class EventController extends Controller
             'status' => ['sometimes', 'required', 'string', Rule::in(['Draft', 'Pending', 'Approved', 'Rejected', 'Completed', 'Cancelled'])],
             'target_role' => ['sometimes', 'nullable', 'string', Rule::in(['All', 'Admin', 'Staff', 'Organizer', 'Student'])],
             'target_course' => ['sometimes', 'nullable', 'string', Rule::in($this->courses())],
+            'target_department' => ['sometimes', 'nullable', 'string', Rule::in(array_column(AcademicStructure::DEPARTMENTS, 'code'))],
+            'target_year' => ['sometimes', 'nullable', 'string', Rule::in(AcademicStructure::YEARS)],
             'has_certificate' => ['sometimes', 'boolean'],
+            'penalty_type' => ['sometimes', 'string', 'max:50'],
+            'penalty_amount' => ['sometimes', 'nullable', 'integer', 'min:0'],
         ]);
 
         // Compared against the stored values as well, because a partial update
         // may only supply one half of the range.
+        $this->validateAudience($request, $event);
         $this->validateSchedule($request, $event);
 
         $event->fill($validated);
@@ -194,7 +207,7 @@ class EventController extends Controller
      */
     public function courses(): array
     {
-        return Event::COURSES;
+        return AcademicStructure::courses();
     }
 
     /**
@@ -202,7 +215,30 @@ class EventController extends Controller
      */
     public function coursesIndex()
     {
-        return response()->json(['courses' => $this->courses()]);
+        return response()->json([
+            'courses' => $this->courses(),
+            'departments' => AcademicStructure::DEPARTMENTS,
+            'years' => AcademicStructure::YEARS,
+        ]);
+    }
+
+    /**
+     * A selected program must belong to the selected department.
+     */
+    protected function validateAudience(Request $request, ?Event $event = null): void
+    {
+        $department = $request->exists('target_department')
+            ? $request->input('target_department')
+            : $event?->target_department;
+        $course = $request->exists('target_course')
+            ? $request->input('target_course')
+            : $event?->target_course;
+
+        if ($department && $course && ! in_array($course, AcademicStructure::coursesForDepartment($department), true)) {
+            throw ValidationException::withMessages([
+                'target_course' => ['The selected program does not belong to the selected department.'],
+            ]);
+        }
     }
 
     /**

@@ -5,16 +5,15 @@ namespace App\Services;
 use App\Models\Event;
 use App\Models\Registration;
 use App\Models\UserAccount;
+use App\Support\AcademicStructure;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Registers the users an event's course audience covers.
+ * Registers the active accounts covered by an event's audience criteria.
  *
- * An event with no target_course is public: it is offered to everybody but is
- * not *aimed* at anyone, so nobody is enrolled on the strength of it. Only an
- * event that names a course has an audience, and that audience is every active
- * account in it.
+ * A public event is offered to everybody but is not aimed at a particular
+ * audience, so nobody is enrolled on the strength of it.
  */
 class EventAudience
 {
@@ -29,42 +28,93 @@ class EventAudience
      * no longer aimed at; a registrar removes those deliberately if they want
      * them gone.
      *
-     * @return array{target_course: ?string, matched: int, added: list<string>}
+     * @return array{target_course: ?string, target_department: ?string, target_year: ?string, target_role: ?string, matched: int, added: list<string>, capacity_remaining: ?int}
      */
     public function sync(Event $event): array
     {
         $course = trim((string) $event->target_course);
+        $department = $event->target_department ?: null;
+        $year = $event->target_year ? (string) $event->target_year : null;
+        $role = $event->target_role && $event->target_role !== 'All'
+            ? $event->target_role
+            : null;
 
-        if ($course === '') {
-            return ['target_course' => null, 'matched' => 0, 'added' => []];
+        if ($course === '' && ! $department && ! $year && ! $role) {
+            return [
+                'target_course' => null,
+                'target_department' => null,
+                'target_year' => null,
+                'target_role' => null,
+                'matched' => 0,
+                'added' => [],
+                'capacity_remaining' => $event->capacity === null
+                    ? null
+                    : max(0, $event->capacity - $event->currentRegistrationCount()),
+            ];
         }
 
         // Status rather than role decides who counts: an account that is still
         // Pending has not been cleared to take part in anything yet, while a
         // Staff or Organizer account is a legitimate participant in their own
         // course's event.
-        $audience = UserAccount::query()
-            ->where('status', 'Active')
-            ->where('course', $course)
-            ->orderBy('id')
-            ->get();
+        $query = UserAccount::query()->where('status', 'Active');
+
+        if ($course !== '') {
+            $query->whereRaw('LOWER(TRIM(course)) = ?', [mb_strtolower($course)]);
+        }
+
+        if ($department) {
+            $departmentCourses = AcademicStructure::coursesForDepartment($department);
+            $query->whereIn(
+                DB::raw('LOWER(TRIM(course))'),
+                array_map('mb_strtolower', $departmentCourses),
+            );
+        }
+
+        if ($year) {
+            $query->where('year', $year);
+        }
+
+        if ($role) {
+            $query->where('role', $role);
+        }
+
+        $audience = $query->orderBy('id')->get();
 
         $added = [];
+        $capacityRemaining = null;
 
-        DB::transaction(function () use ($event, $audience, &$added) {
+        DB::transaction(function () use ($event, $audience, &$added, &$capacityRemaining) {
+            $lockedEvent = Event::query()->lockForUpdate()->findOrFail($event->getKey());
+            $registered = $lockedEvent->currentRegistrationCount();
+
             foreach ($audience as $account) {
-                if ($this->alreadyRegistered($event, $account->email)) {
+                if ($this->alreadyRegistered($lockedEvent, $account->email)) {
                     continue;
                 }
 
-                $added[] = $this->register($event, $account);
+                if ($lockedEvent->capacity !== null && $registered >= $lockedEvent->capacity) {
+                    break;
+                }
+
+                $added[] = $this->register($lockedEvent, $account);
+                $registered++;
             }
+
+            $lockedEvent->syncParticipantCount($registered);
+            $capacityRemaining = $lockedEvent->capacity === null
+                ? null
+                : max(0, $lockedEvent->capacity - $registered);
         });
 
         return [
-            'target_course' => $course,
+            'target_course' => $course !== '' ? $course : null,
+            'target_department' => $department,
+            'target_year' => $year,
+            'target_role' => $role,
             'matched' => $audience->count(),
             'added' => $added,
+            'capacity_remaining' => $capacityRemaining,
         ];
     }
 
@@ -134,7 +184,10 @@ class EventAudience
         // event_id is deliberately absent from $fillable so that no request can
         // attach a registration to an event other than the one it names. Here
         // the link is known-good because it comes from the event being saved.
-        $registration->forceFill(['event_id' => $event->id]);
+        $registration->forceFill([
+            'event_id' => $event->id,
+            'user_account_id' => $account->getKey(),
+        ]);
         $registration->save();
 
         return $registration->reference;

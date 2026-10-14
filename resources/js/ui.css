@@ -23,7 +23,7 @@
   min-height: 100vh;
   min-height: 100dvh;
   background-color: var(--ui-bg);
-  background-image: radial-gradient(1200px 600px at 100% -10%, rgba(76, 110, 245, 0.07), transparent 60%);
+  background-image: none;
   color: var(--ui-text);
   font-family: var(--ui-font);
   font-size: 14px;
@@ -62,9 +62,10 @@
   height: 100vh;
   height: 100dvh;
   padding: 6px 0 0;
-  background-image: linear-gradient(190deg, var(--ui-navy-900) 0%, var(--ui-navy-800) 55%, var(--ui-navy-700) 100%);
+  background-color: var(--ui-navy-900);
+  background-image: none;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: var(--ui-shadow-lg);
+  box-shadow: none;
   color: var(--ui-sidebar-text);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -142,8 +143,8 @@
 }
 
 :root :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link).active {
-  background-image: linear-gradient(90deg, rgba(76, 110, 245, 0.38), rgba(76, 110, 245, 0.12));
-  box-shadow: inset 3px 0 0 0 #7d97f8;
+  background-color: rgba(148, 163, 184, 0.16);
+  box-shadow: inset 3px 0 0 0 var(--ui-accent);
   color: var(--ui-text-invert);
   font-weight: 600;
 }
@@ -578,6 +579,45 @@
   min-width: 0;
 }
 
+/* Keep filter controls in one compact row where space allows, with the same
+   flexible sizing and wrap behavior across resource pages. */
+:root :is(.toolbar, .ann-toolbar, .cert-toolbar, .eval-toolbar, .events-toolbar, .log-toolbar, .regs-toolbar) > :is(select, input) {
+  flex: 1 1 140px;
+  width: auto;
+  min-width: 0;
+}
+
+:root :is(.toolbar, .ann-toolbar, .cert-toolbar, .eval-toolbar, .events-toolbar, .log-toolbar, .regs-toolbar) > :is(.input-search, .ann-input-search, .cert-input-search, .eval-input-search, .events-input-search, .log-input-search, .regs-input-search) {
+  flex: 2 1 260px;
+}
+
+:root .rpt-controls {
+  flex-direction: row;
+  border: 0;
+  padding: 0;
+}
+
+:root .rpt-report-filter,
+:root .rpt-date-field {
+  flex: 1 1 160px;
+  min-width: 140px;
+}
+
+:root .rpt-report-filter select,
+:root .rpt-date-field input {
+  width: 100%;
+}
+
+:root .rpt-date-range {
+  display: contents;
+}
+
+:root .rpt-export-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
+  align-self: flex-end;
+}
+
 :root :is(.input-search, .input-date, .input-select, .ann-input-select, .cert-input-select, .eval-input-select, .events-input-select, .log-input-date, .log-input-select, .regs-input-select, .cert-verify-input),
 :root input[type="text"],
 :root input[type="search"],
@@ -713,15 +753,16 @@
 
 :root :is(.btn-primary, .ann-btn-primary, .cert-btn-primary, .events-btn-primary, .regs-btn-primary, .settings-btn-primary) {
   border-color: transparent;
-  background-image: var(--ui-primary-gradient);
+  background-color: var(--ui-primary);
+  background-image: none;
   color: var(--ui-text-invert);
-  box-shadow: 0 8px 18px -12px rgba(44, 74, 158, 0.9);
+  box-shadow: 0 8px 18px -12px rgba(31, 59, 115, 0.65);
 }
 
 :root :is(.btn-primary, .ann-btn-primary, .cert-btn-primary, .events-btn-primary, .regs-btn-primary, .settings-btn-primary):hover:not(:disabled) {
-  background-image: linear-gradient(135deg, #26408a 0%, #3f5fe0 100%);
+  background-color: var(--ui-primary-strong);
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px -12px rgba(44, 74, 158, 0.95);
+  box-shadow: 0 12px 24px -12px rgba(31, 59, 115, 0.8);
 }
 
 :root :is(.btn-secondary, .ann-btn-secondary, .cert-btn-secondary, .events-btn-secondary, .log-btn-secondary, .regs-btn-secondary, .rpt-btn-secondary, .settings-btn-secondary) {
@@ -740,15 +781,16 @@
 /* Destructive confirmation button (delete / revoke) */
 :root .btn-danger {
   border-color: transparent;
-  background-image: linear-gradient(135deg, #b8231b 0%, #d4402f 100%);
+  background-color: var(--ui-danger);
+  background-image: none;
   color: var(--ui-text-invert);
-  box-shadow: 0 8px 18px -12px rgba(184, 35, 27, 0.95);
+  box-shadow: 0 8px 18px -12px rgba(185, 28, 28, 0.7);
 }
 
 :root .btn-danger:hover:not(:disabled) {
-  background-image: linear-gradient(135deg, #9e1e17 0%, #c1362a 100%);
+  background-color: #991b1b;
   transform: translateY(-1px);
-  box-shadow: 0 12px 24px -12px rgba(184, 35, 27, 1);
+  box-shadow: 0 12px 24px -12px rgba(185, 28, 28, 0.9);
 }
 
 :root .btn-block {
@@ -1205,9 +1247,10 @@
 
 :root .pagination-page.active {
   border-color: transparent;
-  background-image: var(--ui-primary-gradient);
+  background-color: var(--ui-primary);
+  background-image: none;
   color: var(--ui-text-invert);
-  box-shadow: 0 8px 18px -12px rgba(44, 74, 158, 0.9);
+  box-shadow: 0 8px 18px -12px rgba(31, 59, 115, 0.7);
   cursor: default;
 }
 
@@ -1254,10 +1297,11 @@
 }
 
 :root :is(.rpt-report-tab, .settings-tab).active {
-  background-image: var(--ui-primary-gradient);
+  background-color: var(--ui-primary);
+  background-image: none;
   border-color: transparent;
   color: var(--ui-text-invert);
-  box-shadow: 0 8px 18px -12px rgba(44, 74, 158, 0.9);
+  box-shadow: 0 8px 18px -12px rgba(31, 59, 115, 0.7);
 }
 
 :root :is(.rpt-export-toast, .settings-toast) {

@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SendEventReminderJob;
 use App\Models\Event;
 use App\Models\Registration;
+use App\Models\UserAccount;
+use App\Services\EventEligibility;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class RegistrationController extends Controller
 {
@@ -27,6 +30,10 @@ class RegistrationController extends Controller
     public function index(Request $request)
     {
         $query = Registration::query();
+
+        if ($request->user()?->role === 'Student') {
+            $query->whereRaw('LOWER(email) = ?', [mb_strtolower(trim($request->user()->email))]);
+        }
 
         if ($request->filled('search')) {
             $term = $request->string('search')->toString();
@@ -57,7 +64,7 @@ class RegistrationController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request, EventEligibility $eligibility)
     {
         $validated = $request->validate([
             'reference' => ['required', 'string', 'max:50', Rule::unique('registrations', 'reference')->whereNull('deleted_at')],
@@ -74,6 +81,23 @@ class RegistrationController extends Controller
         ]);
 
         $validated['role'] ??= self::DEFAULT_ROLE;
+
+        // Staff may register anybody, but the duplicate and capacity rules
+        // still apply: the event behind the title is resolved and checked
+        // with the registrant's own account when one exists, so a registrar
+        // cannot double-book a student or overfill an event by hand.
+        $event = Event::where('title', trim($validated['event']))->first();
+
+        if ($event) {
+            $account = UserAccount::whereRaw('LOWER(email) = ?', [mb_strtolower(trim($validated['email']))])->first();
+            $flag = $eligibility->check($event, $account);
+
+            if (in_array($flag['code'], ['duplicate', 'capacity', 'ineligible'], true)) {
+                throw ValidationException::withMessages([
+                    'event' => [$flag['reason']],
+                ]);
+            }
+        }
 
         // A soft-deleted namesake still holds its unique reference, so revive it
         // rather than colliding with the index (see UserAccountController::persist).
@@ -120,11 +144,88 @@ class RegistrationController extends Controller
     }
 
     /**
-     * Display the specified resource.
+     * Student accounts may only view their own pass history.
      */
-    public function show(Registration $registration)
+    public function show(Request $request, Registration $registration)
     {
+        if ($request->user()?->role === 'Student'
+            && strcasecmp((string) $registration->email, (string) $request->user()->email) !== 0) {
+            abort(404);
+        }
+
         return response()->json($registration);
+    }
+
+    /**
+     * Self-service registration for a student account.
+     */
+    public function selfRegister(Request $request, EventEligibility $eligibility)
+    {
+        $validated = $request->validate([
+            'event_reference' => ['required', 'string', 'max:255'],
+            'participant' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:255'],
+            'role' => ['sometimes', 'nullable', 'string', Rule::in(self::ROLES)],
+            'qr_code' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'payment' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'payment_status' => ['sometimes', 'nullable', 'string', Rule::in(['Paid', 'Pending', 'N/A', 'Refunded'])],
+        ]);
+
+        $user = $request->user();
+
+        if (! $user || $user->role !== 'Student') {
+            return response()->json(['message' => 'Only student accounts may self-register.'], 403);
+        }
+
+        $event = Event::where('reference', trim($validated['event_reference']))->first();
+
+        if (! $event) {
+            throw ValidationException::withMessages([
+                'event_reference' => ['The selected event could not be found.'],
+            ]);
+        }
+
+        if ($event->status !== 'Approved') {
+            throw ValidationException::withMessages([
+                'event_reference' => ['This event is not open for self-registration.'],
+            ]);
+        }
+
+        $flag = $eligibility->check($event, $user);
+
+        if (in_array($flag['code'], ['duplicate', 'capacity', 'ineligible'], true)) {
+            throw ValidationException::withMessages([
+                'event_reference' => [$flag['reason']],
+            ]);
+        }
+
+        $reference = Registration::withTrashed()
+            ->where('reference', 'like', 'REG-%')
+            ->pluck('reference')
+            ->map(fn (string $reference) => (int) substr($reference, 4))
+            ->filter(fn (int $number) => $number > 0)
+            ->max() ?? 0;
+
+        $registration = new Registration([
+            'reference' => 'REG-'.str_pad((string) $reference + 1, 4, '0', STR_PAD_LEFT),
+            'participant' => $user->name,
+            'email' => $user->email,
+            'role' => 'Student',
+            'event' => $event->title,
+            'payment' => 'Free',
+            'payment_status' => 'N/A',
+            'attendance' => 'Not Yet Recorded',
+            'reg_date' => now()->format('Y-m-d'),
+            'qr_code' => 'PASS-'.strtoupper(bin2hex(random_bytes(5))),
+        ]);
+
+        $registration->forceFill([
+            'event_id' => $event->id,
+            'user_account_id' => $user->id,
+        ]);
+        $registration->save();
+
+        return response()->json($registration, 201);
     }
 
     /**

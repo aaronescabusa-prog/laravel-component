@@ -104,16 +104,13 @@ function Reports() {
         <AppShell title="Reports" prefix="rpt-">
 
             <section className="rpt-controls">
-                <div className="rpt-report-tabs">
-                    {REPORT_TYPES.map((type) => (
-                        <button
-                            key={type.key}
-                            className={reportType === type.key ? "rpt-report-tab active" : "rpt-report-tab"}
-                            onClick={() => setReportType(type.key)}
-                        >
-                            {type.label}
-                        </button>
-                    ))}
+                <div className="rpt-report-filter">
+                    <label htmlFor="reportType">Report type</label>
+                    <select id="reportType" value={reportType} onChange={(e) => setReportType(e.target.value)}>
+                        {REPORT_TYPES.map((type) => (
+                            <option key={type.key} value={type.key}>{type.label}</option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="rpt-date-range">
@@ -125,10 +122,10 @@ function Reports() {
                         <label htmlFor="dateTo">To</label>
                         <input id="dateTo" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
                     </div>
-                    <div className="rpt-export-actions">
-                        <button className="rpt-btn rpt-btn-secondary" onClick={handleExport} disabled={loading}>Export CSV</button>
-                        <button className="rpt-btn rpt-btn-secondary" onClick={handlePrint}>Print</button>
-                    </div>
+                </div>
+                <div className="rpt-export-actions">
+                    <button className="rpt-btn rpt-btn-secondary" onClick={handleExport} disabled={loading}>Export CSV</button>
+                    <button className="rpt-btn rpt-btn-secondary" onClick={handlePrint}>Print</button>
                 </div>
 
                 {exportMessage && <div className="rpt-export-toast">{exportMessage}</div>}
@@ -144,10 +141,6 @@ function Reports() {
                         <div className="rpt-kpi-item">
                             <span className="rpt-kpi-label">Total Registered</span>
                             <span className="rpt-kpi-value">{registrations.reduce((s, r) => s + Number(r.registered || 0), 0).toLocaleString()}</span>
-                        </div>
-                        <div className="rpt-kpi-item">
-                            <span className="rpt-kpi-label">Total Capacity</span>
-                            <span className="rpt-kpi-value">{registrations.reduce((s, r) => s + Number(r.capacity || 0), 0).toLocaleString()}</span>
                         </div>
                         <div className="rpt-kpi-item">
                             <span className="rpt-kpi-label">Events Covered</span>

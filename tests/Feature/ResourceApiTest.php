@@ -272,23 +272,22 @@ test('admin can list, create, show, update and delete events', function () {
     expect(Event::count())->toBe(0);
 });
 
-test('create requires a unique reference and valid category', function () {
+test('create requires a unique reference and title', function () {
     Sanctum::actingAs(makeAdmin());
 
-    $this->postJson('/api/events', ['reference' => 'EVE-1001', 'title' => 'x', 'category' => 'Nope', 'status' => 'Draft'])
-        ->assertStatus(422);
+    $this->postJson('/api/events', ['reference' => 'EVE-1001', 'status' => 'Draft'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('title');
 
     $this->postJson('/api/events', [
         'reference' => 'EVE-1001',
         'title' => 'Duplicate ref test',
-        'category' => 'Academic',
         'status' => 'Draft',
     ])->assertStatus(201);
 
     $this->postJson('/api/events', [
         'reference' => 'EVE-1001',
         'title' => 'Duplicate ref test 2',
-        'category' => 'Academic',
         'status' => 'Draft',
     ])->assertStatus(422);
 });
@@ -316,6 +315,41 @@ test('events persist the certificate toggle and default to enabled', function ()
     $this->putJson('/api/events/EVE-CERT-1', ['has_certificate' => true])
         ->assertOk()
         ->assertJson(['has_certificate' => true]);
+});
+
+test('events persist the penalty type and penalty amount', function () {
+    Sanctum::actingAs(makeAdmin());
+
+    $this->postJson('/api/events', [
+        'reference' => 'EVE-PEN-1',
+        'title' => 'Penalty Event',
+        'category' => 'Seminar',
+        'status' => 'Draft',
+        'penalty_type' => 'Late Fee',
+        'penalty_amount' => 500,
+    ])->assertStatus(201)
+        ->assertJson(['penalty_type' => 'Late Fee', 'penalty_amount' => 500]);
+
+    $this->postJson('/api/events', [
+        'reference' => 'EVE-PEN-2',
+        'title' => 'No Penalty Event',
+        'category' => 'Seminar',
+        'status' => 'Draft',
+        'penalty_type' => 'No Certificate',
+    ])->assertStatus(201)
+        ->assertJson(['penalty_type' => 'No Certificate', 'penalty_amount' => null]);
+
+    $event = Event::where('reference', 'EVE-PEN-1')->first();
+    expect($event->penalty_type)->toBe('Late Fee')
+        ->and($event->penalty_amount)->toBe(500);
+
+    $this->putJson('/api/events/EVE-PEN-1', ['penalty_type' => 'No Show Fee', 'penalty_amount' => 750])
+        ->assertOk()
+        ->assertJson(['penalty_type' => 'No Show Fee', 'penalty_amount' => 750]);
+
+    $event->refresh();
+    expect($event->penalty_type)->toBe('No Show Fee')
+        ->and($event->penalty_amount)->toBe(750);
 });
 
 test('an event audience is limited to a real course or left public', function () {
@@ -531,23 +565,26 @@ test('announcements keep the All Users audience on update', function () {
         ->assertJson(['audience' => 'All Users', 'title' => 'Welcome updated']);
 });
 
-test('search and filters narrow the listing', function () {
+test('search and status filters narrow the listing', function () {
     Sanctum::actingAs(makeAdmin());
 
-    Event::create(['reference' => 'EVE-10', 'title' => 'Leadership Workshop', 'category' => 'Workshop', 'status' => 'Draft']);
-    Event::create(['reference' => 'EVE-11', 'title' => 'Blood Donation Drive', 'category' => 'Outreach', 'status' => 'Approved']);
+    Event::create(['reference' => 'EVE-10', 'title' => 'Leadership Workshop', 'status' => 'Draft']);
+    Event::create(['reference' => 'EVE-11', 'title' => 'Blood Donation Drive', 'status' => 'Approved']);
 
     $this->getJson('/api/events?search=Workshop')->assertJsonCount(1, 'data');
-    $this->getJson('/api/events?category=Outreach')->assertJsonCount(1, 'data');
     $this->getJson('/api/events?status=Approved')->assertJsonCount(1, 'data');
 });
 
 test('students can read events but cannot write', function () {
-    Event::create(['reference' => 'EVE-10', 'title' => 'Leadership Workshop', 'category' => 'Workshop', 'status' => 'Draft']);
+    Event::create(['reference' => 'EVE-10', 'title' => 'Leadership Workshop', 'status' => 'Draft']);
+    Event::create(['reference' => 'EVE-11', 'title' => 'Open Workshop', 'status' => 'Approved']);
 
     Sanctum::actingAs(makeStudent());
 
-    $this->getJson('/api/events')->assertOk()->assertJsonCount(1, 'data');
+    $this->getJson('/api/events')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.reference', 'EVE-11');
 
     $this->postJson('/api/events', [
         'reference' => 'EVE-20',

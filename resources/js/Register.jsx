@@ -15,7 +15,7 @@ const COURSES = [
     "BA Communications",
 ];
 
-const YEARS = ["1", "2", "3", "4"];
+const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 
 /* Roles a visitor may request. Administrator accounts are created by an
    existing admin in User Accounts, never through self-registration. */

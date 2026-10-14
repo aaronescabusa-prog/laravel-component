@@ -1,0 +1,135 @@
+/* ScannerPermissions — admin surface for assigning Scanner accounts to events.
+   Self-contained: defines only the classes this screen uses that ui.css does not
+   already provide globally (layout + the scanner rows + checkbox affordances).
+   Reuses the shared .events-form-group, .events-toolbar, .events-btn,
+   .events-empty-row, .events-cell-muted, .events-status-*, and .action-btn-*
+   primitives from ui.css. */
+
+.scanner-page {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.scanner-page .events-form-group {
+    max-width: 420px;
+}
+
+.scanner-panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.scanner-panel {
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    box-shadow: var(--ui-shadow-xs);
+    padding: 16px;
+}
+
+.scanner-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.scanner-panel-head h2 {
+    margin: 0;
+    font-size: var(--ui-font-size-h3);
+    font-weight: 650;
+    color: var(--ui-text);
+}
+
+.scanner-panel-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-primary-soft);
+    color: var(--ui-primary);
+}
+
+.scanner-count {
+    color: var(--ui-text-soft);
+    font-weight: 500;
+}
+
+/* Muted helper text under fields / in empty sub-sections. */
+.events-field-help {
+    margin: 6px 0 0;
+    font-size: var(--ui-font-size-small);
+    color: var(--ui-text-muted);
+}
+
+/* Scanner rows: a compact flex line (state · name · email · status · action). */
+.events-scanner-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.events-scanner-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-muted);
+}
+
+.events-scanner-row:hover {
+    border-color: var(--ui-border-strong);
+    background: var(--ui-surface-hover);
+}
+
+.events-scanner-name {
+    font-weight: 600;
+    color: var(--ui-text);
+    min-width: 140px;
+}
+
+.events-scanner-row .events-cell-muted {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Assigned rows show a filled check; the add list uses a real toggle. */
+.events-checkbox {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex: none;
+    cursor: pointer;
+}
+
+.events-checkbox input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--ui-primary);
+}
+
+.events-checkbox-disabled input {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.events-checkbox-on {
+    border-radius: var(--ui-radius-xs);
+    background: var(--ui-success-bg);
+    color: var(--ui-success);
+}

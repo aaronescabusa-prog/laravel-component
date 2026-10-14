@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./Dashboard.css";
 import "./Users.css";
 import AppShell from "./components/AppShell";
@@ -24,7 +24,7 @@ const COURSES = [
     "BA Communications",
 ];
 
-const YEARS = ["1", "2", "3", "4"];
+const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 
 /* Values a CSV import may set, in the exact spelling the API accepts. */
 const IMPORT_ROLES = USER_ROLES;
@@ -86,12 +86,14 @@ function Users() {
     const user = useUser();
     const { toast, showToast, dismissToast } = useToast();
     const [users, setUsers, refreshUsers] = useCollection("users", (msg) => showToast(msg, "danger"));
+    const [departments, setDepartments] = useState([]);
     const [pendingDelete, setPendingDelete] = useState(null);
     const [pendingSuspend, setPendingSuspend] = useState(null);
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
     const [courseFilter, setCourseFilter] = useState("all");
+    const [departmentFilter, setDepartmentFilter] = useState("all");
     const [blockFilter, setBlockFilter] = useState("all");
     const [yearFilter, setYearFilter] = useState("all");
     const [sortKey, setSortKey] = useState("date");
@@ -106,6 +108,18 @@ function Users() {
     const [importReport, setImportReport] = useState(null);
     const importInputRef = useRef(null);
 
+    useEffect(() => {
+        let active = true;
+        api.academicStructure()
+            .then((structure) => {
+                if (active) setDepartments(structure.departments);
+            })
+            .catch((err) => {
+                if (active) showToast(`Could not load department options: ${err.message}`, "danger");
+            });
+        return () => { active = false; };
+    }, []);
+
     const filteredRows = useMemo(() => {
         let rows = users.filter((row) => {
             const term = search.trim().toLowerCase();
@@ -113,9 +127,10 @@ function Users() {
             const matchesRole = roleFilter === "all" || row.role.toLowerCase() === roleFilter;
             const matchesStatus = statusFilter === "all" || row.status.toLowerCase() === statusFilter;
             const matchesCourse = courseFilter === "all" || (row.course || "") === courseFilter;
+            const matchesDepartment = departmentFilter === "all" || row.department === departmentFilter;
             const matchesBlock = blockFilter === "all" || String(row.blockNo ?? "").toLowerCase() === blockFilter;
             const matchesYear = yearFilter === "all" || (row.year || "") === yearFilter;
-            return matchesSearch && matchesRole && matchesStatus && matchesCourse && matchesBlock && matchesYear;
+            return matchesSearch && matchesRole && matchesStatus && matchesCourse && matchesDepartment && matchesBlock && matchesYear;
         });
 
         rows = [...rows].sort((a, b) => {
@@ -126,17 +141,19 @@ function Users() {
         });
 
         return rows;
-    }, [users, search, roleFilter, statusFilter, courseFilter, blockFilter, yearFilter, sortKey, sortDir]);
+    }, [users, search, roleFilter, statusFilter, courseFilter, departmentFilter, blockFilter, yearFilter, sortKey, sortDir]);
 
     const pager = usePagination(filteredRows, {
-        resetKey: [search, roleFilter, statusFilter, courseFilter, blockFilter, yearFilter, sortKey, sortDir].join("|"),
+        resetKey: [search, roleFilter, statusFilter, courseFilter, departmentFilter, blockFilter, yearFilter, sortKey, sortDir].join("|"),
     });
 
     const selection = useRowSelection({
         pageRows: pager.pageRows,
         matchingRows: filteredRows,
-        resetKey: [search, roleFilter, statusFilter, courseFilter, blockFilter, yearFilter, sortKey, sortDir].join("|"),
+        resetKey: [search, roleFilter, statusFilter, courseFilter, departmentFilter, blockFilter, yearFilter, sortKey, sortDir].join("|"),
     });
+
+    const departmentForCourse = (course) => departments.find((department) => department.courses.includes(course));
 
     /* Block numbers come from the accounts themselves, so the filter always
        reflects what the registrar saved in the form. */
@@ -620,6 +637,20 @@ function Users() {
 
                     <select
                         className="input-select"
+                        value={departmentFilter}
+                        onChange={(e) => setDepartmentFilter(e.target.value)}
+                        aria-label="Filter by department"
+                    >
+                        <option value="all">All departments</option>
+                        {departments.map((department) => (
+                            <option key={department.code} value={department.code}>
+                                {department.code} — {department.name}
+                            </option>
+                        ))}
+                    </select>
+
+                    <select
+                        className="input-select"
                         value={blockFilter}
                         onChange={(e) => setBlockFilter(e.target.value)}
                         aria-label="Filter by block number"
@@ -638,7 +669,7 @@ function Users() {
                     >
                         <option value="all">All years</option>
                         {YEARS.map((year) => (
-                            <option key={year} value={year}>Year {year}</option>
+                            <option key={year} value={year}>{year}</option>
                         ))}
                     </select>
 
@@ -699,16 +730,39 @@ function Users() {
                                         aria-label="Select all users on this page"
                                     />
                                 </th>
-                                <th className="th-sortable" onClick={() => toggleSort("name")}>
+                                <th className="th-sortable"
+    tabIndex={0}
+    aria-sort={sortKey === "name" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+    aria-label={`Sort by name, ${sortKey === "name" ? (sortDir === "asc" ? "ascending" : "descending") : ""}`}
+    onClick={() => toggleSort("name")}
+    onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleSort("name");
+        }
+    }}
+>
                                     Name <SortIcon active={sortKey === "name"} dir={sortDir} />
                                 </th>
                                 <th>Role</th>
                                 <th>Email</th>
                                 <th>Course</th>
+                                <th>Department</th>
                                 <th>Block No.</th>
                                 <th>Year</th>
                                 <th>Status</th>
-                                <th className="th-sortable" onClick={() => toggleSort("date")}>
+                                <th className="th-sortable"
+    tabIndex={0}
+    aria-sort={sortKey === "date" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+    aria-label={`Sort by date registered, ${sortKey === "date" ? (sortDir === "asc" ? "ascending" : "descending") : ""}`}
+    onClick={() => toggleSort("date")}
+    onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleSort("date");
+        }
+    }}
+>
                                     Date Registered <SortIcon active={sortKey === "date"} dir={sortDir} />
                                 </th>
                                 <th>Actions</th>
@@ -737,8 +791,11 @@ function Users() {
                                     <td><span className={`role-badge role-${row.role.toLowerCase()}`}>{row.role}</span></td>
                                     <td className="cell-muted">{row.email}</td>
                                     <td className="cell-muted">{row.course || "—"}</td>
+                                    <td className="cell-muted">
+                                        {row.department ? `${row.department} — ${row.departmentName || row.department}` : "—"}
+                                    </td>
                                     <td className="cell-muted">{row.blockNo || "—"}</td>
-                                    <td className="cell-muted">{row.year ? `Year ${row.year}` : "—"}</td>
+                                    <td className="cell-muted">{row.year || "—"}</td>
                                     <td>
                                         <span className={`status status-${row.status.toLowerCase()}`}>
                                             {row.status}
@@ -754,7 +811,27 @@ function Users() {
                             ))}
                             {filteredRows.length === 0 && (
                                 <tr>
-                                    <td colSpan="10" className="empty-row">No accounts match your filters.</td>
+                                    <td colSpan="11" className="empty-row">
+    <strong className="empty-row-title">No accounts match your filters.</strong>
+    <div className="empty-row-actions">
+        <button
+            type="button"
+            className="empty-row-action"
+            onClick={() => {
+                setSearch("");
+                setRoleFilter("all");
+                setStatusFilter("all");
+                setCourseFilter("all");
+                setDepartmentFilter("all");
+                setBlockFilter("all");
+                setYearFilter("all");
+            }}
+            aria-label="Clear all account filters"
+        >
+            Clear filters
+        </button>
+    </div>
+</td>
                                 </tr>
                             )}
                         </tbody>
@@ -805,6 +882,11 @@ function Users() {
                                         <option value="">Select course...</option>
                                         {COURSES.map((c) => <option key={c} value={c}>{c}</option>)}
                                     </select>
+                                    <span className="field-help">
+                                        Department: {departmentForCourse(editingUser.course)
+                                            ? `${departmentForCourse(editingUser.course).code} — ${departmentForCourse(editingUser.course).name}`
+                                            : "Select a supported program"}
+                                    </span>
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="editYear">Year</label>
@@ -849,6 +931,7 @@ function Users() {
                                         onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
                                     >
                                         {user.role === "Admin" && <option>Admin</option>}
+                                        <option>Scanner</option>
                                         <option>Staff</option>
                                         <option>Organizer</option>
                                         <option>Student</option>

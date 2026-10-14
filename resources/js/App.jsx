@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import RequireAuth from "./components/RequireAuth";
 import Login from "./Login";
-import Register from "./Register";
 import Dashboard from "./Dashboard";
 import Users from "./Users";
 import Events from "./Events";
@@ -13,13 +12,16 @@ import Reports from "./Reports";
 import Certificates from "./Certificates";
 import Evaluations from "./Evaluations";
 import ActivityLogs from "./ActivityLogs";
+import ScannerPermissions from "./ScannerPermissions";
+import AttendanceReports from "./AttendanceReports";
+
 
 function App() {
     return (
         <Routes>
             <Route path="/" element={<Navigate to="/login" />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/register" element={<Navigate to="/login" replace />} />
             <Route
                 path="/dashboard"
                 element={(
@@ -30,6 +32,8 @@ function App() {
             />
             <Route path="/users" element={<RequireAuth><Users /></RequireAuth>} />
             <Route path="/events" element={<RequireAuth><Events /></RequireAuth>} />
+            <Route path="/scanner-permissions" element={<RequireAuth><ScannerPermissions /></RequireAuth>} />
+            <Route path="/attendance-reports" element={<RequireAuth><AttendanceReports /></RequireAuth>} />
             <Route path="/announcements" element={<RequireAuth><Announcements /></RequireAuth>} />
             <Route path="/registrations" element={<RequireAuth><Registrations /></RequireAuth>} />
   {/* /check-in/:token is what a printed event QR resolves to. The token only
@@ -41,6 +45,7 @@ function App() {
             <Route path="/certificates" element={<RequireAuth><Certificates /></RequireAuth>} />
             <Route path="/evaluations" element={<RequireAuth><Evaluations /></RequireAuth>} />
             <Route path="/activity-logs" element={<RequireAuth><ActivityLogs /></RequireAuth>} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
     );
 }

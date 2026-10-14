@@ -1,4 +1,4 @@
- <?php
+<?php
 
 use App\Http\Middleware\SecurityHeaders;
 use App\Models\Registration;

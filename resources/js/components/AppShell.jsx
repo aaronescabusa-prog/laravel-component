@@ -16,7 +16,7 @@ import { NAV_ITEMS, visibleNavItems } from "../lib/nav";
  * "eval-", ...). The mobile toggle/backdrop classes stay generic because
  * ui.css only styles the unprefixed .nav-toggle/.nav-backdrop/.topbar-lead.
  */
-function AppShell({ title, subtitle = null, prefix = "", children }) {
+function AppShell({ title, subtitle = null, prefix = "", headerActions = null, children }) {
     const { user, logout } = useAuth();
     const [navOpen, setNavOpen] = useState(false);
     const closeNav = () => setNavOpen(false);
@@ -97,6 +97,8 @@ function AppShell({ title, subtitle = null, prefix = "", children }) {
                             {subtitle ? <p className="checkin-page-subtitle">{subtitle}</p> : null}
                         </div>
                     </div>
+
+                    {headerActions}
 
                     <div className={prefix ? `${prefix}topbar-user` : "topbar-user"}>
                         <div className={avatarClass}>{initialsOf(user?.name)}</div>

@@ -38,7 +38,6 @@ class ReportController extends Controller
         $eventRows = $events->map(fn (Event $event) => [
             'reference' => $event->reference,
             'title' => $event->title,
-            'category' => $event->category,
             'organizer' => $event->organizer,
             'status' => $event->status,
             'event_date' => $event->event_date?->format('Y-m-d'),
@@ -140,7 +139,6 @@ class ReportController extends Controller
             'events' => Event::count(),
             'events_active' => (int) ($statuses['Approved'] ?? 0) + (int) ($statuses['Pending'] ?? 0),
             'events_pending' => (int) ($statuses['Pending'] ?? 0),
-            'event_categories' => (int) Event::distinct()->count('category'),
             'registrations' => (int) ($registrations->total ?? 0),
             'registrations_paid' => (int) ($registrations->paid ?? 0),
             'registrations_pending_payment' => (int) ($registrations->pending ?? 0),

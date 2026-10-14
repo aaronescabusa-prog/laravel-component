@@ -1,0 +1,166 @@
+/* AttendanceReports — per-session punch roster for one event.
+   Defines only the classes this screen uses that ui.css does not provide
+   globally. Reuses the shared .events-form-group, .events-toolbar, .events-btn,
+   .events-kpi-strip, .events-kpi, .events-empty-row, .events-table-wrapper,
+   .user-cell, .row-avatar, and .events-cell-muted primitives from ui.css. */
+
+.attendance-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.attendance-filter-panel {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    padding: 18px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-surface);
+    box-shadow: var(--ui-shadow-xs);
+}
+
+.attendance-event-field {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.attendance-event-field label {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--ui-text-muted);
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.attendance-event-field select {
+    width: 100%;
+}
+
+.attendance-error-text {
+    margin: 7px 0 0;
+    color: var(--ui-danger);
+    font-size: 12px;
+}
+
+.attendance-event-summary {
+    display: flex;
+    flex: 1.4 1 380px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-width: 0;
+    padding-left: 20px;
+    border-left: 1px solid var(--ui-border);
+}
+
+.attendance-event-summary h2 {
+    margin: 0;
+    color: var(--ui-text);
+    font-size: 16px;
+    font-weight: 650;
+}
+
+.attendance-event-summary p {
+    margin: 5px 0 0;
+    color: var(--ui-text-muted);
+    font-size: 12.5px;
+}
+
+.attendance-event-summary .events-btn {
+    flex: 0 0 auto;
+}
+
+.attendance-report {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.attendance-session-head {
+    white-space: nowrap;
+}
+
+.attendance-session-head .events-cell-muted {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+}
+
+/* Compact status pills keep wide session tables easy to scan. */
+.attendance-status {
+    display: inline-flex;
+    min-width: 90px;
+    justify-content: center;
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.events-cell-status-present {
+    background-color: var(--ui-success-bg);
+    color: var(--ui-success);
+}
+
+.events-cell-status-late {
+    background-color: var(--ui-warning-bg);
+    color: var(--ui-warning);
+}
+
+.events-cell-status-excused {
+    background-color: var(--ui-info-bg);
+    color: var(--ui-info);
+}
+
+.events-cell-status-absent {
+    background-color: var(--ui-danger-bg);
+    color: var(--ui-danger);
+}
+
+.events-cell-status-not-recorded {
+    color: var(--ui-text-soft);
+    background-color: var(--ui-surface-muted);
+}
+
+.attendance-table-wrapper table {
+    min-width: max(760px, 100%);
+}
+
+.attendance-state {
+    padding: 22px;
+    border: 1px dashed var(--ui-border-strong);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-surface);
+    color: var(--ui-text-muted);
+    text-align: center;
+}
+
+.attendance-state-error {
+    border-color: var(--ui-danger-border, #efb4b4);
+    background: var(--ui-danger-bg);
+    color: var(--ui-danger);
+}
+
+@media (max-width: 760px) {
+    .attendance-filter-panel {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 16px;
+        padding: 14px;
+    }
+
+    .attendance-event-summary {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 14px 0 0;
+        border-top: 1px solid var(--ui-border);
+        border-left: 0;
+    }
+
+    .attendance-event-summary .events-btn {
+        width: 100%;
+    }
+}

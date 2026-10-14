@@ -44,7 +44,7 @@ class UserAccountController extends Controller
             'reference' => ['required', 'string', 'max:50', $live('reference')],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', $live('email')],
-            'role' => ['required', 'string', Rule::in(['Admin', 'Staff', 'Organizer', 'Student'])],
+            'role' => ['required', 'string', Rule::in(['Admin', 'Staff', 'Organizer', 'Student', 'Scanner'])],
             'status' => ['required', 'string', Rule::in(['Active', 'Pending', 'Suspended'])],
             'course' => ['nullable', 'string', 'max:255'],
             'block_no' => ['nullable', 'string', 'max:50'],
@@ -241,7 +241,7 @@ class UserAccountController extends Controller
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('user_accounts', 'email')
                 ->whereNull('deleted_at')
                 ->ignore($userAccount->id)],
-            'role' => ['sometimes', 'required', 'string', Rule::in(['Admin', 'Staff', 'Organizer', 'Student'])],
+            'role' => ['sometimes', 'required', 'string', Rule::in(['Admin', 'Staff', 'Organizer', 'Student', 'Scanner'])],
             'status' => ['sometimes', 'required', 'string', Rule::in(['Active', 'Pending', 'Suspended'])],
             'course' => ['nullable', 'string', 'max:255'],
             'block_no' => ['nullable', 'string', 'max:50'],

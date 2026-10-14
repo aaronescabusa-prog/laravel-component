@@ -5,7 +5,7 @@ import Toast from "./components/Toast";
 import ConfirmDialog from "./components/ConfirmDialog";
 import { useToast } from "./lib/useToast";
 import { logActivity, nextId } from "./lib/storage";
-import { api, mapEventFromApi, mapEventToApi, EVENT_CATEGORIES, EVENT_STATUSES } from "./lib/api";
+import { api, mapEventFromApi, mapEventToApi, EVENT_STATUSES, EVENT_TARGET_ROLES } from "./lib/api";
 import { downloadCSV, dateStamp } from "./lib/csv";
 import { usePagination } from "./lib/usePagination";
 import { useRowSelection } from "./lib/useRowSelection";
@@ -21,8 +21,8 @@ function initialsOf(text) {
         .slice(0, 2)
         .toUpperCase();
 }
-const CATEGORIES = EVENT_CATEGORIES;
 const STATUSES = EVENT_STATUSES;
+const TARGET_ROLES = EVENT_TARGET_ROLES;
 
 /**
  * Shown when no course is chosen: the event is offered to everyone and shows up
@@ -52,14 +52,20 @@ function Events() {
     const [bulkBusy, setBulkBusy] = useState(false);
     const { toast, showToast, dismissToast } = useToast();
     const [search, setSearch] = useState("");
-    const [categoryFilter, setCategoryFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [departmentFilter, setDepartmentFilter] = useState("all");
+    const [courseFilter, setCourseFilter] = useState("all");
+    const [yearFilter, setYearFilter] = useState("all");
+    const [roleFilter, setRoleFilter] = useState("all");
     const [sortKey, setSortKey] = useState("date");
     const [sortDir, setSortDir] = useState("asc");
     const [editingEvent, setEditingEvent] = useState(null);
     const [isNewEvent, setIsNewEvent] = useState(false);
+    const [formErrors, setFormErrors] = useState({});
     const [viewingEvent, setViewingEvent] = useState(null);
     const [courses, setCourses] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [years, setYears] = useState([]);
 
     useEffect(() => {
         let active = true;
@@ -70,23 +76,58 @@ function Events() {
         return () => { active = false; };
     }, []);
 
-    // Feeds the Target courses picker. A failure only narrows the
-    // picker to its public option, so it is not surfaced as a page error.
+    // Keep the admin audience options aligned with the server eligibility rules.
     useEffect(() => {
         let active = true;
-        api.courses()
-            .then((list) => { if (active) setCourses(list); })
-            .catch(() => { if (active) setCourses([]); });
+        api.academicStructure()
+            .then((structure) => {
+                if (!active) return;
+                setCourses(structure.courses);
+                setDepartments(structure.departments);
+                setYears(structure.years);
+            })
+            .catch((err) => {
+                if (active) setLoadError(`Could not load event eligibility options: ${err.message}`);
+            });
         return () => { active = false; };
     }, []);
+
+    useEffect(() => {
+        if (!viewingEvent && !editingEvent) return undefined;
+
+        function closeOnEscape(event) {
+            if (event.key === "Escape") {
+                setViewingEvent(null);
+                setEditingEvent(null);
+            }
+        }
+
+        window.addEventListener("keydown", closeOnEscape);
+        return () => window.removeEventListener("keydown", closeOnEscape);
+    }, [viewingEvent, editingEvent]);
+
+    function audienceLabel(row) {
+        const department = departments.find((item) => item.code === row.targetDepartment);
+        const parts = [
+            department ? `${department.code} — ${department.name}` : null,
+            row.targetCourse,
+            row.targetYear ? `Year ${row.targetYear}` : null,
+            row.targetRole && row.targetRole !== "All" ? row.targetRole : null,
+        ].filter(Boolean);
+
+        return parts.length > 0 ? parts.join(" · ") : "All departments, roles, programs, and years";
+    }
 
     const filteredRows = useMemo(() => {
         let rows = events.filter((row) => {
             const term = search.trim().toLowerCase();
             const matchesSearch = !term || row.name.toLowerCase().includes(term) || row.organizer.toLowerCase().includes(term);
-            const matchesCategory = categoryFilter === "all" || row.category === categoryFilter;
             const matchesStatus = statusFilter === "all" || row.status.toLowerCase() === statusFilter;
-            return matchesSearch && matchesCategory && matchesStatus;
+            const matchesDepartment = departmentFilter === "all" || row.targetDepartment === departmentFilter;
+            const matchesCourse = courseFilter === "all" || row.targetCourse === courseFilter;
+            const matchesYear = yearFilter === "all" || String(row.targetYear ?? "") === yearFilter;
+            const matchesRole = roleFilter === "all" || row.targetRole === roleFilter;
+            return matchesSearch && matchesStatus && matchesDepartment && matchesCourse && matchesYear && matchesRole;
         });
 
         rows = [...rows].sort((a, b) => {
@@ -97,16 +138,16 @@ function Events() {
         });
 
         return rows;
-    }, [events, search, categoryFilter, statusFilter, sortKey, sortDir]);
+    }, [events, search, statusFilter, departmentFilter, courseFilter, yearFilter, roleFilter, sortKey, sortDir]);
 
     const pager = usePagination(filteredRows, {
-        resetKey: [search, categoryFilter, statusFilter, sortKey, sortDir].join("|"),
+        resetKey: [search, statusFilter, departmentFilter, courseFilter, yearFilter, roleFilter, sortKey, sortDir].join("|"),
     });
 
     const selection = useRowSelection({
         pageRows: pager.pageRows,
         matchingRows: filteredRows,
-        resetKey: [search, categoryFilter, statusFilter, sortKey, sortDir].join("|"),
+        resetKey: [search, statusFilter, departmentFilter, courseFilter, yearFilter, roleFilter, sortKey, sortDir].join("|"),
     });
 
     function toggleSort(key) {
@@ -118,10 +159,15 @@ function Events() {
         }
     }
 
+    function updateEventField(field, value) {
+        setEditingEvent((current) => ({ ...current, [field]: value }));
+        setFormErrors((current) => ({ ...current, [field]: "" }));
+    }
+
     function exportCSV() {
         const rows = [
-            ["Event", "Category", "Target courses", "Organizer", "Date", "Time", "Duration", "Venue", "Status", "Participants", "Capacity"],
-            ...filteredRows.map((r) => [r.name, r.category, r.targetCourse || "All courses", r.organizer, r.date, r.startTime, durationLabel(r), r.venue, r.status, r.participants, r.hasCapacity ? r.capacity : "No limit"]),
+            ["Event", "Audience and eligibility", "Organizer", "Date", "Time", "Duration", "Venue", "Status", "Participants", "Capacity"],
+            ...filteredRows.map((r) => [r.name, audienceLabel(r), r.organizer, r.date, r.startTime, durationLabel(r), r.venue, r.status, r.participants, r.hasCapacity ? r.capacity : "No limit"]),
         ];
         downloadCSV(`events-${dateStamp()}.csv`, rows);
         showToast(`Exported ${filteredRows.length} event${filteredRows.length === 1 ? "" : "s"}.`);
@@ -135,27 +181,42 @@ function Events() {
                 setEvents((prev) => prev.map((e) => (e._id === row._id ? mapEventFromApi(updated) : e)));
                 // A status change re-runs the audience match, so it can enrol
                 // people just as a full save does.
-                if (audienceNote(updated)) showToast(audienceNote(updated));
+                const note = audienceNote(updated);
+                showToast(`${row.name} marked as ${status}.${note ? ` ${note}` : ""}`);
+                logActivity({
+                    category: "Event",
+                    action: `${status} event ${row.id}`,
+                    details: `${row.name} · ${row.venue}`,
+                });
             })
-            .catch((err) => showToast(err.message, "danger"));
-        logActivity({
-            category: "Event",
-            action: `${status} event ${row.id}`,
-            details: `${row.name} · ${row.venue}`,
-        });
-        showToast(`${row.name} marked as ${status}.`);
+            .catch((err) => {
+                setEvents((prev) => prev.map((e) => (e._id === row._id ? row : e)));
+                showToast(`Could not update ${row.name}: ${err.message}`, "danger");
+            });
     }
 
-    /* ---------- Course audience auto-enrolment ---------- */
+    /* ---------- Audience auto-enrolment ---------- */
 
-    // Saving an event enrols everyone in its target course, which would
+    // Saving an event enrols everyone in its selected audience, which would
     // otherwise happen invisibly: the roster grows and nobody is told why.
     // Returns the note to show, or null when the save enrolled nobody.
     function audienceNote(result) {
         const audience = result?.audience;
         const added = audience?.added?.length ?? 0;
-        if (!audience?.target_course || !added) return null;
-        return `${added} from ${audience.target_course} automatically registered.`;
+        if (!(audience?.target_course || audience?.target_department || audience?.target_year || audience?.target_role) || !added) return null;
+
+        const department = departments.find((item) => item.code === audience.target_department);
+        const target = [
+            department ? `${department.code} — ${department.name}` : null,
+            audience.target_course,
+            audience.target_year ? audience.target_year : null,
+            audience.target_role,
+        ].filter(Boolean).join(" · ");
+        const capacityNote = audience.capacity_remaining === 0 && audience.matched > added
+            ? " Capacity was reached; remaining accounts were not registered."
+            : "";
+
+        return `${added} matching account${added === 1 ? "" : "s"}${target ? ` (${target})` : ""} automatically registered.${capacityNote}`;
     }
 
     /* ---------- Delete (behind a confirmation) ---------- */
@@ -167,8 +228,8 @@ function Events() {
     /** Same columns as exportCSV, narrowed to whatever is ticked. */
     function exportSelectedCSV() {
         const rows = [
-            ["Event", "Category", "Target courses", "Organizer", "Date", "Time", "Duration", "Venue", "Status", "Participants", "Capacity"],
-            ...selection.selectedRows.map((r) => [r.name, r.category, r.targetCourse || "All courses", r.organizer, r.date, r.startTime, durationLabel(r), r.venue, r.status, r.participants, r.hasCapacity ? r.capacity : "No limit"]),
+            ["Event", "Category", "Audience and eligibility", "Organizer", "Date", "Time", "Duration", "Venue", "Status", "Participants", "Capacity"],
+            ...selection.selectedRows.map((r) => [r.name, r.category, audienceLabel(r), r.organizer, r.date, r.startTime, durationLabel(r), r.venue, r.status, r.participants, r.hasCapacity ? r.capacity : "No limit"]),
         ];
         downloadCSV(`events-selected-${dateStamp()}.csv`, rows);
         showToast(`Exported ${selection.selectedRows.length} selected event${selection.selectedRows.length === 1 ? "" : "s"}.`);
@@ -261,14 +322,15 @@ function Events() {
         // All-day is not stored as a flag: it is simply the absence of times,
         // so it is read back off the row rather than round-tripped.
         setEditingEvent({ ...row, allDay: !row.startTime && !row.endTime, hasCapacity: row.hasCapacity });
+        setFormErrors({});
         setIsNewEvent(false);
     }
 
     function openCreate() {
+        setFormErrors({});
         setEditingEvent({
             id: nextId(events, "EVT", 3001),
             name: "",
-            category: "Seminar",
             organizer: "",
             date: "",
             startTime: "08:00",
@@ -286,14 +348,34 @@ function Events() {
             hasCapacity: false,
             capacity: null,
             hasCertificate: true,
+            targetDepartment: "",
+            targetYear: "",
         });
         setIsNewEvent(true);
     }
 
-    function saveEvent() {
+    function saveEvent(event) {
+        event?.preventDefault();
         const item = { ...editingEvent };
-        if (!item.name.trim() || !item.date || !item.venue.trim()) {
-            showToast("Event name, date and venue are required.", "danger");
+        const errors = {};
+        if (!item.name.trim()) errors.name = "Enter an event name.";
+        if (!item.date) errors.date = "Choose a start date.";
+        if (!item.venue.trim()) errors.venue = "Enter a venue.";
+        if (item.date && item.endDate && item.endDate < item.date) {
+            errors.endDate = "The end date cannot be before the start date.";
+        }
+        if (item.hasCapacity && (!Number.isInteger(Number(item.capacity)) || Number(item.capacity) < 1)) {
+            errors.capacity = "Enter a whole-number capacity of at least 1.";
+        }
+        if (!Number.isInteger(Number(item.budget)) || Number(item.budget) < 0) {
+            errors.budget = "Enter a whole-number budget of zero or more.";
+        }
+        if (item.penalty_amount !== null && item.penalty_amount !== "" && item.penalty_amount !== undefined
+            && (!Number.isInteger(Number(item.penalty_amount)) || Number(item.penalty_amount) < 0)) {
+            errors.penalty_amount = "Enter a whole-number penalty amount of zero or more.";
+        }
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
             return;
         }
 
@@ -338,7 +420,38 @@ function Events() {
     const completedThisMonth = events.filter((e) => e.status === "Completed").length;
 
     return (
-        <AppShell title="Events" prefix="events-">
+        <AppShell
+            title="Events"
+            prefix="events-"
+            headerActions={
+                <div className="events-topbar-actions">
+                    <input
+                        type="search"
+                        className="events-topbar-search"
+                        placeholder="Search events or organizer"
+                        aria-label="Search events"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                    <button
+                        type="button"
+                        className="events-topbar-notifications"
+                        aria-label={`Show ${pendingApproval} pending event approvals`}
+                        onClick={() => {
+                            setSearch("");
+                            setCategoryFilter("all");
+                            setStatusFilter("pending");
+                            setDepartmentFilter("all");
+                            setCourseFilter("all");
+                            setYearFilter("all");
+                            setRoleFilter("all");
+                        }}
+                    >
+                        Pending approvals <span>{pendingApproval}</span>
+                    </button>
+                </div>
+            }
+        >
 
             {loadError && (
                 <div className="events-empty-row" role="alert">Could not load events: {loadError}</div>
@@ -370,25 +483,6 @@ function Events() {
                 </div>
 
                 <div className="events-toolbar">
-                    <input
-                        type="text"
-                        className="events-input-search"
-                        placeholder="Search by event name or organizer"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        aria-label="Search events"
-                    />
-
-                    <select
-                        className="events-input-select"
-                        value={categoryFilter}
-                        onChange={(e) => setCategoryFilter(e.target.value)}
-                        aria-label="Filter by category"
-                    >
-                        <option value="all">All categories</option>
-                        {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-
                     <select
                         className="events-input-select"
                         value={statusFilter}
@@ -397,6 +491,56 @@ function Events() {
                     >
                         <option value="all">All statuses</option>
                         {STATUSES.map((s) => <option key={s} value={s.toLowerCase()}>{s}</option>)}
+                    </select>
+
+                    <select
+                        className="events-input-select"
+                        value={departmentFilter}
+                        onChange={(e) => setDepartmentFilter(e.target.value)}
+                        aria-label="Filter by target college"
+                    >
+                        <option value="all">All colleges</option>
+                        {departments.map((department) => (
+                            <option key={department.code} value={department.code}>
+                                {department.code} — {department.name}
+                            </option>
+                        ))}
+                    </select>
+
+                    <select
+                        className="events-input-select"
+                        value={courseFilter}
+                        onChange={(e) => setCourseFilter(e.target.value)}
+                        aria-label="Filter by target program"
+                    >
+                        <option value="all">All programs</option>
+                        {courses.map((course) => (
+                            <option key={course} value={course}>{course}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        className="events-input-select"
+                        value={yearFilter}
+                        onChange={(e) => setYearFilter(e.target.value)}
+                        aria-label="Filter by target year"
+                    >
+                        <option value="all">All target years</option>
+                        {years.map((year) => (
+                            <option key={year} value={year}>{year}</option>
+                        ))}
+                    </select>
+
+                    <select
+                        className="events-input-select"
+                        value={roleFilter}
+                        onChange={(e) => setRoleFilter(e.target.value)}
+                        aria-label="Filter by target role"
+                    >
+                        <option value="all">All target roles</option>
+                        {TARGET_ROLES.map((role) => (
+                            <option key={role} value={role}>{role === "All" ? "All roles" : role}</option>
+                        ))}
                     </select>
 
                     <button className="events-btn events-btn-secondary events-btn-toolbar" onClick={exportCSV}>Export CSV</button>
@@ -456,14 +600,17 @@ function Events() {
                                         aria-label="Select all events on this page"
                                     />
                                 </th>
-                                <th className="events-th-sortable" onClick={() => toggleSort("name")}>
-                                    Event Name <SortIcon active={sortKey === "name"} dir={sortDir} />
+                                <th className="events-th-sortable" aria-sort={sortKey === "name" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+                                    <button type="button" onClick={() => toggleSort("name")} aria-label={`Sort by event name${sortKey === "name" ? `, ${sortDir === "asc" ? "ascending" : "descending"}` : ""}`}>
+                                        Event Name <SortIcon active={sortKey === "name"} dir={sortDir} />
+                                    </button>
                                 </th>
-                                <th>Category</th>
-                                <th>Target courses</th>
+                                <th>Audience &amp; eligibility</th>
                                 <th>Organizer</th>
-                                <th className="events-th-sortable" onClick={() => toggleSort("date")}>
-                                    Date <SortIcon active={sortKey === "date"} dir={sortDir} />
+                                <th className="events-th-sortable" aria-sort={sortKey === "date" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+                                    <button type="button" onClick={() => toggleSort("date")} aria-label={`Sort by date${sortKey === "date" ? `, ${sortDir === "asc" ? "ascending" : "descending"}` : ""}`}>
+                                        Date <SortIcon active={sortKey === "date"} dir={sortDir} />
+                                    </button>
                                 </th>
                                 <th>Time</th>
                                 <th>Duration</th>
@@ -486,15 +633,14 @@ function Events() {
                                     </td>
                                     <td>
                                         <div className="events-cell">
-                                            <span className="events-row-icon">{initialsOf(row.category)}</span>
+                                            <span className="events-row-icon">{initialsOf(row.name)}</span>
                                             <div className="events-cell-text">
                                                 <span className="events-cell-name">{row.name}</span>
                                                 <span className="events-cell-id">{row.id}</span>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="events-cell-muted">{row.category}</td>
-                                    <td className="events-cell-muted">{row.targetCourse || "All courses"}</td>
+                                    <td className="events-cell-muted">{audienceLabel(row)}</td>
                                     <td className="events-cell-muted">{row.organizer}</td>
                                     <td className="events-cell-muted">{row.date}</td>
                                     <td className="events-cell-muted">{row.startTime}</td>
@@ -522,9 +668,56 @@ function Events() {
                                     </td>
                                 </tr>
                             ))}
-                            {filteredRows.length === 0 && (
+                            {loading && filteredRows.length === 0 && (
                                 <tr>
-                                    <td colSpan="11" className="events-empty-row">No events match your filters.</td>
+                                    <td colSpan="12" className="events-empty-row" role="status">Loading events…</td>
+                                </tr>
+                            )}
+                            {!loading && !loadError && filteredRows.length === 0 && (
+                                <tr>
+                                    <td colSpan="12" className="events-empty-row">
+                                        {events.length === 0 ? (
+                                            <>
+                                                <strong className="events-empty-title">No events have been created yet.</strong>
+                                                <div className="events-empty-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="events-btn events-btn-primary events-empty-action"
+                                                        onClick={openCreate}
+                                                    >
+                                                        Create Event
+                                                    </button>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <strong className="events-empty-title">No events match your filters.</strong>
+                                                <div className="events-empty-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="events-btn events-btn-secondary events-empty-action"
+                                                        onClick={() => {
+                                                            setSearch("");
+                                                            setCategoryFilter("all");
+                                                            setStatusFilter("all");
+                                                            setDepartmentFilter("all");
+                                                            setCourseFilter("all");
+                                                            setYearFilter("all");
+                                                            setRoleFilter("all");
+                                                        }}
+                                                        aria-label="Clear all event filters"
+                                                    >
+                                                        Clear filters
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
+                                    </td>
+                                </tr>
+                            )}
+                            {!loading && loadError && events.length === 0 && (
+                                <tr>
+                                    <td colSpan="12" className="events-empty-row">Events could not be displayed.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -541,17 +734,16 @@ function Events() {
 
             {viewingEvent && (
                 <div className="events-modal-overlay" onClick={() => setViewingEvent(null)}>
-                    <div className="events-modal-card" onClick={(e) => e.stopPropagation()}>
+                    <div className="events-modal-card" role="dialog" aria-modal="true" aria-labelledby="event-details-title" onClick={(e) => e.stopPropagation()}>
                         <div className="events-modal-header">
-                            <h3>{viewingEvent.name}</h3>
-                            <button className="events-modal-close" onClick={() => setViewingEvent(null)} aria-label="Close">×</button>
+                            <h3 id="event-details-title">{viewingEvent.name}</h3>
+                            <button type="button" className="events-modal-close" onClick={() => setViewingEvent(null)} aria-label="Close event details">×</button>
                         </div>
                         <div className="events-modal-body">
                             <dl className="events-detail-list">
                                 <dt>Event ID</dt><dd>{viewingEvent.id}</dd>
-                                <dt>Category</dt><dd>{viewingEvent.category}</dd>
-                                <dt>Target courses</dt>
-                                <dd>{viewingEvent.targetCourse || "All courses"}</dd>
+                                <dt>Audience &amp; eligibility</dt>
+                                <dd>{audienceLabel(viewingEvent)}</dd>
                                 <dt>Organizer</dt><dd>{viewingEvent.organizer}</dd>
                                 <dt>Date</dt><dd>{viewingEvent.date}</dd>
                                 <dt>Start time</dt>
@@ -585,33 +777,30 @@ function Events() {
 
             {editingEvent && (
                 <div className="events-modal-overlay" onClick={() => setEditingEvent(null)}>
-                    <div className="events-modal-card" onClick={(e) => e.stopPropagation()}>
+                    <div className="events-modal-card" role="dialog" aria-modal="true" aria-labelledby="event-editor-title" onClick={(e) => e.stopPropagation()}>
+                        <form className="events-editor-form" onSubmit={saveEvent} noValidate>
                         <div className="events-modal-header">
-                            <h3>{isNewEvent ? "Create Event" : "Edit Event"}</h3>
-                            <button className="events-modal-close" onClick={() => setEditingEvent(null)} aria-label="Close">×</button>
+                            <h3 id="event-editor-title">{isNewEvent ? "Create Event" : "Edit Event"}</h3>
+                            <button type="button" className="events-modal-close" onClick={() => setEditingEvent(null)} aria-label="Close event form">×</button>
                         </div>
                         <div className="events-modal-body">
                             <div className="events-form-group">
-                                <label htmlFor="evName">Event name</label>
+                                <label htmlFor="evName">Event name <span className="events-required">*</span></label>
                                 <input
                                     id="evName"
                                     type="text"
+                                    maxLength="255"
+                                    required
+                                    autoFocus
                                     value={editingEvent.name}
-                                    onChange={(e) => setEditingEvent({ ...editingEvent, name: e.target.value })}
+                                    aria-invalid={Boolean(formErrors.name)}
+                                    aria-describedby={formErrors.name ? "evName-error" : undefined}
+                                    onChange={(e) => updateEventField("name", e.target.value)}
                                 />
+                                {formErrors.name && <small className="events-field-error" id="evName-error">{formErrors.name}</small>}
                             </div>
 
                             <div className="events-form-row-split">
-                                <div className="events-form-group">
-                                    <label htmlFor="evCategory">Category</label>
-                                    <select
-                                        id="evCategory"
-                                        value={editingEvent.category}
-                                        onChange={(e) => setEditingEvent({ ...editingEvent, category: e.target.value })}
-                                    >
-                                        {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                                    </select>
-                                </div>
                                 <div className="events-form-group">
                                     <label htmlFor="evStatus">Status</label>
                                     <select
@@ -624,24 +813,74 @@ function Events() {
                                 </div>
                             </div>
 
-                                <div className="events-form-group events-form-group-wide">
-                                    <label htmlFor="evAudience">Target courses</label>
-                                    <select
-                                        id="evAudience"
-                                        value={editingEvent.targetCourse ?? PUBLIC_AUDIENCE}
-                                        onChange={(e) => setEditingEvent({ ...editingEvent, targetCourse: e.target.value })}
-                                    >
-                                        <option value={PUBLIC_AUDIENCE}>All courses</option>
-                                        {courses.map((course) => (
-                                            <option key={course} value={course}>
-                                                {course}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <small className="events-form-hint">
-                                        Choose All courses to list the event for everyone, or limit it to one course.
-                                    </small>
+                                <div className="events-form-row-split">
+                                    <div className="events-form-group">
+                                        <label htmlFor="evTargetDepartment">Target department</label>
+                                        <select
+                                            id="evTargetDepartment"
+                                            value={editingEvent.targetDepartment ?? ""}
+                                            onChange={(e) => {
+                                                const targetDepartment = e.target.value;
+                                                const department = departments.find((item) => item.code === targetDepartment);
+                                                const courseStillMatches = !editingEvent.targetCourse
+                                                    || department?.courses.includes(editingEvent.targetCourse);
+                                                setEditingEvent({
+                                                    ...editingEvent,
+                                                    targetDepartment,
+                                                    targetCourse: courseStillMatches ? editingEvent.targetCourse : PUBLIC_AUDIENCE,
+                                                });
+                                            }}
+                                        >
+                                            <option value="">All departments</option>
+                                            {departments.map((department) => (
+                                                <option key={department.code} value={department.code}>
+                                                    {department.code} — {department.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="events-form-group">
+                                        <label htmlFor="evAudience">Target program</label>
+                                        <select
+                                            id="evAudience"
+                                            value={editingEvent.targetCourse ?? PUBLIC_AUDIENCE}
+                                            onChange={(e) => setEditingEvent({ ...editingEvent, targetCourse: e.target.value })}
+                                        >
+                                            <option value={PUBLIC_AUDIENCE}>All programs</option>
+                                            {(departments.find((item) => item.code === editingEvent.targetDepartment)?.courses ?? courses).map((course) => (
+                                                <option key={course} value={course}>{course}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="events-form-group">
+                                        <label htmlFor="evTargetYear">Target year level</label>
+                                        <select
+                                            id="evTargetYear"
+                                            value={editingEvent.targetYear ?? ""}
+                                            onChange={(e) => setEditingEvent({ ...editingEvent, targetYear: e.target.value })}
+                                        >
+                                            <option value="">All year levels</option>
+                                            {years.map((year) => (
+                                                <option key={year} value={year}>{year}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="events-form-group">
+                                        <label htmlFor="evTargetRole">Target role</label>
+                                        <select
+                                            id="evTargetRole"
+                                            value={editingEvent.targetRole ?? "All"}
+                                            onChange={(e) => setEditingEvent({ ...editingEvent, targetRole: e.target.value })}
+                                        >
+                                            {TARGET_ROLES.map((role) => (
+                                                <option key={role} value={role}>{role === "All" ? "All roles" : role}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
+                                <small className="events-form-hint">
+                                    Role, department, program, and year filters are combined; registration is checked against each participant&apos;s active profile.
+                                </small>
                                 <div className="events-form-group">
                                     <label htmlFor="evOrganizer">Organizer</label>
                                     <input
@@ -682,6 +921,7 @@ function Events() {
                                         <input
                                             id="evDate"
                                             type="date"
+                                            required
                                             value={editingEvent.date}
                                             onChange={(e) => {
                                                 const date = e.target.value;
@@ -696,12 +936,16 @@ function Events() {
                                                             ? date
                                                             : editingEvent.endDate,
                                                 });
+                                                setFormErrors((current) => ({ ...current, date: "", endDate: "" }));
                                             }}
+                                            aria-invalid={Boolean(formErrors.date)}
+                                            aria-describedby={formErrors.date ? "evDate-error" : undefined}
                                         />
+                                        {formErrors.date && <small className="events-field-error" id="evDate-error">{formErrors.date}</small>}
                                     </div>
                                     <div className="events-form-group">
                                         <label htmlFor="evTime">
-                                            Start time <span className="events-required">*</span>
+                                            Start time {!editingEvent.allDay && <span className="events-required">*</span>}
                                         </label>
                                         <input
                                             id="evTime"
@@ -716,19 +960,22 @@ function Events() {
                                 <div className="events-form-row-split">
                                     <div className="events-form-group">
                                         <label htmlFor="evEndDate">
-                                            End date <span className="events-required">*</span>
+                                            End date
                                         </label>
                                         <input
                                             id="evEndDate"
                                             type="date"
                                             min={editingEvent.date || undefined}
                                             value={editingEvent.endDate || ""}
-                                            onChange={(e) => setEditingEvent({ ...editingEvent, endDate: e.target.value })}
+                                            onChange={(e) => updateEventField("endDate", e.target.value)}
+                                            aria-invalid={Boolean(formErrors.endDate)}
+                                            aria-describedby={formErrors.endDate ? "evEndDate-error" : undefined}
                                         />
+                                        {formErrors.endDate && <small className="events-field-error" id="evEndDate-error">{formErrors.endDate}</small>}
                                     </div>
                                     <div className="events-form-group">
                                         <label htmlFor="evEndTime">
-                                            End time <span className="events-required">*</span>
+                                            End time
                                         </label>
                                         <input
                                             id="evEndTime"
@@ -756,27 +1003,31 @@ function Events() {
                                                     // which the API sends as null.
                                                     capacity: on ? editingEvent.capacity || 100 : null,
                                                 });
+                                                setFormErrors((current) => ({ ...current, capacity: "" }));
                                             }}
                                         />
                                         <span>Limit capacity</span>
                                     </label>
                                     {editingEvent.hasCapacity && (
                                         <div className="events-form-subgroup">
-                                            <label htmlFor="evCapacity">Capacity</label>
+                                            <label htmlFor="evCapacity">Capacity <span className="events-required">*</span></label>
                                             <input
                                                 id="evCapacity"
                                                 type="number"
                                                 min="1"
+                                                step="1"
+                                                required
                                                 value={editingEvent.capacity ?? ""}
-                                                onChange={(e) =>
-                                                    setEditingEvent({
-                                                        ...editingEvent,
-                                                        capacity: e.target.value === "" ? null : Number(e.target.value),
-                                                    })
-                                                }
+                                                onChange={(e) => updateEventField(
+                                                    "capacity",
+                                                    e.target.value === "" ? null : Number(e.target.value),
+                                                )}
+                                                aria-invalid={Boolean(formErrors.capacity)}
+                                                aria-describedby={formErrors.capacity ? "evCapacity-error" : undefined}
                                             />
+                                            {formErrors.capacity && <small className="events-field-error" id="evCapacity-error">{formErrors.capacity}</small>}
                                             <small className="events-form-hint">
-                                                Advisory only: registrations are not blocked once this is reached.
+                                                New registrations and automatic audience enrolment stop when capacity is reached.
                                             </small>
                                         </div>
                                     )}
@@ -788,20 +1039,29 @@ function Events() {
                                         type="number"
                                         min="0"
                                         value={editingEvent.budget}
-                                        onChange={(e) => setEditingEvent({ ...editingEvent, budget: Number(e.target.value) })}
+                                        step="1"
+                                        aria-invalid={Boolean(formErrors.budget)}
+                                        aria-describedby={formErrors.budget ? "evBudget-error" : undefined}
+                                        onChange={(e) => updateEventField("budget", e.target.value === "" ? 0 : Number(e.target.value))}
                                     />
+                                    {formErrors.budget && <small className="events-field-error" id="evBudget-error">{formErrors.budget}</small>}
                                 </div>
                             </div>
 
 
                             <div className="events-form-group">
-                                <label htmlFor="evVenue">Venue</label>
+                                <label htmlFor="evVenue">Venue <span className="events-required">*</span></label>
                                 <input
                                     id="evVenue"
                                     type="text"
+                                    maxLength="255"
+                                    required
                                     value={editingEvent.venue}
-                                    onChange={(e) => setEditingEvent({ ...editingEvent, venue: e.target.value })}
+                                    onChange={(e) => updateEventField("venue", e.target.value)}
+                                    aria-invalid={Boolean(formErrors.venue)}
+                                    aria-describedby={formErrors.venue ? "evVenue-error" : undefined}
                                 />
+                                {formErrors.venue && <small className="events-field-error" id="evVenue-error">{formErrors.venue}</small>}
                             </div>
 
                             <div className="events-form-group">
@@ -814,34 +1074,43 @@ function Events() {
                                 />
                             </div>
 
-                            <div className="events-form-group events-cert-toggle-row">
-                                <div className="events-cert-toggle-top">
-                                    <label htmlFor="evHasCertificate">Issue certificates for this event</label>
-                                    <button
-                                        type="button"
-                                        id="evHasCertificate"
-                                        role="switch"
-                                        aria-checked={Boolean(editingEvent.hasCertificate ?? true)}
-                                        aria-label="Issue certificates for this event"
-                                        className={`events-toggle${(editingEvent.hasCertificate ?? true) ? " events-toggle-on" : ""}`}
-                                        onClick={() => setEditingEvent({ ...editingEvent, hasCertificate: !(editingEvent.hasCertificate ?? true) })}
-                                    >
-                                        <span className="events-toggle-knob" aria-hidden="true" />
-                                    </button>
-                                </div>
-                                <span className="events-cert-toggle-hint">
-                                    {editingEvent.hasCertificate ?? true
-                                        ? "Certificates can be issued to participants."
-                                        : "No certificates will be issued for this event."}
-                                </span>
+                            <div className="events-form-group">
+                                <label htmlFor="evPenaltyType">Penalty type</label>
+                                <select
+                                    id="evPenaltyType"
+                                    value={editingEvent.penalty_type ?? ''}
+                                    onChange={(e) => setEditingEvent({ ...editingEvent, penalty_type: e.target.value })}
+                                >
+                                    <option value="">Select penalty type</option>
+                                    <option value="No Certificate">No Certificate</option>
+                                    <option value="Late Fee">Late Fee</option>
+                                    <option value="No Show Fee">No Show Fee</option>
+                                    <option value="Administrative Fee">Administrative Fee</option>
+                                </select>
+                            </div>
+
+                            <div className="events-form-group">
+                                <label htmlFor="evPenaltyAmount">Penalty amount</label>
+                                <input
+                                    id="evPenaltyAmount"
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={editingEvent.penalty_amount ?? ''}
+                                    aria-invalid={Boolean(formErrors.penalty_amount)}
+                                    aria-describedby={formErrors.penalty_amount ? "evPenaltyAmount-error" : undefined}
+                                    onChange={(e) => updateEventField("penalty_amount", e.target.value ? Number(e.target.value) : null)}
+                                />
+                                {formErrors.penalty_amount && <small className="events-field-error" id="evPenaltyAmount-error">{formErrors.penalty_amount}</small>}
                             </div>
                         </div>
                         <div className="events-modal-footer">
-                            <button className="events-btn events-btn-secondary" onClick={() => setEditingEvent(null)}>Cancel</button>
-                            <button className="events-btn events-btn-primary" onClick={saveEvent}>
+                            <button type="button" className="events-btn events-btn-secondary" onClick={() => setEditingEvent(null)}>Cancel</button>
+                            <button type="submit" className="events-btn events-btn-primary">
                                 {isNewEvent ? "Create Event" : "Save Changes"}
                             </button>
                         </div>
+                        </form>
                     </div>
                 </div>
             )}

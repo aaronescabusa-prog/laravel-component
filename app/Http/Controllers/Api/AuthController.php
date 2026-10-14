@@ -21,10 +21,19 @@ class AuthController extends Controller
      */
     private const DEFAULT_ROLE = 'Student';
 
-    /**
-     * Authenticate an admin/student account.
-     */
+    /** Authenticate a user for the mobile-facing API. */
     public function login(Request $request)
+    {
+        return $this->authenticate($request);
+    }
+
+    /** Authenticate an administrator for the web-admin application. */
+    public function adminLogin(Request $request)
+    {
+        return $this->authenticate($request, 'Admin');
+    }
+
+    private function authenticate(Request $request, ?string $requiredRole = null)
     {
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:255'],
@@ -34,6 +43,10 @@ class AuthController extends Controller
         $account = UserAccount::where('email', $validated['email'])->first();
 
         if (! $account || ! Hash::check($validated['password'], $account->password)) {
+            return response()->json(['message' => 'Invalid email or password.'], 422);
+        }
+
+        if ($requiredRole && $account->role !== $requiredRole) {
             return response()->json(['message' => 'Invalid email or password.'], 422);
         }
 
@@ -77,11 +90,7 @@ class AuthController extends Controller
         return response()->json($request->user());
     }
 
-    /**
-     * Register a new account. Visitors may request a student, organizer or
-     * staff account; administrator accounts are never self-assigned, and the
-     * account stays Pending until an admin activates it.
-     */
+    /** Register a mobile-facing student, organizer, or staff account. */
     public function register(Request $request)
     {
         $validated = $request->validate([

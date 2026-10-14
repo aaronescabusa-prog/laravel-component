@@ -39,7 +39,7 @@ class EvaluationController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'reference' => ['required', 'string', 'max:50', Rule::unique('evaluations', 'reference')],
+            'reference' => ['required', 'string', 'max:50', Rule::unique('evaluations', 'reference')->whereNull('deleted_at')],
             'event' => ['required', 'string', 'max:255'],
             'participant' => ['required', 'string', 'max:255'],
             'rating' => ['required', 'integer', 'min:1', 'max:5'],
@@ -47,7 +47,14 @@ class EvaluationController extends Controller
             'date' => ['nullable', 'string', 'max:20'],
         ]);
 
-        $evaluation = Evaluation::create($validated);
+        $evaluation = Evaluation::onlyTrashed()->where('reference', $validated['reference'])->first();
+
+        if ($evaluation) {
+            $evaluation->restore();
+            $evaluation->fill($validated)->save();
+        } else {
+            $evaluation = Evaluation::create($validated);
+        }
 
         return response()->json($evaluation, 201);
     }

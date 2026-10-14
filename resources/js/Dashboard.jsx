@@ -118,33 +118,28 @@ function Dashboard() {
                     <span className="kpi-trend up">from the Certificates list</span>
                 </div>
             </div>
-            <div className="dash-refresh-bar">
-                <p className="data-timestamp">
-                    Live data from the EventEase backend
-                    <span className="dash-refresh-stamp"> · {lastUpdatedLabel()}</span>
-                </p>
-
-                <div className="dash-refresh-actions">
-                    <label className="dash-refresh-auto">
-                        <input
-                            type="checkbox"
-                            checked={autoRefresh}
-                            onChange={(e) => setAutoRefresh(e.target.checked)}
-                        />
-                        <span>Auto-refresh every 60s</span>
-                    </label>
-
-                    <button
-                        type="button"
-                        className="dash-refresh-btn"
-                        onClick={() => setRefreshToken((n) => n + 1)}
-                        disabled={refreshing}
-                        aria-label="Refresh dashboard data"
-                    >
-                        ⟳ {refreshing ? "Refreshing…" : "Refresh"}
-                    </button>
-                </div>
-            </div>
+<div className="dash-refresh-bar">
+    <span className="dash-refresh-stamp">Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : '—'}</span>
+    <div className="dash-refresh-actions">
+        <label className="dash-refresh-auto">
+            <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+            />
+            <span>Auto-refresh every 60s</span>
+        </label>
+        <button
+            type="button"
+            className="dash-refresh-btn"
+            onClick={() => setRefreshToken((n) => n + 1)}
+            disabled={refreshing}
+            aria-label="Refresh dashboard data"
+        >
+            ⟳ {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
+    </div>
+</div>
 
             <nav className="dash-actions">
                 {QUICK_ACTIONS.map((action) => (

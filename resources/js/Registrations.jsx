@@ -6,7 +6,7 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import QrCode from "./components/QrCode";
 import { useToast } from "./lib/useToast";
 import { useCollection, logActivity, nextId, dateKey } from "./lib/storage";
-import { api, mapEventFromApi, USER_ROLES, registrationsApi } from "./lib/api";
+import { api, mapEventFromApi, REGISTRATION_ROLES, registrationsApi } from "./lib/api";
 import { downloadCSV, dateStamp } from "./lib/csv";
 import { usePagination } from "./lib/usePagination";
 import { useRowSelection } from "./lib/useRowSelection";
@@ -356,7 +356,7 @@ function Registrations() {
                         aria-label="Filter by role"
                     >
                         <option value="all">All roles</option>
-                        {USER_ROLES.map((role) => <option key={role} value={role.toLowerCase()}>{role}</option>)}
+                        {REGISTRATION_ROLES.map((role) => <option key={role} value={role.toLowerCase()}>{role}</option>)}
                     </select>
                     <select
                         className="regs-input-select"
@@ -613,7 +613,7 @@ function Registrations() {
                                         value={editingReg.role || "Student"}
                                         onChange={(e) => setEditingReg({ ...editingReg, role: e.target.value })}
                                     >
-                                        {USER_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
+                                        {REGISTRATION_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
                                     </select>
                                 </div>
                             </div>

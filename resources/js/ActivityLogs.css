@@ -474,6 +474,7 @@ body {
     justify-content: center;
     z-index: 50;
     padding: 16px;
+    animation: fadeIn 0.2s ease-out forwards;
 }
 
 .log-modal-card {
@@ -485,6 +486,7 @@ body {
     max-width: 440px;
     max-height: 90vh;
     overflow-y: auto;
+    animation: popIn 0.2s ease-out forwards;
 }
 
 .log-modal-header {

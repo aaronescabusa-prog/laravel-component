@@ -158,6 +158,24 @@
     padding: 0;
 }
 
+/* ---------- Empty state ---------- */
+
+.empty-row-title {
+    display: inline;
+    margin: 0 0 8px;
+    color: var(--ui-text);
+}
+
+.empty-row-actions {
+    display: inline-block;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.empty-row-action {
+    margin-left: 8px;
+}
+
 /* ---------- Row action links ---------- */
 
 .cell-action-danger {

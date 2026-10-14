@@ -15,13 +15,13 @@ export const APP_BASE = readAppBase();
 
 export const API_BASE = (import.meta.env.VITE_API_URL || `${APP_BASE}/api`).replace(/\/+$/, "");
 
-export const EVENT_CATEGORIES = ["Orientation", "Sports", "Seminar", "Outreach", "Workshop", "Cultural", "Academic"];
 export const EVENT_STATUSES = ["Draft", "Pending", "Approved", "Rejected", "Completed", "Cancelled"];
 export const ANNOUNCEMENT_AUDIENCES = ["All Users", "Students", "Organizers", "Staff"];
 export const ANNOUNCEMENT_CATEGORIES = ["General", "Event", "Emergency", "Maintenance"];
 export const ANNOUNCEMENT_STATUSES = ["Draft", "Scheduled", "Published"];
-export const USER_ROLES = ["Admin", "Staff", "Organizer", "Student"];
-export const EVENT_TARGET_ROLES = ["All", ...USER_ROLES];
+export const USER_ROLES = ["Admin", "Staff", "Organizer", "Student", "Scanner"];
+export const REGISTRATION_ROLES = ["Admin", "Staff", "Organizer", "Student"];
+export const EVENT_TARGET_ROLES = ["All", "Admin", "Staff", "Organizer", "Student"];
 
 export const TOKEN_KEY = "tmc_token";
 export const USER_KEY = "tmc_user";
@@ -194,6 +194,24 @@ export const api = {
     return Array.isArray(body?.courses) ? body.courses : [];
   },
 
+  academicStructure: async () => {
+    const body = await request("/events/courses");
+
+    if (
+      !Array.isArray(body?.courses)
+      || !Array.isArray(body?.departments)
+      || !Array.isArray(body?.years)
+    ) {
+      throw new Error("The academic structure response is incomplete.");
+    }
+
+    return {
+      courses: body.courses,
+      departments: body.departments,
+      years: body.years,
+    };
+  },
+
   /** Dashboard aggregates in one request (see ReportController::summary). */
   summary: () => request("/reports/summary"),
 
@@ -236,8 +254,36 @@ export const usersApi = {
     request("/user-accounts/import", { method: "POST", body: JSON.stringify({ rows }) }),
 };
 
+export const eventScannersApi = {
+  get: (eventRef) => request(`/events/${encodeURIComponent(eventRef)}/scanners`),
+  update: (eventRef, scannerIds) =>
+    request(`/events/${encodeURIComponent(eventRef)}/scanners`, {
+      method: "PUT",
+      body: JSON.stringify({ scanner_ids: scannerIds }),
+    }),
+};
+
+/**
+ * Per-session attendance roster for one event (AttendanceReportController).
+ *
+ * Returns { event, sessions[], roster[], counts }. Each roster row carries a
+ * `sessions` map keyed by session id (stringified) so the table can render one
+ * column per session with that participant's punch (time_in/time_out/status).
+ */
+export const attendanceApi = {
+  get: (eventRef) => request(`/events/${encodeURIComponent(eventRef)}/attendance`),
+};
+
+/**
+ * Events the signed-in Scanner account is assigned to (EventScannerController
+ * ::assignedEvents). Used by a scanner's own "Scanner Mode" surface.
+ */
+export const scannerEventsApi = {
+  list: () => request("/scanner/events"),
+};
+
 export const authApi = {
-  login: (email, password) => request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  login: (email, password) => request("/auth/admin-login", { method: "POST", body: JSON.stringify({ email, password }) }),
   register: (data) => request("/auth/register", { method: "POST", body: JSON.stringify(data) }),
   logout: () => request("/auth/logout", { method: "POST" }),
   me: () => request("/auth/me"),
@@ -348,6 +394,7 @@ export const checkinApi = {
    * account that holds the registrations role.
    */
   roster: (token) => request(`/checkin/${encodeURIComponent(token)}`),
+  assignedEvents: () => request("/scanner/events"),
 
   /** Check a set of participants in or out of one session. */
   punch: (token, payload) =>
@@ -402,6 +449,16 @@ export const reportsApi = {
 };
 
 export const registrationsApi = {
+  /** Create an event registration from the signed-in student's account. */
+  selfRegister: (eventReference) =>
+    request("/registrations/self", {
+      method: "POST",
+      body: JSON.stringify({ event_reference: eventReference }),
+    }),
+
+  /** Students receive only their own registrations from this authenticated endpoint. */
+  mine: () => request("/registrations"),
+
   /**
    * Download a .ics calendar file for a registration's event.
    *
@@ -450,7 +507,6 @@ export function mapEventFromApi(row) {
     _id: row.id,
     id: row.reference,
     name: row.title,
-    category: row.category,
     organizer: row.organizer ?? "",
     date: row.event_date ?? "",
     startTime: row.start_time ?? "08:00",
@@ -469,7 +525,10 @@ export function mapEventFromApi(row) {
     status: row.status,
     targetRole: row.target_role ?? row.targetRole ?? "All",
     targetCourse: row.target_course ?? row.targetCourse ?? null,
+    targetDepartment: row.target_department ?? row.targetDepartment ?? null,
+    targetYear: row.target_year ?? row.targetYear ?? null,
     hasCertificate: row.has_certificate ?? row.hasCertificate ?? true,
+    checkinToken: row.checkin_token ?? row.checkinToken ?? null,
   };
 }
 
@@ -477,7 +536,6 @@ export function mapEventToApi(row) {
   return {
     reference: row.id,
     title: row.name,
-    category: row.category,
     organizer: row.organizer,
     event_date: row.date || null,
     start_time: row.startTime,
@@ -493,6 +551,8 @@ export function mapEventToApi(row) {
     status: row.status,
     target_role: row.targetRole ?? "All",
     target_course: row.targetCourse || null,
+    target_department: row.targetDepartment || null,
+    target_year: row.targetYear || null,
     has_certificate: row.hasCertificate ?? true,
   };
 }
@@ -534,6 +594,8 @@ export function mapUserFromApi(row) {
     role: row.role ?? "Student",
     status: row.status ?? "Pending",
     course: row.course ?? "",
+    department: row.department ?? null,
+    departmentName: row.department_name ?? row.departmentName ?? null,
     blockNo: row.block_no ?? row.blockNo ?? "",
     year: row.year ?? "",
     date: row.date ?? "",

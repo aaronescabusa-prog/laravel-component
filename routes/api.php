@@ -2,11 +2,13 @@
 
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AnnouncementController;
+use App\Http\Controllers\Api\AttendanceReportController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CertificateController;
 use App\Http\Controllers\Api\CheckInController;
 use App\Http\Controllers\Api\EvaluationController;
 use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\EventScannerController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SettingsController;
@@ -19,6 +21,7 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
+Route::post('auth/admin-login', [AuthController::class, 'adminLogin'])->middleware('throttle:login');
 Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:register');
 
 // `active` re-checks the account status on every request, so an account that
@@ -43,6 +46,9 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
         Route::get('reports', [ReportController::class, 'index']);
         Route::get('reports/summary', [ReportController::class, 'summary']);
 
+        // Evaluations are an optional admin review surface in the web app.
+        Route::apiResource('evaluations', EvaluationController::class);
+
         Route::post('user-accounts/import', [UserAccountController::class, 'import']);
         // Step 1: account creation/deletion are admin-only, but self-service
         // password change must keep working for Staff. The update route sits
@@ -58,6 +64,11 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
         Route::put('announcements/{announcement}', [AnnouncementController::class, 'update']);
         Route::patch('announcements/{announcement}', [AnnouncementController::class, 'update']);
         Route::delete('announcements/{announcement}', [AnnouncementController::class, 'destroy']);
+
+        Route::get('events/{event}/scanners', [EventScannerController::class, 'index']);
+        Route::put('events/{event}/scanners', [EventScannerController::class, 'update']);
+
+        Route::get('events/{event}/attendance', [AttendanceReportController::class, 'index']);
 
         Route::post('events', [EventController::class, 'store']);
         Route::put('events/{event}', [EventController::class, 'update']);
@@ -89,14 +100,19 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
         Route::get('certificates/{certificate}', [CertificateController::class, 'show']);
     });
 
-    // Desk + end-user surface — unchanged EnsureRole behaviour. Check-in desk,
-    // session windows, registrations roster and every read/submit endpoint live
-    // here; Step 1 deliberately leaves these untouched.
-    Route::middleware('role:registrations')->group(function () {
+    // Only administrators and event-assigned scanners can open rosters or write
+    // attendance. The event QR resolves a target; EventScannerAccess verifies
+    // the signed-in scanner's event assignment on every roster/punch request.
+    Route::middleware('role:checkin')->group(function () {
         Route::get('checkin/{token}', [CheckInController::class, 'show']);
         Route::post('checkin/{token}/punch', [CheckInController::class, 'punch']);
+        Route::post('checkin/{token}/scan', [CheckInController::class, 'scan']);
         Route::post('checkin/{token}/mark', [CheckInController::class, 'mark']);
+        Route::get('scanner/events', [EventScannerController::class, 'assignedEvents']);
+    });
 
+    // Scanner assignment and attendance-session configuration are admin-only.
+    Route::middleware('requireAdmin')->group(function () {
         Route::get('events/{event}/checkin', [CheckInController::class, 'poster']);
         Route::get('events/{event}/sessions', [CheckInController::class, 'sessions']);
         Route::post('events/{event}/sessions', [CheckInController::class, 'storeSession']);
@@ -126,6 +142,10 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
     Route::middleware('role:registrations')->group(function () {
         Route::post('registrations/send-reminders', [RegistrationController::class, 'sendReminders']);
     });
+
+    // Student routes are ownership-scoped in RegistrationController. This
+    // static route must precede the resource's {registration} show route.
+    Route::post('registrations/self', [RegistrationController::class, 'selfRegister']);
 
     Route::middleware('role:registrations')->apiResource('registrations', RegistrationController::class);
     Route::middleware('role:activity-logs')->apiResource('activity-logs', ActivityLogController::class)->only(['index', 'show']);

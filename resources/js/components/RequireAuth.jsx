@@ -1,16 +1,23 @@
+import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getToken } from "../lib/api";
+import { clearSession, getToken } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { rolesForPath } from "../lib/nav";
 
 /**
- * Route guard backed by the same role map as the sidebar (AppShell).
- * `roles` prop still wins for one-off overrides; otherwise the shared
- * rolesForPath() decides, so nav and guards can never disagree again.
+ * The web SPA is the administrator back office; user and scanner accounts
+ * authenticate through the separate mobile-facing API, not this application.
  */
-function RequireAuth({ children, roles }) {
+function RequireAuth({ children }) {
     const location = useLocation();
-    const { user, ready } = useAuth();
+    const { user, ready, setUser } = useAuth();
+    const isAdmin = user?.role === "Admin";
+
+    useEffect(() => {
+        if (ready && getToken() && user && !isAdmin) {
+            clearSession();
+            setUser(null);
+        }
+    }, [ready, user, isAdmin, setUser]);
 
     if (!ready) {
         return (
@@ -26,9 +33,8 @@ function RequireAuth({ children, roles }) {
         return <Navigate to="/login" replace state={{ from: location.pathname }} />;
     }
 
-    const required = roles ?? rolesForPath(location.pathname) ?? null;
-    if (required && (!user || !required.includes(user.role))) {
-        return <Navigate to="/dashboard" replace />;
+    if (!user || !isAdmin) {
+        return <Navigate to="/login" replace state={{ from: location.pathname }} />;
     }
 
     return children;

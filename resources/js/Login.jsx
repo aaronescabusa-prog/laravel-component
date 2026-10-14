@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "./Login.css";
 import logo from "./assets/Tmc_Logo.png";
 import campusPhoto from "./assets/campus.png";
@@ -10,46 +10,52 @@ function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
-    const [remember, setRemember] = useState(false);
+    const [showSignInHelp, setShowSignInHelp] = useState(false);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [suspendedPopup, setSuspendedPopup] = useState(null);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!email || !password) {
+        const normalizedEmail = email.trim();
+        if (!normalizedEmail || !password) {
             setError("Please enter both your email and password.");
-            return;
-        }
-
-        if (password.length < 6) {
-            setError("Email or password is incorrect. If you've forgotten your password, use the link below.");
             return;
         }
 
         setError("");
         setIsLoading(true);
-        
-        authApi.login(email, password)
-            .then(({ user, token }) => {
-                setIsLoading(false);
-                setSuspendedPopup(null);
-                setSession(token, { name: user.name, role: user.role, email: user.email });
-                navigate("/dashboard");
-            })
-            .catch((err) => {
-                setIsLoading(false);
-                const message = err.payload?.message || err.message || "Email or password is incorrect.";
-                const status = err.payload?.status || err.status || null;
-                if (status === "Suspended" || message.toLowerCase().includes("suspend")) {
-                    setSuspendedPopup({ message });
-                    setError("");
-                } else {
-                    setSuspendedPopup(null);
-                    setError(message);
-                }
+
+        try {
+            const response = await authApi.login(normalizedEmail, password);
+            if (!response?.user || !response?.token) {
+                setError("Sign-in could not be completed. Please try again.");
+                return;
+            }
+
+            setSuspendedPopup(null);
+            setSession(response.token, {
+                name: response.user.name,
+                role: response.user.role,
+                email: response.user.email,
             });
+            navigate("/dashboard");
+        } catch (err) {
+            const message = err?.payload?.message
+                || (err?.httpStatus ? err.message : "Unable to connect. Check your connection and try again.");
+            const status = err?.payload?.status || err?.status || null;
+
+            if (status === "Suspended" || message.toLowerCase().includes("suspend")) {
+                setSuspendedPopup({ message });
+                setError("");
+            } else {
+                setSuspendedPopup(null);
+                setError(message || "Email or password is incorrect.");
+            }
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -59,14 +65,15 @@ function Login() {
 
             <div className="auth-body">
 
-                <div
+                <aside
                     className="auth-side"
+                    aria-label="About TMC EventEase"
                     style={{ backgroundImage: `linear-gradient(rgba(15,32,60,0.92), rgba(15,32,60,0.96)), url(${campusPhoto})` }}
                 >
                     <div className="auth-side-header">
                         <h1 className="auth-side-title">TMC EventEase</h1>
                         <p className="auth-side-tagline">
-                            The official event management platform of Trinidad Municipal College
+                            Administrator portal for Trinidad Municipal College events
                         </p>
                     </div>
 
@@ -74,37 +81,37 @@ function Login() {
                         <div className="auth-side-feature">
                             <div className="feature-number">01</div>
                             <div>
-                                <strong>Event Registration</strong>
-                                <p>Register for school events and activities</p>
+                                <strong>Event Administration</strong>
+                                <p>Manage campus events, schedules, and approvals</p>
                             </div>
                         </div>
                         <div className="auth-side-feature">
                             <div className="feature-number">02</div>
                             <div>
-                                <strong>Certificate Management</strong>
-                                <p>View and download event certificates</p>
+                                <strong>Accounts &amp; Access</strong>
+                                <p>Manage user accounts and scanner permissions</p>
                             </div>
                         </div>
                         <div className="auth-side-feature">
                             <div className="feature-number">03</div>
                             <div>
-                                <strong>Budget Monitoring</strong>
-                                <p>Monitor event budgets and reports</p>
+                                <strong>Attendance &amp; Reporting</strong>
+                                <p>Review attendance, certificates, and reports</p>
                             </div>
                         </div>
                     </div>
 
-                </div>
+                </aside>
 
-                <div className="auth-main">
+                <main className="auth-main">
                     <div className="auth-form-wrapper">
                         <div className="auth-form-card">
 
                             <div className="auth-form-header">
                                 <img src={logo} alt="TMC Logo" className="auth-form-logo" />
                                 <div className="auth-form-header-text">
-                                    <h1 className="auth-form-title" id="login-form">Welcome Back!</h1>
-                                    <p className="auth-form-subtitle">Login to your account</p>
+                                    <h1 className="auth-form-title">Welcome back</h1>
+                                    <p className="auth-form-subtitle">Administrator sign in</p>
                                 </div>
                             </div>
 
@@ -114,11 +121,11 @@ function Login() {
                                 </div>
                             )}
 
-                            <form onSubmit={handleSubmit}>
+                            <form id="login-form" onSubmit={handleSubmit} aria-busy={isLoading}>
 
                                 <div className="form-group">
                                     <label htmlFor="email">
-                                        Email Address <span className="required"></span>
+                                        Email address <span className="required" aria-hidden="true">*</span>
                                     </label>
                                     <input
                                         id="email"
@@ -126,14 +133,16 @@ function Login() {
                                         placeholder="Enter your email"
                                         value={email}
                                         onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                                        autoComplete="username"
+                                        autoComplete="email"
+                                        required
+                                        disabled={isLoading}
                                     />
-                                    <span className="field-help">Use your official TMC email address</span>
+                                    <span className="field-help">                                    Use your administrator account email</span>
                                 </div>
 
                                 <div className="form-group">
                                     <label htmlFor="password">
-                                        Password <span className="required"></span>
+                                        Password <span className="required" aria-hidden="true">*</span>
                                     </label>
                                     <div className="password-wrapper">
                                         <input
@@ -143,12 +152,15 @@ function Login() {
                                             value={password}
                                             onChange={(e) => { setPassword(e.target.value); setError(""); }}
                                             autoComplete="current-password"
+                                            required
+                                            disabled={isLoading}
                                         />
                                         <button
                                             type="button"
                                             className="toggle-password"
                                             onClick={() => setShowPassword(!showPassword)}
                                             aria-label={showPassword ? "Hide password" : "Show password"}
+                                            disabled={isLoading}
                                         >
                                             {showPassword ? "Hide" : "Show"}
                                         </button>
@@ -156,26 +168,33 @@ function Login() {
                                 </div>
 
                                 <div className="form-row">
-                                    <label className="checkbox-label">
-                                        <input
-                                            type="checkbox"
-                                            checked={remember}
-                                            onChange={(e) => setRemember(e.target.checked)}
-                                        />
-                                        Remember me
-                                    </label>
-
-                                    <a href="#" className="form-link">Forgot password?</a>
+                                    <span className="signin-security-note">Your session stays in this browser tab.</span>
+                                    <button
+                                        type="button"
+                                        className="form-link signin-help-toggle"
+                                        aria-expanded={showSignInHelp}
+                                        aria-controls="signin-help"
+                                        onClick={() => setShowSignInHelp((shown) => !shown)}
+                                    >
+                                        Need help signing in?
+                                    </button>
                                 </div>
+
+                                {showSignInHelp && (
+                                    <p className="signin-help" id="signin-help">
+                                        Password resets aren't available here yet. Please contact your college administrator for help.
+                                    </p>
+                                )}
 
                                 <button 
                                     type="submit" 
                                     className="btn btn-primary btn-block"
                                     disabled={isLoading}
+                                    aria-live="polite"
                                 >
                                     {isLoading ? (
                                         <>
-                                            <span className="spinner"></span>
+                                            <span className="spinner" aria-hidden="true"></span>
                                             Logging in...
                                         </>
                                     ) : (
@@ -186,12 +205,12 @@ function Login() {
                             </form>
 
                             <p className="auth-switch">
-                                Don't have an account? <Link to="/register" className="register-link">Sign up</Link>
+                                This portal is for TMC administrators only.
                             </p>
 
                         </div>
                     </div>
-                </div>
+                </main>
 
             </div>
 

@@ -2,19 +2,23 @@
 
 namespace App\Models;
 
+use App\Support\AcademicStructure;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Event extends Model
 {
     use SoftDeletes;
+
+    protected $hidden = ['checkin_token'];
+
     protected $fillable = [
         'reference',
         'title',
-        'category',
         'organizer',
         'event_date',
         'start_time',
@@ -30,7 +34,11 @@ class Event extends Model
         'status',
         'target_role',
         'target_course',
+        'target_department',
+        'target_year',
         'has_certificate',
+        'penalty_type',
+        'penalty_amount',
     ];
 
     protected static function booted(): void
@@ -78,6 +86,8 @@ class Event extends Model
             'capacity' => 'integer',
             'participants' => 'integer',
             'has_certificate' => 'boolean',
+            'penalty_type' => 'string',
+            'penalty_amount' => 'integer',
         ];
     }
 
@@ -87,22 +97,14 @@ class Event extends Model
     public const DURATION_UNITS = ['Hours', 'Days'];
 
     /**
-     * Courses an event's visibility can be limited to.
+     * The program catalogue used for event audience targeting.
      *
      * A fixed catalogue rather than the distinct courses found on user accounts:
      * a course exists whether or not anybody is enrolled in it yet, so a new
-     * course must be offerable before its first student arrives. An event with
-     * no target_course is offered to all courses.
+     * course must be offerable before its first student arrives. The optional
+     * department, year, and role criteria further narrow this program audience.
      */
-    public const COURSES = [
-        'BS Information Technology',
-        'BS Criminology',
-        'BS Office Administration',
-        'BS Education Major in English',
-        'Bachelor of Elementary Education',
-        'BA Political Science',
-        'BA Communications',
-    ];
+    public const COURSES = AcademicStructure::COURSES;
 
     /**
      * Human readable duration, e.g. "8 hours" or "3 days".
@@ -138,7 +140,16 @@ class Event extends Model
      */
     public function audienceLabel(): ?string
     {
-        return $this->target_course ?: null;
+        $audiences = array_filter([
+            $this->target_department
+                ? $this->target_department.' ('.(AcademicStructure::departmentName($this->target_department) ?? $this->target_department).')'
+                : null,
+            $this->target_course,
+            $this->target_year ? 'Year '.$this->target_year : null,
+            $this->target_role && $this->target_role !== 'All' ? $this->target_role : null,
+        ]);
+
+        return $audiences === [] ? null : implode(' · ', $audiences);
     }
 
     /**
@@ -214,6 +225,13 @@ class Event extends Model
         return $this->hasMany(Registration::class);
     }
 
+    public function scannerAccounts(): BelongsToMany
+    {
+        return $this->belongsToMany(UserAccount::class, 'event_scanners')
+            ->withPivot('assigned_by')
+            ->withTimestamps();
+    }
+
     public function certificates(): HasMany
     {
         return $this->hasMany(Certificate::class);
@@ -233,5 +251,29 @@ class Event extends Model
         return $this->hasMany(AttendanceSession::class)
             ->orderBy('session_date')
             ->orderBy('id');
+    }
+
+    /**
+     * Count current registrations, including older rows linked by title only.
+     */
+    public function currentRegistrationCount(): int
+    {
+        return Registration::query()
+            ->where(function ($query) {
+                $query->where('event_id', $this->getKey())
+                    ->orWhere(function ($legacy) {
+                        $legacy->whereNull('event_id')->where('event', $this->title);
+                    });
+            })
+            ->count();
+    }
+
+    public function syncParticipantCount(?int $count = null): void
+    {
+        $count ??= $this->currentRegistrationCount();
+
+        if ((int) $this->participants !== $count) {
+            $this->forceFill(['participants' => $count])->saveQuietly();
+        }
     }
 }
