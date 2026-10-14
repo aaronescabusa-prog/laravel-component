@@ -420,6 +420,19 @@ body {
     gap: 8px;
 }
 
+.cert-generator-prepare {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 4px;
+    padding: 12px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius);
+    background: var(--ui-surface-muted);
+}
+
 /* The upload trigger is a label wrapping a hidden file input. */
 .cert-generator-row label.cert-btn {
     display: inline-flex;

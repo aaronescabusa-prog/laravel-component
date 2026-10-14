@@ -1,0 +1,16 @@
+:root {
+  --color-primary: #08294b;
+  --color-primary-dark: #041d38;
+  --color-accent: #16558a;
+  --color-highlight: #ffca1b;
+  --color-bg: #f4f7fb;
+  --color-surface: #ffffff;
+  --color-text: #172033;
+  --color-muted: #748095;
+  --color-border: #e6eaf0;
+  --font-family-base: "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+  --font-size-base: 14px;
+  --border-radius: 12px;
+  --transition-fast: 120ms ease;
+}
+

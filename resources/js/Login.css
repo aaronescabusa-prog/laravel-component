@@ -542,3 +542,54 @@
         align-items: flex-start;
     }
 }
+
+/* Keep both login controls full width, with their icons inside the field. */
+.auth-login-page .auth-input-wrap,
+.auth-login-page .auth-password-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    height: 48px;
+    padding: 0 13px;
+    border: 1px solid #cbd6e6;
+    border-radius: 14px;
+    background: #ffffff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-login-page .auth-input-wrap:focus-within,
+.auth-login-page .auth-password-wrap:focus-within {
+    border-color: #0b2d5c;
+    box-shadow: 0 0 0 3px rgba(255, 200, 61, 0.28);
+}
+
+.auth-login-page .auth-input-wrap > svg,
+.auth-login-page .auth-password-wrap > svg {
+    flex: 0 0 auto;
+    color: #0b2d5c;
+}
+
+.auth-login-page .auth-input-wrap input,
+.auth-login-page .auth-password-wrap input {
+    flex: 1 1 0;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    padding: 0 2px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.auth-login-page .auth-password-wrap input {
+    padding-right: 58px;
+}
+
+.auth-login-page .auth-input-wrap input:focus,
+.auth-login-page .auth-password-wrap input:focus {
+    border: 0;
+    box-shadow: none;
+}

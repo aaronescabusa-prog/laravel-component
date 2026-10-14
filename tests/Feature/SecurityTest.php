@@ -33,7 +33,7 @@ test('login is throttled after five attempts', function () {
 
     for ($attempt = 1; $attempt <= 5; $attempt++) {
         $this->postJson('/api/auth/login', ['email' => 'throttle@tmc.edu.ph', 'password' => 'wrong'])
-            ->assertStatus(422);
+            ->assertUnauthorized();
     }
 
     $this->postJson('/api/auth/login', ['email' => 'throttle@tmc.edu.ph', 'password' => 'wrong'])

@@ -39,9 +39,13 @@ class UserAccountController extends Controller
 
             return $ignoreId ? $rule->ignore($ignoreId) : $rule;
         };
+        $studentIdUnique = Rule::unique('user_accounts', 'student_id');
 
         return [
             'reference' => ['required', 'string', 'max:50', $live('reference')],
+            // Student IDs remain reserved by soft-deleted rows too, matching
+            // the database's unique index and avoiding an insert-time conflict.
+            'student_id' => ['nullable', 'string', 'max:50', $studentIdUnique],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', $live('email')],
             'role' => ['required', 'string', Rule::in(['Admin', 'Staff', 'Organizer', 'Student', 'Scanner'])],
@@ -236,6 +240,8 @@ class UserAccountController extends Controller
         $validated = $request->validate([
             'reference' => ['sometimes', 'string', 'max:50', Rule::unique('user_accounts', 'reference')
                 ->whereNull('deleted_at')
+                ->ignore($userAccount->id)],
+            'student_id' => ['sometimes', 'nullable', 'string', 'max:50', Rule::unique('user_accounts', 'student_id')
                 ->ignore($userAccount->id)],
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('user_accounts', 'email')

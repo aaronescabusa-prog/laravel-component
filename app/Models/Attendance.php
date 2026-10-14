@@ -34,6 +34,7 @@ class Attendance extends Model
         'status',
         'recorded_at',
         'recorded_by',
+        'recorded_by_user_id',
     ];
 
     protected function casts(): array

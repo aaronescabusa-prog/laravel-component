@@ -110,6 +110,7 @@ function Shell({ children, title, subtitle, navOpen, setNavOpen, user, handleLog
                             className={({ isActive }) => (isActive ? "regs-sidebar-link active" : "regs-sidebar-link")}
                             onClick={closeNav}
                         >
+                            {item.icon ? <item.icon className="sidebar-link-icon" size={17} /> : null}
                             {item.label}
                         </NavLink>
                     ))}

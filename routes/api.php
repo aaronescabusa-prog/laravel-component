@@ -30,21 +30,19 @@ Route::post('auth/register', [AuthController::class, 'register'])->middleware('t
 Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function () {
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/me', [AuthController::class, 'me']);
+    Route::put('auth/profile', [AuthController::class, 'updateProfile']);
 
     Route::put('settings/password', [SettingsController::class, 'updatePassword']);
 
-    // Step 1 — admin-only web management surface, gated by `requireAdmin`
+    // Admin-only web management surface, gated by `requireAdmin`
     // (role === 'Admin', 403 otherwise). Management back office: settings,
-    // reports, accounts, audit-trail writes, event/announcement writes,
+    // accounts, audit-trail writes, announcement writes,
     // certificate issuance. Desk workflows and end-user reads stay OUTSIDE
     // under the existing EnsureRole matrix, so mobile is unaffected.
     Route::middleware('requireAdmin')->group(function () {
         Route::get('settings', [SettingsController::class, 'index']);
         Route::put('settings', [SettingsController::class, 'update']);
         Route::post('settings/logo', [SettingsController::class, 'uploadLogo']);
-
-        Route::get('reports', [ReportController::class, 'index']);
-        Route::get('reports/summary', [ReportController::class, 'summary']);
 
         // Evaluations are an optional admin review surface in the web app.
         Route::apiResource('evaluations', EvaluationController::class);
@@ -67,13 +65,6 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
 
         Route::get('events/{event}/scanners', [EventScannerController::class, 'index']);
         Route::put('events/{event}/scanners', [EventScannerController::class, 'update']);
-
-        Route::get('events/{event}/attendance', [AttendanceReportController::class, 'index']);
-
-        Route::post('events', [EventController::class, 'store']);
-        Route::put('events/{event}', [EventController::class, 'update']);
-        Route::patch('events/{event}', [EventController::class, 'update']);
-        Route::delete('events/{event}', [EventController::class, 'destroy']);
 
         Route::post('certificates/template', [CertificateController::class, 'uploadTemplate']);
         Route::get('certificates/templates', [CertificateController::class, 'templates']);
@@ -100,6 +91,13 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
         Route::get('certificates/{certificate}', [CertificateController::class, 'show']);
     });
 
+    // Mobile students submit feedback for events they registered for. The
+    // student identity and event details are resolved from the token and
+    // registration, while the existing /evaluations resource remains the
+    // admin review surface.
+    Route::post('evaluations/submit', [EvaluationController::class, 'submitStudent'])
+        ->middleware('role:evaluations');
+
     // Only administrators and event-assigned scanners can open rosters or write
     // attendance. The event QR resolves a target; EventScannerAccess verifies
     // the signed-in scanner's event assignment on every roster/punch request.
@@ -109,6 +107,16 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
         Route::post('checkin/{token}/scan', [CheckInController::class, 'scan']);
         Route::post('checkin/{token}/mark', [CheckInController::class, 'mark']);
         Route::get('scanner/events', [EventScannerController::class, 'assignedEvents']);
+        Route::get('scanner/history', [EventScannerController::class, 'history']);
+        Route::get('scanner/summary', [EventScannerController::class, 'summary']);
+    });
+
+    // Reports are readable by Admin, Staff, and Organizer. Organizer results
+    // are filtered to events they own by organizer_user_id in the controller.
+    Route::middleware('role:reports')->group(function () {
+        Route::get('reports', [ReportController::class, 'index']);
+        Route::get('reports/summary', [ReportController::class, 'summary']);
+        Route::get('events/{event}/attendance', [AttendanceReportController::class, 'index']);
     });
 
     // Scanner assignment and attendance-session configuration are admin-only.
@@ -124,7 +132,16 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
     });
 
     Route::get('events/courses', [EventController::class, 'coursesIndex']);
-    Route::middleware('role:events')->apiResource('events', EventController::class)->only(['index', 'show']);
+    Route::get('events/{event}/eligibility', [EventController::class, 'eligibility'])
+        ->middleware('role:registrations');
+    Route::middleware('role:events')->group(function () {
+        Route::apiResource('events', EventController::class)->only(['index', 'show']);
+        Route::post('events', [EventController::class, 'store']);
+        Route::put('events/{event}', [EventController::class, 'update']);
+        Route::patch('events/{event}', [EventController::class, 'update']);
+        Route::delete('events/{event}', [EventController::class, 'destroy']);
+        Route::post('events/{event}/banner', [EventController::class, 'uploadBanner']);
+    });
     Route::middleware('role:announcements')->apiResource('announcements', AnnouncementController::class)->only(['index', 'show']);
     Route::middleware('role:user-accounts')->group(function () {
         Route::get('user-accounts', [UserAccountController::class, 'index']);
@@ -137,6 +154,7 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
         // /registrations/{reference}/calendar is not treated as a show lookup.
         Route::get('registrations/{registration}/calendar', [RegistrationController::class, 'calendar']);
     });
+    Route::delete('registrations/{registration}/cancel', [RegistrationController::class, 'cancelStudent']);
     // Declared before the resource so these match on their own literal paths
     // rather than being at the mercy of the {registration} wildcard.
     Route::middleware('role:registrations')->group(function () {

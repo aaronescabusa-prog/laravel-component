@@ -35,6 +35,10 @@ class RegistrationController extends Controller
             $query->whereRaw('LOWER(email) = ?', [mb_strtolower(trim($request->user()->email))]);
         }
 
+        if ($request->user()?->role === 'Organizer') {
+            $query->whereHas('eventRelation', fn ($event) => $event->where('organizer_user_id', $request->user()->getKey()));
+        }
+
         if ($request->filled('search')) {
             $term = $request->string('search')->toString();
             $query->where(function ($q) use ($term) {
@@ -46,6 +50,10 @@ class RegistrationController extends Controller
 
         if ($request->filled('event')) {
             $query->where('event', $request->string('event')->toString());
+        }
+
+        if ($request->filled('event_reference')) {
+            $query->whereHas('eventRelation', fn ($event) => $event->where('reference', $request->string('event_reference')->toString()));
         }
 
         if ($request->filled('payment_status')) {
@@ -87,6 +95,11 @@ class RegistrationController extends Controller
         // with the registrant's own account when one exists, so a registrar
         // cannot double-book a student or overfill an event by hand.
         $event = Event::where('title', trim($validated['event']))->first();
+
+        if ($request->user()?->role === 'Organizer'
+            && (! $event || (int) $event->organizer_user_id !== (int) $request->user()->getKey())) {
+            abort(404);
+        }
 
         if ($event) {
             $account = UserAccount::whereRaw('LOWER(email) = ?', [mb_strtolower(trim($validated['email']))])->first();
@@ -153,6 +166,8 @@ class RegistrationController extends Controller
             abort(404);
         }
 
+        $this->authorizeOrganizerRegistration($request, $registration);
+
         return response()->json($registration);
     }
 
@@ -188,6 +203,12 @@ class RegistrationController extends Controller
         if ($event->status !== 'Approved') {
             throw ValidationException::withMessages([
                 'event_reference' => ['This event is not open for self-registration.'],
+            ]);
+        }
+
+        if ($event->event_date && $event->event_date->format('Y-m-d') < now()->toDateString()) {
+            throw ValidationException::withMessages([
+                'event_reference' => ['Registration is closed because the event date has passed.'],
             ]);
         }
 
@@ -233,6 +254,8 @@ class RegistrationController extends Controller
      */
     public function update(Request $request, Registration $registration)
     {
+        $this->authorizeOrganizerRegistration($request, $registration);
+
         $validated = $request->validate([
             'reference' => ['sometimes', 'string', 'max:50', Rule::unique('registrations', 'reference')->ignore($registration->id)],
             'participant' => ['sometimes', 'required', 'string', 'max:255'],
@@ -246,6 +269,11 @@ class RegistrationController extends Controller
             'reg_date' => ['nullable', 'string', 'max:20'],
             'qr_code' => ['nullable', 'string', 'max:100'],
         ]);
+
+        if ($request->user()?->role === 'Organizer' && array_key_exists('event', $validated)) {
+            $newEvent = Event::where('title', trim($validated['event']))->first();
+            abort_unless($newEvent && (int) $newEvent->organizer_user_id === (int) $request->user()->getKey(), 404);
+        }
 
         $registration->update($validated);
 
@@ -262,11 +290,49 @@ class RegistrationController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Registration $registration)
+    public function destroy(Request $request, Registration $registration)
     {
+        $this->authorizeOrganizerRegistration($request, $registration);
         $registration->delete();
 
         return response()->noContent();
+    }
+
+    /** Cancel the signed-in student's own future event registration. */
+    public function cancelStudent(Request $request, Registration $registration)
+    {
+        if ($request->user()?->role !== 'Student') {
+            return response()->json(['message' => 'Only students can use this cancellation endpoint.'], 403);
+        }
+
+        if (strcasecmp((string) $registration->email, (string) $request->user()->email) !== 0) {
+            abort(404);
+        }
+
+        $event = $registration->eventRelation;
+        if ($registration->attendances()->exists()
+            || ($event?->event_date && $event->event_date->isPast())
+            || in_array($event?->status, ['Completed', 'Cancelled'], true)) {
+            return response()->json([
+                'message' => 'This registration can no longer be cancelled because attendance has started or the event has ended.',
+            ], 409);
+        }
+
+        $registration->delete();
+
+        return response()->json(['message' => 'Registration cancelled.']);
+    }
+
+    private function authorizeOrganizerRegistration(Request $request, Registration $registration): void
+    {
+        if ($request->user()?->role !== 'Organizer') {
+            return;
+        }
+
+        abort_unless(
+            (int) $registration->eventRelation?->organizer_user_id === (int) $request->user()->getKey(),
+            404,
+        );
     }
 
     /**
@@ -276,8 +342,14 @@ class RegistrationController extends Controller
      * fetches the bytes with the Authorization header and triggers a download via
      * a blob URL — the same pattern used for certificate downloads.
      */
-    public function calendar(Registration $registration)
+    public function calendar(Request $request, Registration $registration)
     {
+        if ($request->user()?->role === 'Student'
+            && strcasecmp((string) $registration->email, (string) $request->user()->email) !== 0) {
+            abort(404);
+        }
+        $this->authorizeOrganizerRegistration($request, $registration);
+
         $registration->loadMissing('eventRelation');
 
         $event = $registration->eventRelation;
@@ -325,10 +397,11 @@ class RegistrationController extends Controller
         // the same reminder twice.
         $wanted = array_values(array_unique($validated['references']));
 
-        $registrations = Registration::with('eventRelation')
-            ->whereIn('reference', $wanted)
-            ->get()
-            ->keyBy('reference');
+        $registrationsQuery = Registration::with('eventRelation')->whereIn('reference', $wanted);
+        if ($request->user()?->role === 'Organizer') {
+            $registrationsQuery->whereHas('eventRelation', fn ($event) => $event->where('organizer_user_id', $request->user()->getKey()));
+        }
+        $registrations = $registrationsQuery->get()->keyBy('reference');
 
         $queued = 0;
         $skipped = [];

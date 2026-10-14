@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attendance;
 use App\Models\Event;
 use App\Models\UserAccount;
 use Illuminate\Http\Request;
@@ -53,30 +54,67 @@ class EventScannerController extends Controller
     public function assignedEvents(Request $request)
     {
         $scanner = $request->user();
-        abort_unless($scanner->role === 'Scanner', 403, 'Scanner access is required.');
+        abort_unless(in_array($scanner->role, ['Admin', 'Scanner'], true), 403, 'Scanner access is required.');
 
-        $events = $scanner->scannerEvents()
-            ->where('events.status', 'Approved')
+        $events = Event::query()
+            ->when($scanner->role === 'Scanner', fn ($query) => $query->whereHas(
+                'scannerAccounts',
+                fn ($accounts) => $accounts->where('user_accounts.id', $scanner->getKey()),
+            ))
+            ->where('status', 'Approved')
             ->orderBy('events.event_date')
             ->orderBy('events.title')
             ->get([
-                'events.id',
-                'events.reference',
-                'events.title',
-                'events.organizer',
-                'events.event_date',
-                'events.start_time',
-                'events.end_date',
-                'events.end_time',
-                'events.duration_value',
-                'events.duration_unit',
-                'events.venue',
-                'events.status',
-                'events.checkin_token',
+                'id', 'reference', 'title', 'organizer', 'event_date',
+                'start_time', 'end_date', 'end_time', 'duration_value',
+                'duration_unit', 'venue', 'status', 'checkin_token',
             ]);
 
         $events->each(fn (Event $event) => $event->makeVisible('checkin_token'));
 
         return response()->json($events);
+    }
+
+    /** Return attendance actions recorded by the signed-in scanner. */
+    public function history(Request $request)
+    {
+        $scanner = $request->user();
+        abort_unless($scanner->role === 'Scanner', 403, 'Scanner access is required.');
+
+        $query = Attendance::query()
+            ->where('recorded_by_user_id', $scanner->getKey())
+            ->with(['registration:id,reference,participant,email,event_id', 'session:id,event_id,label,session_date'])
+            ->whereHas('session.event.scannerAccounts', fn ($query) => $query->where('user_accounts.id', $scanner->id));
+
+        if ($request->filled('event_reference')) {
+            $query->whereHas('session.event', fn ($event) => $event->where('reference', $request->string('event_reference')->toString()));
+        }
+
+        return response()->json($query->orderByDesc('recorded_at')->paginate($this->perPage($request)));
+    }
+
+    /** Daily counts used by the scanner's mobile dashboard. */
+    public function summary(Request $request)
+    {
+        $scanner = $request->user();
+        abort_unless($scanner->role === 'Scanner', 403, 'Scanner access is required.');
+
+        $today = now()->toDateString();
+        $records = Attendance::query()
+            ->where('recorded_by_user_id', $scanner->getKey())
+            ->whereDate('recorded_at', $today)
+            ->whereHas('session.event.scannerAccounts', fn ($query) => $query->where('user_accounts.id', $scanner->id));
+
+        $eventsToday = (clone $records)
+            ->join('attendance_sessions as daily_sessions', 'attendances.attendance_session_id', '=', 'daily_sessions.id')
+            ->distinct()
+            ->count('daily_sessions.event_id');
+
+        return response()->json([
+            'date' => $today,
+            'scans_today' => (clone $records)->count(),
+            'events_today' => $eventsToday,
+            'participants_today' => (clone $records)->distinct('registration_id')->count('registration_id'),
+        ]);
     }
 }

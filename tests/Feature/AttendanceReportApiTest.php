@@ -57,10 +57,10 @@ test('admin attendance report reflects a student pass scan', function () {
         ->assertOk()
         ->assertJsonPath('counts.registered', 1)
         ->assertJsonPath('roster.0.reference', 'REG-ATT-RPT-1')
-        ->assertJsonPath("roster.0.sessions.{$session->id}.status", 'Present');
+        ->assertJsonPath("roster.0.sessions.{$session->id}.status", 'Late');
 });
 
-test('attendance report endpoint is admin-only', function () {
+test('staff can read attendance reports under the reports role policy', function () {
     $event = Event::create([
         'reference' => 'EVE-ATT-RPT-2',
         'title' => 'Department Seminar',
@@ -69,5 +69,7 @@ test('attendance report endpoint is admin-only', function () {
     ]);
     Sanctum::actingAs(attendanceReportTestAccount('Staff', 'STAFF'));
 
-    $this->getJson("/api/events/{$event->reference}/attendance")->assertForbidden();
+    $this->getJson("/api/events/{$event->reference}/attendance")
+        ->assertOk()
+        ->assertJsonPath('event.reference', $event->reference);
 });

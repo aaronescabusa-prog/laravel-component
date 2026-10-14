@@ -1061,3 +1061,12 @@ body {
         gap: 0;
     }
 }
+.events-banner-preview {
+    display: block;
+    width: min(100%, 420px);
+    max-height: 180px;
+    margin: 0 0 10px;
+    object-fit: cover;
+    border: 1px solid var(--ui-border, #d9e1ed);
+    border-radius: 10px;
+}

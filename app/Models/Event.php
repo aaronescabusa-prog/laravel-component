@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Event extends Model
@@ -19,8 +20,12 @@ class Event extends Model
     protected $fillable = [
         'reference',
         'title',
+        'category',
         'organizer',
+        'organizer_user_id',
         'event_date',
+        'registration_deadline',
+        'registration_open',
         'start_time',
         'end_date',
         'end_time',
@@ -28,6 +33,7 @@ class Event extends Model
         'duration_unit',
         'venue',
         'description',
+        'banner_url',
         'budget',
         'capacity',
         'participants',
@@ -80,6 +86,8 @@ class Event extends Model
     {
         return [
             'event_date' => 'date:Y-m-d',
+            'registration_deadline' => 'date:Y-m-d',
+            'registration_open' => 'boolean',
             'end_date' => 'date:Y-m-d',
             'duration_value' => 'integer',
             'budget' => 'integer',
@@ -168,7 +176,7 @@ class Event extends Model
      * a number without re-parsing the range.
      *
      * Rules, chosen so the result is always at least one whole unit:
-     *   - No start or end date: nothing to derive.
+     *   - No start or end date: nothing to derive (the event may still be open-ended).
      *   - Same day with both times: hours, rounded up. An end time at or before
      *     the start is read as running past midnight.
      *   - Same day without times, or spanning more than one day: days, counting
@@ -178,7 +186,13 @@ class Event extends Model
      */
     public function deriveDuration(): array
     {
-        if (! $this->event_date || ! $this->end_date) {
+        if (! $this->event_date) {
+            return [null, null];
+        }
+
+        // A start date alone is an unfinished schedule. All-day durations are
+        // derived only after an end date has been entered.
+        if (! $this->end_date) {
             return [null, null];
         }
 
@@ -223,6 +237,11 @@ class Event extends Model
     public function registrations(): HasMany
     {
         return $this->hasMany(Registration::class);
+    }
+
+    public function organizerAccount(): BelongsTo
+    {
+        return $this->belongsTo(UserAccount::class, 'organizer_user_id');
     }
 
     public function scannerAccounts(): BelongsToMany

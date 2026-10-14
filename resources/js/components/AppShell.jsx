@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import logo from "../assets/Tmc_Logo.png";
 import { initialsOf, roleLabel, useAuth } from "../lib/auth";
@@ -22,6 +22,17 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
     const closeNav = () => setNavOpen(false);
     const items = visibleNavItems(user?.role);
 
+    useEffect(() => {
+        if (!navOpen) return undefined;
+
+        const closeOnEscape = (event) => {
+            if (event.key === "Escape") closeNav();
+        };
+
+        document.addEventListener("keydown", closeOnEscape);
+        return () => document.removeEventListener("keydown", closeOnEscape);
+    }, [navOpen]);
+
     const shellClass = prefix ? `${prefix}shell` : "app-shell";
     const sidebarClass = prefix ? `${prefix}sidebar` : "sidebar";
     const avatarClass = prefix ? `${prefix}avatar` : "user-avatar";
@@ -33,7 +44,7 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
 
     return (
         <div className={`${shellClass}${navOpen ? " nav-open" : ""}`}>
-            <aside className={sidebarClass} id="primary-navigation">
+            <aside className={sidebarClass} id="primary-navigation" aria-label="Primary navigation">
                 <div className={`${sidebarClass}-brand`}>
                     <img src={logo} alt="TMC Logo" className={`${sidebarClass}-logo`} />
                     <div className={`${sidebarClass}-brand-text`}>
@@ -53,6 +64,7 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
                             }
                             onClick={closeNav}
                         >
+                            {item.icon ? <item.icon className="sidebar-link-icon" size={17} /> : null}
                             {item.label}
                         </NavLink>
                     ))}
@@ -101,7 +113,9 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
                     {headerActions}
 
                     <div className={prefix ? `${prefix}topbar-user` : "topbar-user"}>
-                        <div className={avatarClass}>{initialsOf(user?.name)}</div>
+                        <div className={avatarClass} aria-label={user?.name || "Account"} title={user?.name || "Account"}>
+                            {initialsOf(user?.name)}
+                        </div>
                         <div className={textClass}>
                             <span className={nameClass}>{user?.name}</span>
                             <span className={roleClass}>{roleLabel(user?.role)}</span>

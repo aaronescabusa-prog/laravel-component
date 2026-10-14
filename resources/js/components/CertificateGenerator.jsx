@@ -17,6 +17,7 @@ function CertificateGenerator({ events, onIssued }) {
     const [eventTitle, setEventTitle] = useState("");
     const [templates, setTemplates] = useState([]);
     const [eligibility, setEligibility] = useState(null);
+    const [preparedByRegistration, setPreparedByRegistration] = useState({});
     const [uploading, setUploading] = useState(false);
     const [checking, setChecking] = useState(false);
     const [issuing, setIssuing] = useState(false);
@@ -47,6 +48,7 @@ function CertificateGenerator({ events, onIssued }) {
     useEffect(() => {
         setEligibility(null);
         setSelected([]);
+        setPreparedByRegistration({});
     }, [eventTitle]);
 
     // A different event means different artwork, so drop a previous load
@@ -109,6 +111,8 @@ function CertificateGenerator({ events, onIssued }) {
         }
 
         setChecking(true);
+        setPreparedByRegistration({});
+        setSelected([]);
         try {
             const result = await certificatesApi.eligible(eventTitle);
             setEligibility(result);
@@ -125,8 +129,17 @@ function CertificateGenerator({ events, onIssued }) {
         setIssuing(true);
         try {
             const result = await certificatesApi.issue(eventTitle);
+            const prepared = Object.fromEntries(
+                (result.certificates || []).map((certificate) => [
+                    certificate.reference.startsWith("CERT-")
+                        ? certificate.reference.slice("CERT-".length)
+                        : certificate.reference,
+                    certificate.reference,
+                ])
+            );
+            setPreparedByRegistration(prepared);
             showToast(
-                `${result.issued_count} certificate(s) prepared. Review, then send.`
+                `${result.issued_count} certificate(s) prepared. Preview them, then choose who to email.`
             );
             onIssued?.();
         } catch (err) {
@@ -143,10 +156,20 @@ function CertificateGenerator({ events, onIssued }) {
             return;
         }
 
+        const certificateReferences = selected
+            .map((registrationReference) => preparedByRegistration[registrationReference])
+            .filter(Boolean);
+
+        if (certificateReferences.length !== selected.length) {
+            showToast("Prepare the certificates before sending them.", "danger");
+            return;
+        }
+
         setSending(true);
         try {
-            const result = await certificatesApi.sendBulk(selected);
+            const result = await certificatesApi.sendBulk(certificateReferences);
             showToast(result.message || "Certificates queued for delivery.");
+            setSelected([]);
         } catch (err) {
             showToast(err.message, "danger");
         } finally {
@@ -183,6 +206,7 @@ function CertificateGenerator({ events, onIssued }) {
 
     const eligibleRows = (eligibility?.rows || []).filter((r) => r.eligible);
     const blockedRows = (eligibility?.rows || []).filter((r) => !r.eligible);
+    const preparedCount = Object.keys(preparedByRegistration).length;
 
     return (
         <section className="cert-panel cert-generator">
@@ -308,7 +332,7 @@ function CertificateGenerator({ events, onIssued }) {
                                                         : eligibleRows.map((r) => r.reference)
                                                 )
                                             }
-                                            aria-label="Select all eligible students"
+                                            aria-label="Select all eligible students to receive a certificate email"
                                         />
                                         <span>Student</span>
                                         <span>Attendance</span>
@@ -322,7 +346,7 @@ function CertificateGenerator({ events, onIssued }) {
                                                 type="checkbox"
                                                 checked={selected.includes(row.reference)}
                                                 onChange={() => toggleRow(row.reference)}
-                                                aria-label={`Select ${row.participant}`}
+                                                aria-label={`Select ${row.participant} to receive a certificate email`}
                                             />
                                             <span>{row.participant}</span>
                                             <span className="cert-eligible-attendance">{row.attendance}</span>
@@ -330,10 +354,14 @@ function CertificateGenerator({ events, onIssued }) {
                                             <button
                                                 type="button"
                                                 className="cert-btn cert-btn-secondary"
-                                                onClick={() => handlePreview(row.reference)}
+                                                onClick={() => handlePreview(preparedByRegistration[row.reference])}
+                                                disabled={!preparedByRegistration[row.reference]}
+                                                title={preparedByRegistration[row.reference]
+                                                    ? `Preview ${row.participant}'s certificate`
+                                                    : "Prepare certificates to enable preview"}
                                             >
                                                 <IconView />
-                                                PDF
+                                                Preview
                                             </button>
                                         </div>
                                     ))}
@@ -352,6 +380,26 @@ function CertificateGenerator({ events, onIssued }) {
                                     </ul>
                                 </details>
                             )}
+
+                            {eligibleRows.length > 0 && (
+                                <div className="cert-generator-prepare">
+                                    <button
+                                        type="button"
+                                        className="cert-btn cert-btn-primary"
+                                        onClick={handleIssue}
+                                        disabled={issuing || preparedCount > 0 || !eligibility.issues_certificates}
+                                    >
+                                        {issuing
+                                            ? "Preparing…"
+                                            : preparedCount > 0
+                                                ? `${preparedCount} certificates prepared`
+                                                : "Prepare Certificates"}
+                                    </button>
+                                    <span className="cert-generator-note">
+                                        Preparing creates records for all eligible students without sending email.
+                                    </span>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>
@@ -361,23 +409,14 @@ function CertificateGenerator({ events, onIssued }) {
             <div className="cert-generator-step">
                 <span className="cert-generator-step-number">3</span>
                 <div className="cert-generator-step-body">
-                    <h3>Confirmation &amp; Send</h3>
+                    <h3>Send Certificates</h3>
 
                     <div className="cert-generator-row">
                         <button
                             type="button"
-                            className="cert-btn cert-btn-secondary"
-                            onClick={handleIssue}
-                            disabled={issuing || !eventTitle || (eligibility?.eligible_count ?? 0) === 0}
-                        >
-                            {issuing ? "Preparing…" : "Prepare Certificates"}
-                        </button>
-
-                        <button
-                            type="button"
                             className="cert-btn cert-btn-primary"
                             onClick={handleSend}
-                            disabled={sending || selected.length === 0}
+                            disabled={sending || selected.length === 0 || preparedCount === 0}
                         >
                             <IconCheck />
                             {sending
@@ -387,8 +426,9 @@ function CertificateGenerator({ events, onIssued }) {
                     </div>
 
                     <p className="cert-generator-note">
-                        Preparing creates the certificate records without emailing anyone. Sending queues the emails,
-                        which are delivered by the background worker.
+                        {preparedCount > 0
+                            ? `${preparedCount} certificate(s) are prepared. Sending queues email for the selected students.`
+                            : "Prepare the eligible certificates in Step 2 before sending them. Email is delivered by the background worker."}
                     </p>
                 </div>
             </div>

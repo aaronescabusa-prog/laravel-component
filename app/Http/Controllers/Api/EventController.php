@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Models\UserAccount;
 use App\Services\EventAudience;
+use App\Services\EventEligibility;
 use App\Services\EventSchedule;
 use App\Support\AcademicStructure;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class EventController extends Controller
 {
@@ -25,6 +29,10 @@ class EventController extends Controller
             $query->where('status', 'Approved');
         }
 
+        if ($request->user()?->role === 'Organizer') {
+            $query->where('organizer_user_id', $request->user()->getKey());
+        }
+
         if ($request->filled('search')) {
             $term = $request->string('search')->toString();
             $query->where(function ($q) use ($term) {
@@ -36,6 +44,10 @@ class EventController extends Controller
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status')->toString());
+        }
+
+        if ($request->filled('category')) {
+            $query->where('category', $request->string('category')->toString());
         }
 
         if ($request->filled('target_role')) {
@@ -55,19 +67,23 @@ class EventController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'reference' => ['required', 'string', 'max:50', Rule::unique('events', 'reference')->whereNull('deleted_at')],
+            'reference' => ['sometimes', 'required', 'string', 'max:50', Rule::unique('events', 'reference')->whereNull('deleted_at')],
             'title' => ['required', 'string', 'max:255'],
+            'category' => ['nullable', 'string', 'max:80'],
             'organizer' => ['nullable', 'string', 'max:255'],
             'event_date' => ['nullable', 'date'],
+            'registration_deadline' => ['nullable', 'date'],
+            'registration_open' => ['sometimes', 'boolean'],
             'start_time' => ['nullable', 'string', 'max:20'],
             'end_date' => ['nullable', 'date'],
             'end_time' => ['nullable', 'string', 'max:20'],
             'venue' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'banner_url' => ['nullable', 'url', 'max:2048'],
             'budget' => ['nullable', 'integer', 'min:0'],
             'capacity' => ['nullable', 'integer', 'min:0'],
             'participants' => ['nullable', 'integer', 'min:0'],
-            'status' => ['required', 'string', Rule::in(['Draft', 'Pending', 'Approved', 'Rejected', 'Completed', 'Cancelled'])],
+            'status' => ['sometimes', 'required', 'string', Rule::in(['Draft', 'Pending', 'Approved', 'Rejected', 'Completed', 'Cancelled'])],
             'target_role' => ['sometimes', 'string', Rule::in(['All', 'Admin', 'Staff', 'Organizer', 'Student'])],
             'target_course' => ['sometimes', 'nullable', 'string', Rule::in($this->courses())],
             'target_department' => ['sometimes', 'nullable', 'string', Rule::in(array_column(AcademicStructure::DEPARTMENTS, 'code'))],
@@ -79,6 +95,10 @@ class EventController extends Controller
 
         $this->validateAudience($request);
         $this->validateSchedule($request);
+        $this->validateRegistrationWindow($request);
+
+        $validated['reference'] ??= $this->nextEventReference();
+        $validated['status'] ??= $request->user()?->role === 'Organizer' ? 'Pending' : 'Draft';
 
         // Fill, derive the duration from the start/end range, then save once:
         // duration_value/duration_unit are calculated, never accepted from the
@@ -93,6 +113,15 @@ class EventController extends Controller
         }
 
         $event->fill($validated);
+        if ($request->user()?->role === 'Organizer') {
+            $event->forceFill([
+                'organizer' => $request->user()->name,
+                'organizer_user_id' => $request->user()->getKey(),
+                'status' => 'Pending',
+            ]);
+        } elseif (array_key_exists('organizer', $validated)) {
+            $event->forceFill(['organizer_user_id' => $this->organizerAccountId($validated['organizer'])]);
+        }
         $event->syncDuration();
         $event->save();
 
@@ -121,7 +150,46 @@ class EventController extends Controller
             abort(404);
         }
 
+        if (request()->user()?->role === 'Organizer'
+            && (int) $event->organizer_user_id !== (int) request()->user()->getKey()) {
+            abort(404);
+        }
+
         return response()->json($event);
+    }
+
+    /** Preview whether the signed-in student can register without writing data. */
+    public function eligibility(Request $request, Event $event, EventEligibility $eligibility)
+    {
+        if ($request->user()?->role !== 'Student') {
+            return response()->json(['message' => 'Only student accounts can check registration eligibility.'], 403);
+        }
+
+        if ($event->status !== 'Approved') {
+            return response()->json([
+                'event_reference' => $event->reference,
+                'can_register' => false,
+                'code' => 'not_open',
+                'reason' => 'This event is not open for registration.',
+            ]);
+        }
+
+        if ($event->event_date && $event->event_date->format('Y-m-d') < now()->toDateString()) {
+            return response()->json([
+                'event_reference' => $event->reference,
+                'can_register' => false,
+                'code' => 'registration_closed',
+                'reason' => 'Registration is closed because the event date has passed.',
+            ]);
+        }
+
+        $result = $eligibility->check($event, $request->user());
+
+        return response()->json([
+            'event_reference' => $event->reference,
+            'can_register' => $result['code'] === 'ok',
+            ...$result,
+        ]);
     }
 
     /**
@@ -132,13 +200,17 @@ class EventController extends Controller
         $validated = $request->validate([
             'reference' => ['sometimes', 'string', 'max:50', Rule::unique('events', 'reference')->ignore($event->id)],
             'title' => ['sometimes', 'required', 'string', 'max:255'],
+            'category' => ['sometimes', 'nullable', 'string', 'max:80'],
             'organizer' => ['nullable', 'string', 'max:255'],
             'event_date' => ['nullable', 'date'],
+            'registration_deadline' => ['sometimes', 'nullable', 'date'],
+            'registration_open' => ['sometimes', 'boolean'],
             'start_time' => ['nullable', 'string', 'max:20'],
             'end_date' => ['nullable', 'date'],
             'end_time' => ['nullable', 'string', 'max:20'],
             'venue' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'banner_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'budget' => ['nullable', 'integer', 'min:0'],
             'capacity' => ['nullable', 'integer', 'min:0'],
             'participants' => ['nullable', 'integer', 'min:0'],
@@ -156,8 +228,20 @@ class EventController extends Controller
         // may only supply one half of the range.
         $this->validateAudience($request, $event);
         $this->validateSchedule($request, $event);
+        $this->validateRegistrationWindow($request, $event);
+
+        if ($request->user()?->role === 'Organizer') {
+            abort_unless((int) $event->organizer_user_id === (int) $request->user()->getKey(), 404);
+            if (array_key_exists('status', $validated) && $validated['status'] !== $event->status) {
+                abort(403, 'Only administrators and staff may change an event status.');
+            }
+            $validated['organizer'] = $request->user()->name;
+        }
 
         $event->fill($validated);
+        if ($request->user()?->role !== 'Organizer' && array_key_exists('organizer', $validated)) {
+            $event->forceFill(['organizer_user_id' => $this->organizerAccountId($validated['organizer'])]);
+        }
         $event->syncDuration();
         $event->save();
 
@@ -193,11 +277,32 @@ class EventController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Event $event)
+    public function destroy(Request $request, Event $event)
     {
+        if ($request->user()?->role === 'Organizer') {
+            abort_unless((int) $event->organizer_user_id === (int) $request->user()->getKey(), 404);
+        }
+
         $event->delete();
 
         return response()->noContent();
+    }
+
+    /** Store the event banner uploaded by the web admin or event organizer. */
+    public function uploadBanner(Request $request, Event $event)
+    {
+        if ($request->user()?->role === 'Organizer') {
+            abort_unless((int) $event->organizer_user_id === (int) $request->user()->getKey(), 404);
+        }
+
+        $validated = $request->validate([
+            'banner' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
+        $path = $validated['banner']->store('event-banners', 'public');
+        $event->forceFill(['banner_url' => Storage::disk('public')->url($path)])->save();
+
+        return response()->json(['banner_url' => $event->fresh()->banner_url]);
     }
 
     /**
@@ -267,5 +372,43 @@ class EventController extends Controller
                 'end_date' => 'The end date cannot be before the start date.',
             ]);
         }
+    }
+
+    /** A registration cutoff cannot fall after the event begins. */
+    protected function validateRegistrationWindow(Request $request, ?Event $event = null): void
+    {
+        $deadline = $request->exists('registration_deadline')
+            ? $request->input('registration_deadline')
+            : $event?->registration_deadline?->format('Y-m-d');
+        $eventDate = $request->exists('event_date')
+            ? $request->input('event_date')
+            : $event?->event_date?->format('Y-m-d');
+
+        if ($deadline && $eventDate && Carbon::parse($deadline)->gt(Carbon::parse($eventDate))) {
+            throw ValidationException::withMessages([
+                'registration_deadline' => ['The registration deadline cannot be after the event start date.'],
+            ]);
+        }
+    }
+
+    private function organizerAccountId(?string $name): ?int
+    {
+        $matches = UserAccount::query()
+            ->where('role', 'Organizer')
+            ->where('status', 'Active')
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim((string) $name))])
+            ->limit(2)
+            ->pluck('id');
+
+        return $matches->count() === 1 ? (int) $matches->first() : null;
+    }
+
+    private function nextEventReference(): string
+    {
+        do {
+            $reference = 'EVT-'.Str::upper(Str::random(12));
+        } while (Event::withTrashed()->where('reference', $reference)->exists());
+
+        return $reference;
     }
 }

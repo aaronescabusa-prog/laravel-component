@@ -26,6 +26,7 @@ class ReportController extends Controller
             // grouping below meaningful, where filtering registrations by title
             // could not be reconciled back to a single event.
             ->when($request->filled('event'), fn ($q) => $q->where('title', $request->string('event')->toString()))
+            ->when($request->user()?->role === 'Organizer', fn ($q) => $q->where('organizer_user_id', $request->user()->getKey()))
             ->orderByDesc('event_date')
             ->get();
 
@@ -38,10 +39,12 @@ class ReportController extends Controller
         $eventRows = $events->map(fn (Event $event) => [
             'reference' => $event->reference,
             'title' => $event->title,
+            'category' => $event->category,
             'organizer' => $event->organizer,
             'status' => $event->status,
             'event_date' => $event->event_date?->format('Y-m-d'),
             'venue' => $event->venue,
+            'banner_url' => $event->banner_url,
             'budget' => $event->budget,
             'capacity' => $event->capacity,
             'participants' => $event->participants,
@@ -56,7 +59,7 @@ class ReportController extends Controller
             'registrations' => $registrationData,
             'attendance' => $attendanceData,
             'financial' => $financialData,
-            'summary' => $this->scopedSummary($events),
+            'summary' => $this->scopedSummary($events, $request),
         ]);
     }
 
@@ -73,7 +76,7 @@ class ReportController extends Controller
      * table has no event_id foreign key; see add_event_id_to_event_scoped_tables,
      * which deliberately covered only registrations, certificates and templates.
      */
-    private function scopedSummary($events): array
+    private function scopedSummary($events, Request $request): array
     {
         $eventIds = $events->pluck('id');
         $titles = $events->pluck('title');
@@ -93,7 +96,9 @@ class ReportController extends Controller
 
         return [
             // Accounts are not scoped to an event, so this stays global.
-            'users' => UserAccount::count(),
+            'users' => $request->user()?->role === 'Organizer'
+                ? UserAccount::whereIn('id', Registration::whereIn('event_id', $eventIds)->whereNotNull('user_account_id')->select('user_account_id'))->count()
+                : UserAccount::count(),
             'events' => $events->count(),
             'events_active' => $events->whereIn('status', ['Approved', 'Pending'])->count(),
             'events_pending' => $events->where('status', 'Pending')->count(),
@@ -118,8 +123,14 @@ class ReportController extends Controller
      * upcoming events and recent activity still come from their own
      * lightweight endpoints (see below).
      */
-    public function summary()
+    public function summary(Request $request)
     {
+        if ($request->user()?->role === 'Organizer') {
+            $payload = $this->index($request)->getData(true);
+
+            return response()->json($payload['summary']);
+        }
+
         $statuses = Event::query()
             ->selectRaw('status, COUNT(*) AS total')
             ->groupBy('status')

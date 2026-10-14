@@ -39,6 +39,25 @@ class EventAudience
             ? $event->target_role
             : null;
 
+        $today = now()->toDateString();
+        $registrationClosed = ($event->registration_open ?? true) === false
+            || ($event->registration_deadline && $event->registration_deadline->format('Y-m-d') < $today)
+            || ($event->event_date && $event->event_date->format('Y-m-d') < $today);
+
+        if ($registrationClosed) {
+            return [
+                'target_course' => $course !== '' ? $course : null,
+                'target_department' => $department,
+                'target_year' => $year,
+                'target_role' => $role,
+                'matched' => 0,
+                'added' => [],
+                'capacity_remaining' => $event->capacity === null
+                    ? null
+                    : max(0, $event->capacity - $event->currentRegistrationCount()),
+            ];
+        }
+
         if ($course === '' && ! $department && ! $year && ! $role) {
             return [
                 'target_course' => null,

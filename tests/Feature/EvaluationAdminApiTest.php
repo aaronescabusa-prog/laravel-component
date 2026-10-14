@@ -66,3 +66,4 @@ test('evaluation management endpoints are restricted to admins', function () {
         'rating' => 5,
     ])->assertForbidden();
 });
+

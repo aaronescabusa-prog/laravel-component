@@ -29,37 +29,38 @@
   --ui-space-10: 40px;
 
   /* Surfaces & Invisibility */
-  --ui-bg: #f6f8fc;
-  --ui-bg-soft: #eef2f9;
+  --ui-bg: #f4f7fb;
+  --ui-bg-soft: #eaf1f8;
   --ui-surface: #ffffff;
   --ui-surface-muted: #f8fafc;
   --ui-surface-hover: #f8fafd;
   --ui-surface-glass: rgba(255, 255, 255, 0.88);
 
   /* Lines & Borders */
-  --ui-border: #e2e8f0;
-  --ui-border-subtle: rgba(226, 232, 240, 0.8);
-  --ui-border-strong: #cbd5e1;
+  --ui-border: #e4eaf1;
+  --ui-border-subtle: rgba(228, 234, 241, 0.82);
+  --ui-border-strong: #cbd7e4;
 
   /* High-Contrast Visual Hierarchy Text */
-  --ui-text: #0f172a;
-  --ui-text-muted: #475569;
-  --ui-text-soft: #64748b;
+  --ui-text: #10233b;
+  --ui-text-muted: #52647a;
+  --ui-text-soft: #75869a;
   --ui-text-invert: #ffffff;
 
   /* Brand Colors */
-  --ui-primary: #1e3a8a;
-  --ui-primary-strong: #172554;
-  --ui-primary-soft: #eff6ff;
-  --ui-primary-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-  --ui-accent: #3b82f6;
+  --ui-primary: #08294b;
+  --ui-primary-strong: #041d38;
+  --ui-primary-soft: #eaf1f8;
+  --ui-primary-gradient: linear-gradient(135deg, #08294b 0%, #16558a 100%);
+  --ui-accent: #16558a;
+  --ui-highlight: #ffca1b;
 
   /* Sidebar (Navy) */
-  --ui-navy-900: #0b1628;
-  --ui-navy-800: #12233d;
-  --ui-navy-700: #1b3252;
-  --ui-sidebar-text: #ccd7ea;
-  --ui-sidebar-text-muted: #8fa2c4;
+  --ui-navy-900: #041d38;
+  --ui-navy-800: #08294b;
+  --ui-navy-700: #16558a;
+  --ui-sidebar-text: #f1f6fb;
+  --ui-sidebar-text-muted: #bdcddd;
 
   /* Semantic Status Colors with Accessible Contrast */
   --ui-success: #15803d;
@@ -82,8 +83,8 @@
   --ui-radius-xs: 6px;
   --ui-radius-sm: 8px;
   --ui-radius: 12px;
-  --ui-radius-lg: 16px;
-  --ui-radius-xl: 20px;
+  --ui-radius-lg: 18px;
+  --ui-radius-xl: 22px;
   --ui-radius-pill: 9999px;
 
   /* Elevation */

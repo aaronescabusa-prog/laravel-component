@@ -4,11 +4,65 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Evaluation;
+use App\Models\Registration;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class EvaluationController extends Controller
 {
+    /** Accept feedback from a student for an event they registered for. */
+    public function submitStudent(Request $request)
+    {
+        $user = $request->user();
+
+        if (! $user || $user->role !== 'Student') {
+            return response()->json(['message' => 'Only student accounts may submit event evaluations.'], 403);
+        }
+
+        $validated = $request->validate([
+            'event_reference' => ['required', 'string', 'max:50'],
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $registration = Registration::query()
+            ->whereRaw('LOWER(email) = ?', [mb_strtolower(trim($user->email))])
+            ->whereHas('eventRelation', fn ($query) => $query->where('reference', $validated['event_reference']))
+            ->with('eventRelation')
+            ->first();
+
+        if (! $registration || ! $registration->eventRelation) {
+            return response()->json(['message' => 'You must be registered for this event before submitting feedback.'], 422);
+        }
+
+        if (! $registration->attendances()->whereNotNull('time_in')->exists()) {
+            return response()->json(['message' => 'You must check in to this event before submitting feedback.'], 422);
+        }
+
+        // One evaluation per student and registration. A stable reference lets
+        // a student revise their response without creating duplicate feedback.
+        $reference = 'EVL-'.strtoupper(substr(hash('sha256', $user->getKey().':'.$registration->getKey()), 0, 32));
+        $evaluation = Evaluation::withTrashed()->where('reference', $reference)->first();
+
+        $attributes = [
+            'event' => $registration->eventRelation->title,
+            'participant' => $user->name,
+            'rating' => $validated['rating'],
+            'comment' => $validated['comment'] ?? null,
+            'date' => now()->format('Y-m-d'),
+        ];
+
+        if ($evaluation) {
+            $evaluation->restore();
+            $evaluation->fill($attributes)->save();
+        } else {
+            $evaluation = Evaluation::create(['reference' => $reference, ...$attributes]);
+        }
+
+        return response()->json($evaluation->fresh(), 201);
+    }
+
     /**
      * Display a listing of the resource.
      */

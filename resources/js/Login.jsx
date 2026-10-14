@@ -1,12 +1,15 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./Login.css";
 import logo from "./assets/Tmc_Logo.png";
 import campusPhoto from "./assets/campus.png";
+import { IconMail, IconLock } from "./components/Icons";
 import { authApi, setSession } from "./lib/api";
+import { useAuth } from "./lib/auth";
 
 function Login() {
     const navigate = useNavigate();
+    const { setUser } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -17,8 +20,9 @@ function Login() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isLoading) return;
 
-        const normalizedEmail = email.trim();
+        const normalizedEmail = email.trim().toLowerCase();
         if (!normalizedEmail || !password) {
             setError("Please enter both your email and password.");
             return;
@@ -35,12 +39,19 @@ function Login() {
             }
 
             setSuspendedPopup(null);
-            setSession(response.token, {
+            const role = `${response.user.role ?? ""}`.toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
+            const signedInUser = {
                 name: response.user.name,
-                role: response.user.role,
+                role,
                 email: response.user.email,
-            });
-            navigate("/dashboard");
+                student_id: response.user.student_id,
+                course: response.user.course,
+                year: response.user.year,
+                block_no: response.user.block_no,
+            };
+            setSession(response.token, signedInUser);
+            setUser(signedInUser);
+            navigate(role === "Scanner" ? "/check-in" : "/dashboard", { replace: true });
         } catch (err) {
             const message = err?.payload?.message
                 || (err?.httpStatus ? err.message : "Unable to connect. Check your connection and try again.");
@@ -59,7 +70,7 @@ function Login() {
     };
 
     return (
-        <div className="auth-page">
+        <div className="auth-page auth-login-page">
 
             <a href="#login-form" className="skip-link">Skip to sign in form</a>
 
@@ -68,12 +79,12 @@ function Login() {
                 <aside
                     className="auth-side"
                     aria-label="About TMC EventEase"
-                    style={{ backgroundImage: `linear-gradient(rgba(15,32,60,0.92), rgba(15,32,60,0.96)), url(${campusPhoto})` }}
+                    style={{ backgroundImage: `linear-gradient(rgba(8, 36, 72, 0.86), rgba(8, 36, 72, 0.94)), url(${campusPhoto})` }}
                 >
                     <div className="auth-side-header">
                         <h1 className="auth-side-title">TMC EventEase</h1>
                         <p className="auth-side-tagline">
-                            Administrator portal for Trinidad Municipal College events
+                            One place for students and campus teams to manage TMC events
                         </p>
                     </div>
 
@@ -81,22 +92,22 @@ function Login() {
                         <div className="auth-side-feature">
                             <div className="feature-number">01</div>
                             <div>
-                                <strong>Event Administration</strong>
-                                <p>Manage campus events, schedules, and approvals</p>
+                                        <strong>Discover Campus Events</strong>
+                                        <p>Find events and manage your registrations</p>
                             </div>
                         </div>
                         <div className="auth-side-feature">
                             <div className="feature-number">02</div>
                             <div>
-                                <strong>Accounts &amp; Access</strong>
-                                <p>Manage user accounts and scanner permissions</p>
+                                        <strong>Your Event Pass</strong>
+                                        <p>Keep your registrations and attendance pass together</p>
                             </div>
                         </div>
                         <div className="auth-side-feature">
                             <div className="feature-number">03</div>
                             <div>
-                                <strong>Attendance &amp; Reporting</strong>
-                                <p>Review attendance, certificates, and reports</p>
+                                        <strong>Updates &amp; Certificates</strong>
+                                        <p>Read campus announcements and access issued certificates</p>
                             </div>
                         </div>
                     </div>
@@ -108,12 +119,14 @@ function Login() {
                         <div className="auth-form-card">
 
                             <div className="auth-form-header">
-                                <img src={logo} alt="TMC Logo" className="auth-form-logo" />
+                                <img src={logo} alt="Trinidad Municipal College" className="auth-form-logo" />
                                 <div className="auth-form-header-text">
-                                    <h1 className="auth-form-title">Welcome back</h1>
-                                    <p className="auth-form-subtitle">Administrator sign in</p>
+                                    <h1 className="auth-form-title">TMC EventEase</h1>
+                                    <p className="auth-form-subtitle">Your events, easy access.</p>
                                 </div>
                             </div>
+
+                            <p className="auth-form-prompt">Sign in to your account</p>
 
                             {error && (
                                 <div className="auth-error" role="alert">
@@ -125,30 +138,32 @@ function Login() {
 
                                 <div className="form-group">
                                     <label htmlFor="email">
-                                        Email address <span className="required" aria-hidden="true">*</span>
+                                        Email address <span className="required" aria-hidden="true"></span>
                                     </label>
-                                    <input
-                                        id="email"
-                                        type="email"
-                                        placeholder="Enter your email"
-                                        value={email}
-                                        onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                                        autoComplete="email"
-                                        required
-                                        disabled={isLoading}
-                                    />
-                                    <span className="field-help">                                    Use your administrator account email</span>
+                                    <div className="auth-input-wrap">
+                                        <IconMail size={18} />
+                                        <input
+                                            id="email"
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                                            autoComplete="email"
+                                            required
+                                            disabled={isLoading}
+                                        />
+                                    </div>
+                                    <span className="field-help"></span>
                                 </div>
 
                                 <div className="form-group">
                                     <label htmlFor="password">
-                                        Password <span className="required" aria-hidden="true">*</span>
+                                        Password <span className="required" aria-hidden="true"></span>
                                     </label>
-                                    <div className="password-wrapper">
+                                    <div className="password-wrapper auth-password-wrap">
+                                        <IconLock size={18} />
                                         <input
                                             id="password"
                                             type={showPassword ? "text" : "password"}
-                                            placeholder="Enter your password"
                                             value={password}
                                             onChange={(e) => { setPassword(e.target.value); setError(""); }}
                                             autoComplete="current-password"
@@ -176,7 +191,7 @@ function Login() {
                                         aria-controls="signin-help"
                                         onClick={() => setShowSignInHelp((shown) => !shown)}
                                     >
-                                        Need help signing in?
+                                        Forgot password?
                                     </button>
                                 </div>
 
@@ -205,7 +220,7 @@ function Login() {
                             </form>
 
                             <p className="auth-switch">
-                                This portal is for TMC administrators only.
+                                Don’t have an account? <Link to="/register" className="register-link">Register</Link>
                             </p>
 
                         </div>

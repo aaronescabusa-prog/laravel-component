@@ -1,3 +1,5 @@
+import axios from "axios";
+
 // Thin client for the Laravel backend served from the same origin.
 // The backend sits beside this page rather than at the server root, so the
 // mount point is read from the <meta name="app-base"> tag that app.blade.php
@@ -101,40 +103,36 @@ export function clearSession() {
 }
 
 async function request(path, options = {}) {
-  const headers = { ...(options.headers || {}) };
-  headers["Accept"] = "application/json";
-  if (options.body !== undefined && !(options.body instanceof FormData)) {
+  const { body, data = body, method = "GET", ...config } = options;
+  const headers = { Accept: "application/json", ...(config.headers || {}) };
+  if (data !== undefined && !(data instanceof FormData) && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
   }
   const token = getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  if (res.status === 204) return null;
-  const text = await res.text();
-  const body = text ? JSON.parse(text) : null;
-  if (!res.ok) {
-    if (res.status === 401 && !path.startsWith("/auth/login")) {
+  try {
+    const response = await axios({ ...config, url: `${API_BASE}${path}`, method, data, headers });
+    return response.status === 204 ? null : response.data;
+  } catch (cause) {
+    const response = cause.response;
+    const payload = response?.data;
+    if (response?.status === 401 && !path.startsWith("/auth/login")) {
       clearSession();
       const loginPath = `${APP_BASE}/login`;
-      if (!window.location.pathname.startsWith(loginPath)) {
-        window.location.assign(loginPath);
-      }
+      if (!window.location.pathname.startsWith(loginPath)) window.location.assign(loginPath);
     }
-    const detail = body?.errors
-      ? Object.entries(body.errors).map(([k, v]) => `${k}: ${v.join(", ")}`).join(" · ")
-      : body?.message || res.statusText;
-    // Preserve structured backend payloads (e.g. {message, status}) so callers
-    // like Login can branch on `err.status === "Suspended"`.
-    const err = new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
-    if (body && typeof body === "object") {
-      if (typeof body.status === "string") err.status = body.status;
-      err.payload = body;
+    const detail = payload?.errors
+      ? Object.entries(payload.errors).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`).join("; ")
+      : payload?.message || response?.statusText || cause.message;
+    const error = new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    if (payload && typeof payload === "object") {
+      if (typeof payload.status === "string") error.status = payload.status;
+      error.payload = payload;
     }
-    err.httpStatus = res.status;
-    throw err;
+    error.httpStatus = response?.status;
+    throw error;
   }
-  return body;
 }
 
 /**
@@ -283,10 +281,11 @@ export const scannerEventsApi = {
 };
 
 export const authApi = {
-  login: (email, password) => request("/auth/admin-login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  login: (email, password) => request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   register: (data) => request("/auth/register", { method: "POST", body: JSON.stringify(data) }),
   logout: () => request("/auth/logout", { method: "POST" }),
   me: () => request("/auth/me"),
+  updateProfile: (data) => request("/auth/profile", { method: "PUT", body: JSON.stringify(data) }),
 };
 
 export const settingsApi = {
@@ -338,16 +337,11 @@ export const certificatesApi = {
    * preview inside the authenticated session.
    */
   preview: async (reference) => {
-    const res = await fetch(`${API_BASE}/certificates/${encodeURIComponent(reference)}/preview`, {
-      headers: {
-        Accept: "application/pdf",
-        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-      },
+    const blob = await request(`/certificates/${encodeURIComponent(reference)}/preview`, {
+      responseType: "blob",
+      headers: { Accept: "application/pdf" },
     });
-
-    if (!res.ok) throw new Error("Could not render the certificate preview.");
-
-    return URL.createObjectURL(await res.blob());
+    return URL.createObjectURL(blob);
   },
 
   /**
@@ -359,16 +353,11 @@ export const certificatesApi = {
    * authenticated session.
    */
   download: async (reference) => {
-    const res = await fetch(`${API_BASE}/certificates/${encodeURIComponent(reference)}/download`, {
-      headers: {
-        Accept: "application/pdf",
-        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-      },
+    const blob = await request(`/certificates/${encodeURIComponent(reference)}/download`, {
+      responseType: "blob",
+      headers: { Accept: "application/pdf" },
     });
-
-    if (!res.ok) throw new Error("Could not download the certificate.");
-
-    const url = URL.createObjectURL(await res.blob());
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 
     link.href = url;
@@ -448,6 +437,17 @@ export const reportsApi = {
   },
 };
 
+export const eventsApi = {
+  uploadBanner: (eventReference, file) => {
+    const form = new FormData();
+    form.append("banner", file);
+    return request(`/events/${encodeURIComponent(eventReference)}/banner`, {
+      method: "POST",
+      body: form,
+    });
+  },
+};
+
 export const registrationsApi = {
   /** Create an event registration from the signed-in student's account. */
   selfRegister: (eventReference) =>
@@ -459,6 +459,9 @@ export const registrationsApi = {
   /** Students receive only their own registrations from this authenticated endpoint. */
   mine: () => request("/registrations"),
 
+  /** Cancel a future registration owned by the signed-in student. */
+  cancel: (reference) => request(`/registrations/${encodeURIComponent(reference)}/cancel`, { method: "DELETE" }),
+
   /**
    * Download a .ics calendar file for a registration's event.
    *
@@ -466,16 +469,11 @@ export const registrationsApi = {
    * because a plain <a href> would not carry the Authorization header.
    */
   downloadCalendar: async (reference) => {
-    const res = await fetch(`${API_BASE}/registrations/${encodeURIComponent(reference)}/calendar`, {
-      headers: {
-        Accept: "text/calendar",
-        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-      },
+    const blob = await request(`/registrations/${encodeURIComponent(reference)}/calendar`, {
+      responseType: "blob",
+      headers: { Accept: "text/calendar" },
     });
-
-    if (!res.ok) throw new Error("Could not download the calendar invite.");
-
-    const url = URL.createObjectURL(await res.blob());
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = `${reference}.ics`;
@@ -500,22 +498,36 @@ export const registrationsApi = {
     }),
 };
 
+export const studentEvaluationsApi = {
+  submit: (eventReference, rating, comment) => request("/evaluations/submit", {
+    method: "POST",
+    body: JSON.stringify({ event_reference: eventReference, rating, comment }),
+  }),
+};
+
 /* ---------- field mapping: backend (snake_case) <-> frontend (camelCase) ---------- */
 
 export function mapEventFromApi(row) {
+  const normalizeTime = (value) => value ? String(value).slice(0, 5) : "";
   return {
     _id: row.id,
     id: row.reference,
     name: row.title,
+    category: row.category ?? "",
     organizer: row.organizer ?? "",
     date: row.event_date ?? "",
-    startTime: row.start_time ?? "08:00",
+    registrationDeadline: row.registration_deadline ?? "",
+    registrationOpen: row.registration_open ?? true,
+    // A missing start time means all-day. SQL time values may include seconds,
+    // while the form's time input expects HH:mm.
+    startTime: normalizeTime(row.start_time),
     endDate: row.end_date ?? row.endDate ?? "",
-    endTime: row.end_time ?? row.endTime ?? "",
+    endTime: normalizeTime(row.end_time ?? row.endTime),
     durationValue: row.duration_value ?? row.durationValue ?? null,
     durationUnit: row.duration_unit ?? row.durationUnit ?? "Hours",
     venue: row.venue ?? "",
     description: row.description ?? "",
+    bannerUrl: row.banner_url ?? "",
     budget: row.budget ?? 0,
     capacity: row.capacity ?? 0,
     // Derived here too, so the toggle always reflects the number instead of
@@ -536,13 +548,17 @@ export function mapEventToApi(row) {
   return {
     reference: row.id,
     title: row.name,
+    category: row.category || null,
     organizer: row.organizer,
     event_date: row.date || null,
+    registration_deadline: row.registrationDeadline || null,
+    registration_open: row.registrationOpen !== false,
     start_time: row.startTime,
     end_date: row.endDate || null,
     end_time: row.endTime || null,
     venue: row.venue,
     description: row.description,
+    banner_url: row.bannerUrl || null,
     budget: row.budget ?? 0,
     // No capacity means uncapped, so send null rather than 0 - a zero capacity
     // would render as "completely full" on the fill-rate report.
@@ -589,6 +605,7 @@ export function mapAnnouncementToApi(row) {
 export function mapUserFromApi(row) {
   return {
     id: row.reference,
+    studentId: row.student_id ?? row.studentId ?? "",
     name: row.name,
     email: row.email,
     role: row.role ?? "Student",
@@ -605,6 +622,7 @@ export function mapUserFromApi(row) {
 export function mapUserToApi(row) {
   const payload = {
     reference: row.id,
+    student_id: row.studentId || null,
     name: row.name,
     email: row.email,
     role: row.role,

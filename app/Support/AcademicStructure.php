@@ -52,6 +52,52 @@ final class AcademicStructure
         return self::COURSES;
     }
 
+    /** Normalize the short course labels used by the Flutter prototype. */
+    public static function normalizeCourse(?string $course): ?string
+    {
+        $value = trim((string) $course);
+
+        foreach (self::COURSES as $canonical) {
+            if (strcasecmp($value, $canonical) === 0) {
+                return $canonical;
+            }
+        }
+
+        $aliases = [
+            'bsit' => 'BS Information Technology',
+            'bscrim' => 'BS Criminology',
+            'bs crim' => 'BS Criminology',
+            'bsoa' => 'BS Office Administration',
+            'bsed' => 'BS Education Major in English',
+            'bsed - english' => 'BS Education Major in English',
+            'beed' => 'Bachelor of Elementary Education',
+            'ba - polsci' => 'BA Political Science',
+            'ab political science' => 'BA Political Science',
+            'ba - comm' => 'BA Communications',
+            'ab communication' => 'BA Communications',
+        ];
+
+        return $aliases[strtolower($value)] ?? null;
+    }
+
+    /** Normalize numeric and ordinal year values from mobile clients. */
+    public static function normalizeYear(?string $year): ?string
+    {
+        $value = trim((string) $year);
+
+        foreach (self::YEARS as $canonical) {
+            if (strcasecmp($value, $canonical) === 0) {
+                return $canonical;
+            }
+        }
+
+        if (preg_match('/^(?:year\\s*)?([1-4])(?:st|nd|rd|th)?(?:\\s*year)?$/i', $value, $matches)) {
+            return self::YEARS[((int) $matches[1]) - 1];
+        }
+
+        return null;
+    }
+
     /**
      * @return list<string>
      */

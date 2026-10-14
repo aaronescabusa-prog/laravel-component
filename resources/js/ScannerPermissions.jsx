@@ -58,6 +58,15 @@ export default function ScannerPermissions() {
                 setLoadError("");
             })
             .catch((err) => {
+                if (active) setLoadError(err.message || "Could not load events.");
+            })
+            .finally(() => {
+                if (active) setEventsLoading(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
 
     // Load the scanner roster whenever the picked event changes.
     const loadScanners = useCallback(async (ref) => {
@@ -141,16 +150,6 @@ export default function ScannerPermissions() {
             setSaving(false);
         }
     };
-
-                if (active) setLoadError(err.message || "Could not load events.");
-            })
-            .finally(() => {
-                if (active) setEventsLoading(false);
-            });
-        return () => {
-            active = false;
-        };
-    }, []);
 
     const selectedEvent = useMemo(
         () => events.find((event) => event.id === selectedRef) || null,

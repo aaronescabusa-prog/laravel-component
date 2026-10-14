@@ -33,8 +33,24 @@ class DemoDataSeeder extends Seeder
 
     private function seedUsers(): void
     {
+        $mobileStudentEmail = 'mobile.student@student.tmc.edu.ph';
+        $existingMobileStudent = UserAccount::withTrashed()->where('email', $mobileStudentEmail)->first();
+
+        if ($existingMobileStudent?->trashed()) {
+            $existingMobileStudent->restore();
+        }
+
+        $mobileStudentReference = $existingMobileStudent?->reference ?? 'USR-2215';
+        if (! $existingMobileStudent) {
+            $suffix = 1;
+            while (UserAccount::withTrashed()->where('reference', $mobileStudentReference)->exists()) {
+                $mobileStudentReference = 'USR-MOB-'.str_pad((string) $suffix++, 3, '0', STR_PAD_LEFT);
+            }
+        }
+
         $users = [
             ['reference' => 'USR-2210', 'name' => 'Admin User', 'email' => 'admin@tmc.edu.ph', 'role' => 'Admin', 'status' => 'Active', 'password' => Hash::make('password'), 'date' => '2026-08-01'],
+            ['reference' => $mobileStudentReference, 'student_id' => 'TMC-DEMO-001', 'name' => 'Mobile Demo Student', 'email' => $mobileStudentEmail, 'role' => 'Student', 'status' => 'Active', 'course' => 'BS Information Technology', 'year' => '3', 'password' => Hash::make(env('DEMO_MOBILE_STUDENT_PASSWORD', 'password')), 'date' => '2026-09-20'],
             ['reference' => 'USR-2211', 'name' => 'Maria Santos', 'email' => 'maria.santos@student.tmc.edu.ph', 'role' => 'Student', 'status' => 'Active', 'course' => 'BS Information Technology', 'year' => '3', 'date' => '2026-08-05'],
             ['reference' => 'USR-2212', 'name' => 'John Dela Cruz', 'email' => 'john.delacruz@student.tmc.edu.ph', 'role' => 'Student', 'status' => 'Active', 'course' => 'BS Computer Science', 'year' => '2', 'date' => '2026-08-06'],
             ['reference' => 'USR-2213', 'name' => 'Ana Cruz', 'email' => 'ana.cruz@student.tmc.edu.ph', 'role' => 'Staff', 'status' => 'Active', 'course' => 'BS Education', 'year' => '4', 'date' => '2026-08-09'],

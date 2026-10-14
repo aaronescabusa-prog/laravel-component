@@ -69,15 +69,15 @@ test('mobile login remains available for active non-admin accounts', function ()
         'email' => $student->email,
         'password' => 'password',
     ])->assertOk()
-        ->assertJson(['user' => ['role' => 'Student']])
-        ->assertJsonStructure(['token']);
+        ->assertJson(['user' => ['role' => 'student']])
+        ->assertJsonStructure(['token', 'access_token', 'expires_at']);
 });
 
 test('login rejects invalid credentials', function () {
     makeAccount(['email' => 'admin@tmc.edu.ph']);
 
     $this->postJson('/api/auth/login', ['email' => 'admin@tmc.edu.ph', 'password' => 'wrong'])
-        ->assertStatus(422);
+        ->assertUnauthorized();
 });
 
 test('login rejects suspended accounts with a suspension message', function () {

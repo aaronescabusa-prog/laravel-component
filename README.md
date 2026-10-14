@@ -82,36 +82,53 @@ also require an active account.
 
 | Mobile feature | API endpoint | What the web backend currently does |
 | --- | --- | --- |
-| Create student account | `POST /auth/register` | Accepts `firstName`, `lastName`, `email`, `course`, `year`, `password`, and optional `role` (`Student` is the default). New accounts are `Pending` and need web-admin approval before login. The self-registration request does not accept `block_no`. |
-| Sign in / sign out | `POST /auth/login`; `POST /auth/logout` | Mobile user login returns `{user, token}`. The separate web-admin login uses `POST /auth/admin-login` and only accepts active Admin accounts. Suspended or not-yet-active accounts cannot sign in. Keep the mobile bearer token in secure storage and clear it after logout. |
-| Load student profile | `GET /auth/me` | Returns the signed-in account, including `course`, `year`, `block_no`, and derived `department` / `department_name`. Department is calculated from the account's course. There is no student profile-edit endpoint. |
+| Create student account | `POST /auth/register` | Accepts either `name` or `firstName` + `lastName`, plus `email`, `course`, `year`, `block_no`, and a password of at least 8 characters. Flutter's short course labels (such as `BSIT`, `BSCRIM`, `BSOA`, `BEED`, and `BSED`) are normalized to the canonical course names. New accounts are `Pending` and need web-admin approval before login. |
+| Sign in / sign out | `POST /auth/login`; `POST /auth/logout` | Mobile login returns `{user, token, access_token, expires_at}`. `token` remains as a compatibility alias; Flutter stores `access_token` and uses the UTC expiry. The returned mobile role is lowercase (`student` or `scanner`). Invalid credentials return `401`. The separate web-admin login uses `POST /auth/admin-login` and only accepts active Admin accounts. Suspended or not-yet-active accounts cannot sign in. Keep the mobile bearer token in secure storage and clear it after logout. |
+| Load or update student profile | `GET /auth/me`; `PUT /auth/profile` | Returns the signed-in account, including `student_id`, `course`, `year`, `block_no`, and derived `department` / `department_name`. Students may update their name, course, year, and block; email and role remain account-managed. Flutter course aliases are normalized on update as on registration. |
 | Load department, course, and year choices | `GET /events/courses` | Returns the web app's supported `courses`, `departments`, and `years` for authenticated users. Use these values instead of hard-coding a separate mobile list. |
-| Browse and view events | `GET /events`; `GET /events/{event_reference}` | A Student sees approved events. List responses are Laravel-paginated (`data`, `current_page`, `next_page_url`, etc.). The list supports `search`, `status`, and `target_role` query parameters. Event data includes capacity and audience target fields. |
-| Check department / course / year eligibility | No preview endpoint | `POST /registrations/self` enforces event status, role, department, course, year, duplicate registration, and capacity. It creates a registration when allowed and returns a `422` validation error with a reason when denied; do not call it as a read-only eligibility check. |
+| Browse and view events | `GET /events`; `GET /events/{event_reference}` | A Student sees approved events. List responses are Laravel-paginated (`data`, `current_page`, `next_page_url`, etc.). The list supports `search`, `status`, `category`, and `target_role`. Event data includes category, banner URL, capacity, audience target fields, `registration_deadline`, and `registration_open`. |
+| Check registration eligibility | `GET /events/{event_reference}/eligibility` | Returns `can_register`, a result code, and a reason without creating a registration. `POST /registrations/self` repeats the same checks when the student confirms, so eligibility cannot go stale into an invalid booking. |
 | Register for an event | `POST /registrations/self` with `{"event_reference":"EVT-..."}` | The server derives the student's identity and issues a registration reference and `qr_code` pass. The client must not submit its own participant, email, role, or QR value. A successful request returns the created registration (`201`). |
 | My events, pass, and attendance history | `GET /registrations`; optionally `GET /registrations/{registration_reference}` | Student results are scoped to the signed-in account and include registration/attendance data such as `attendance` and `qr_code`. This is the current source for upcoming event registrations and attendance history; there is no separate student attendance-history route. |
-| Cancel an event registration | Not available to Students by default | `DELETE /registrations/{registration_reference}` is not permitted by the default Student write-role policy. Do not expose cancellation in the mobile app until a dedicated, ownership-checked student cancellation flow is added. |
+| Cancel an event registration | `DELETE /registrations/{registration_reference}/cancel` | Students can cancel only their own registration before attendance begins and before the event date. Cancelled registrations no longer block a new registration. |
 | Add an event to calendar | `GET /registrations/{registration_reference}/calendar` | Returns an `.ics` calendar invite for that registration's event. Use an authenticated download request. |
 | Read announcements | `GET /announcements` | Student responses are limited to published announcements addressed to `Students` or `All Users`. Announcements are not currently filtered by department. |
-| Submit event evaluation | Not available as an API route | An `EvaluationController` exists, but `/evaluations` is not registered in `routes/api.php`. The mobile app cannot submit evaluations to this web backend yet. |
+| Submit event evaluation | `POST /evaluations/submit` with `event_reference`, `rating`, and optional `comment` | Student identity and event details are derived from the bearer token and the student's registration. A student can submit or revise one evaluation per registered event. Admins review responses in the web Evaluations page. |
 | View and download certificates | `GET /certificates`; `GET /certificates/{certificate_reference}`; `GET /certificates/{certificate_reference}/download` | Student list/detail/download access is restricted to certificates matching the authenticated student's email. The download returns a PDF; include the bearer token. |
-| Scanner's assigned events and QR attendance | `GET /scanner/events`; `GET /checkin/{event_token}`; `POST /checkin/{event_token}/scan` | Scanner accounts can view only assigned event rosters. A scan body uses `qr_code`, `session_id`, and `direction` (`in` or `out`). This is the staff/scanner workflow, not the Student event-pass lookup. |
+| Scanner dashboard, history, and QR attendance | `GET /scanner/events`; `GET /scanner/summary`; `GET /scanner/history`; `GET /checkin/{event_token}`; `POST /checkin/{event_token}/scan` | Scanner accounts can view assigned events, their recorded scan history and daily counts, and assigned event rosters. A scan body uses `qr_code`, `session_id`, and `direction` (`in` or `out`). This is the scanner workflow, not the Student event-pass lookup. |
+| Organizer event management and reports | `GET/POST /events`; `PUT/PATCH/DELETE /events/{event_reference}`; `GET /reports`; `GET /reports/summary`; `GET /events/{event_reference}/attendance`; `GET /registrations?event_reference=...` | Organizers see and manage only events linked to their account. New events start Pending; Admin or Staff approval controls publication. Attendance rosters and report totals are limited to the Organizer's own events. |
+
+#### Flutter connection configuration
+
+The Flutter repository currently enables the real API for login only. Build it
+against the HTTPS origin (without `/api`) and select the login mode with:
+
+```text
+--dart-define=EVENTEASE_USE_REAL_API=true
+--dart-define=EVENTEASE_API_BASE_URL=https://<web-host>
+```
+
+The default login path is `/api/auth/login`. The same origin must serve the
+Laravel API over HTTPS; local plain-HTTP URLs are rejected by the current
+Flutter `ApiConfig`. Native Flutter requests do not use browser CORS. If the
+Flutter web build is served from another origin, add that exact origin to
+`CORS_ALLOWED_ORIGINS` in the Laravel environment.
 
 #### Where to find the web implementation
 
 All routes are declared in `routes/api.php`; these controllers implement the
 mobile-facing behavior:
 
-- Authentication, registration, and profile read:
+- Authentication, registration, and profile read/update:
   `app/Http/Controllers/Api/AuthController.php`
-  (`login`, `register`, `logout`, `me`).
-- Event list, details, and academic choices:
+  (`login`, `register`, `logout`, `me`, `updateProfile`).
+- Event list, details, academic choices, and banner upload:
   `app/Http/Controllers/Api/EventController.php`
-  (`index`, `show`, `coursesIndex`); registration eligibility is checked by
+  (`index`, `show`, `store`, `update`, `eligibility`, `coursesIndex`, `uploadBanner`); registration eligibility is checked by
   `app/Services/EventEligibility.php`.
-- Student registrations, issued pass, attendance fields, and calendar:
+- Student and Organizer registrations, issued pass, attendance fields, and calendar:
   `app/Http/Controllers/Api/RegistrationController.php`
-  (`selfRegister`, `index`, `show`, `calendar`).
+  (`selfRegister`, `cancelStudent`, `index`, `show`, `calendar`).
 - Announcements:
   `app/Http/Controllers/Api/AnnouncementController.php` (`index`).
 - Certificates:
@@ -121,17 +138,15 @@ mobile-facing behavior:
   `app/Http/Controllers/Api/EventScannerController.php`
   (`assignedEvents`) and `app/Http/Controllers/Api/CheckInController.php`
   (`show`, `scan`).
-- Evaluation storage code exists at
-  `app/Http/Controllers/Api/EvaluationController.php`, but no evaluation
-  routes currently connect it to the mobile client.
+- Organizer event lists, attendance roster, and aggregate reports are scoped
+  through `events.organizer_user_id`; organizer-created events remain Pending
+  until approved by Admin or Staff.
+- Student event feedback is accepted by `POST /evaluations/submit`; the web
+  Evaluations page remains the admin review surface.
 
 The event list currently returns all approved events to Students; it does not
-accept a department query filter or provide a registration-eligibility preview.
-The backend still enforces audience rules when a student registers, but a
-mobile screen that needs to explain restrictions before registration will need
-a dedicated eligibility endpoint. Other mobile-overview features without a
-current API include student cancellation, evaluation submission, department-
-specific announcements, push notifications, waitlists, personalized
+accept a department query filter. Other mobile-overview features without a
+current API include department-specific announcements, push notifications, waitlists, personalized
 recommendations, and participation-statistics summaries. Treat offline
 viewing as a client-side cache feature; registration and attendance still need
 server confirmation.

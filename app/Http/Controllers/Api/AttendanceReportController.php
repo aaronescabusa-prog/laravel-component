@@ -7,6 +7,7 @@ use App\Models\AttendanceSession;
 use App\Models\Event;
 use App\Models\Attendance;
 use App\Models\Registration;
+use Illuminate\Http\Request;
 use App\Services\AttendanceRecorder;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
@@ -21,8 +22,13 @@ class AttendanceReportController extends Controller
     ) {
     }
 
-    public function index(Event $event)
+    public function index(Request $request, Event $event)
     {
+        if ($request->user()?->role === 'Organizer'
+            && (int) $event->organizer_user_id !== (int) $request->user()->getKey()) {
+            abort(404);
+        }
+
         $payload = $this->rosterPayload($event);
 
         return response()->json($payload);

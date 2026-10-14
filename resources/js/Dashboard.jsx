@@ -2,14 +2,22 @@ import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
 import "./Dashboard.css";
 import AppShell from "./components/AppShell";
+import KpiCard from "./components/KpiCard";
 import { api, mapEventFromApi, mapLogFromApi } from "./lib/api";
+import {
+    IconCalendar,
+    IconCheckSquare,
+    IconAward,
+    IconReport,
+} from "./components/Icons";
 
 const QUICK_ACTIONS = [
-    { to: "/events", label: "Create Event" },
-    { to: "/registrations", label: "Verify Registrations" },
-    { to: "/certificates", label: "Generate Certificate" },
-    { to: "/reports", label: "View Reports" },
+    { to: "/events", label: "Create Event", icon: IconCalendar },
+    { to: "/registrations", label: "Verify Registrations", icon: IconCheckSquare },
+    { to: "/certificates", label: "Generate Certificate", icon: IconAward },
+    { to: "/reports", label: "View Reports", icon: IconReport },
 ];
+
 
 function formatTime(ts) {
     const parts = ts.split(" ");
@@ -96,58 +104,58 @@ function Dashboard() {
     return (
         <AppShell title="Dashboard">
 
-            <div className="kpi-strip">
-                <div className="kpi-item">
-                    <span className="kpi-label">Total Registered Users</span>
-                    <span className="kpi-value">{totalUsers.toLocaleString()}</span>
-                    <span className="kpi-trend up">From the User Accounts list</span>
-                </div>
-                <div className="kpi-item">
-                    <span className="kpi-label">Active Events</span>
-                    <span className="kpi-value">{activeEvents}</span>
-                    <span className="kpi-trend up">from the Events list</span>
-                </div>
-                <div className="kpi-item kpi-alert">
-                    <span className="kpi-label">Pending Requests</span>
-                    <span className="kpi-value">{pendingRequests}</span>
-                    <span className="kpi-trend">Needs attention</span>
-                </div>
-                <div className="kpi-item">
-                    <span className="kpi-label">Certificates Issued</span>
-                    <span className="kpi-value">{issuedCerts}</span>
-                    <span className="kpi-trend up">from the Certificates list</span>
+        {/* KPI Strip - using KpiCard components */}
+        <div className="kpi-strip">
+          {[
+            { label: "Total Registered Users", value: totalUsers.toLocaleString(), trend: "up", trendLabel: "From the User Accounts list" },
+            { label: "Active Events", value: activeEvents, trend: "up", trendLabel: "from the Events list" },
+            { label: "Pending Requests", value: pendingRequests, trend: "", trendLabel: "Needs attention", alert: true },
+            { label: "Certificates Issued", value: issuedCerts, trend: "up", trendLabel: "from the Certificates list" },
+          ].map((kpi, idx) => (
+            <KpiCard
+              key={idx}
+              label={kpi.label}
+              value={kpi.value}
+              trend={kpi.trend}
+              trendLabel={kpi.trendLabel}
+              alert={kpi.alert}
+            />
+          ))}
+        </div>
+            <div className="dash-refresh-bar">
+                <span className="dash-refresh-stamp">
+                    Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}
+                </span>
+                <div className="dash-refresh-actions">
+                    <label className="dash-refresh-auto">
+                        <input
+                            type="checkbox"
+                            checked={autoRefresh}
+                            onChange={(e) => setAutoRefresh(e.target.checked)}
+                        />
+                        <span>Auto-refresh every 60s</span>
+                    </label>
+                    <button
+                        type="button"
+                        className="dash-refresh-btn"
+                        onClick={() => setRefreshToken((n) => n + 1)}
+                        disabled={refreshing}
+                        aria-label="Refresh dashboard data"
+                    >
+                        ⟳ {refreshing ? "Refreshing…" : "Refresh"}
+                    </button>
                 </div>
             </div>
-<div className="dash-refresh-bar">
-    <span className="dash-refresh-stamp">Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : '—'}</span>
-    <div className="dash-refresh-actions">
-        <label className="dash-refresh-auto">
-            <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-            />
-            <span>Auto-refresh every 60s</span>
-        </label>
-        <button
-            type="button"
-            className="dash-refresh-btn"
-            onClick={() => setRefreshToken((n) => n + 1)}
-            disabled={refreshing}
-            aria-label="Refresh dashboard data"
-        >
-            ⟳ {refreshing ? "Refreshing…" : "Refresh"}
-        </button>
-    </div>
-</div>
 
             <nav className="dash-actions">
                 {QUICK_ACTIONS.map((action) => (
                     <NavLink key={action.to} to={action.to} className="dash-action-link">
+                        {action.icon && <action.icon className="dash-action-icon" size={16} />}
                         {action.label}
                     </NavLink>
                 ))}
             </nav>
+
 
             <div className="dash-bento-grid">
 

@@ -16,6 +16,11 @@ class EventEligibility
      */
     public function check(Event $event, ?UserAccount $account): array
     {
+        $closedReason = $this->registrationClosedReason($event);
+        if ($closedReason !== null) {
+            return ['code' => 'registration_closed', 'reason' => $closedReason];
+        }
+
         $reason = $this->failureFor($event, $account);
 
         if ($reason !== null) {
@@ -27,7 +32,7 @@ class EventEligibility
         }
 
         if ($account) {
-            $alreadyRegistered = Registration::withTrashed()
+            $alreadyRegistered = Registration::query()
                 ->where(function ($query) use ($event) {
                     $query->where('event_id', $event->getKey())
                         ->orWhere(function ($legacy) use ($event) {
@@ -48,6 +53,10 @@ class EventEligibility
 
     public function failureFor(Event $event, ?UserAccount $account): ?string
     {
+        if (($reason = $this->registrationClosedReason($event)) !== null) {
+            return $reason;
+        }
+
         $isTargeted = filled($event->target_course)
             || filled($event->target_department)
             || filled($event->target_year)
@@ -78,6 +87,25 @@ class EventEligibility
 
         if (filled($event->target_year) && (string) $account->year !== (string) $event->target_year) {
             return 'This event is restricted to '.$event->target_year.'.';
+        }
+
+        return null;
+    }
+
+    private function registrationClosedReason(Event $event): ?string
+    {
+        if (! $event->registration_open) {
+            return 'Registration for this event is closed.';
+        }
+
+        $today = now()->toDateString();
+
+        if ($event->registration_deadline && $event->registration_deadline->format('Y-m-d') < $today) {
+            return 'The registration deadline has passed.';
+        }
+
+        if ($event->event_date && $event->event_date->format('Y-m-d') < $today) {
+            return 'Registration is closed because the event date has passed.';
         }
 
         return null;

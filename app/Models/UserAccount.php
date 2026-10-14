@@ -23,6 +23,7 @@ class UserAccount extends Model implements AuthenticatableContract
 
     protected $fillable = [
         'reference',
+        'student_id',
         'name',
         'email',
         'role',

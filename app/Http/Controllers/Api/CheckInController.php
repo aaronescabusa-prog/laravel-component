@@ -106,6 +106,7 @@ class CheckInController extends Controller
             $validated['direction'],
             $validated['at'] ? CarbonImmutable::parse($validated['at']) : null,
             $this->actor($request),
+            $request->user()->getKey(),
         );
 
         return response()->json([
@@ -155,6 +156,7 @@ class CheckInController extends Controller
             $validated['direction'],
             null,
             $this->actor($request),
+            $request->user()->getKey(),
         );
         $punch = $result['punched']->first();
 
@@ -209,7 +211,7 @@ class CheckInController extends Controller
         $marked = 0;
 
         foreach ($registrations as $registration) {
-            $this->recorder->mark($session, $registration, $validated['status'], $this->actor($request));
+            $this->recorder->mark($session, $registration, $validated['status'], $this->actor($request), $request->user()->getKey());
             $marked++;
         }
 

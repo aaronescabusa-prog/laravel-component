@@ -41,7 +41,6 @@ const STATUS_LABELS = {
 };
 
 const statusOf = (punch) => {
-    if (punch && punch.time_in && punch.time_out) return PRESENT;
     return punch?.status ?? NOT_RECORDED;
 };
 

@@ -36,6 +36,7 @@ const IMPORT_STATUSES = ["Active", "Pending", "Suspended"];
    imports without any header juggling. */
 const IMPORT_COLUMNS = {
     id: ["id", "reference"],
+    studentId: ["studentid", "studentnumber"],
     name: ["name", "fullname", "studentname"],
     email: ["email", "emailaddress"],
     role: ["role", "userrole"],
@@ -123,7 +124,7 @@ function Users() {
     const filteredRows = useMemo(() => {
         let rows = users.filter((row) => {
             const term = search.trim().toLowerCase();
-            const matchesSearch = !term || row.name.toLowerCase().includes(term) || row.email.toLowerCase().includes(term);
+            const matchesSearch = !term || row.name.toLowerCase().includes(term) || row.email.toLowerCase().includes(term) || String(row.studentId ?? "").toLowerCase().includes(term);
             const matchesRole = roleFilter === "all" || row.role.toLowerCase() === roleFilter;
             const matchesStatus = statusFilter === "all" || row.status.toLowerCase() === statusFilter;
             const matchesCourse = courseFilter === "all" || (row.course || "") === courseFilter;
@@ -180,8 +181,8 @@ function Users() {
 
     function exportCSV() {
         const rows = [
-            ["ID", "Name", "Email", "Role", "Course", "Block No.", "Year", "Status", "Date Registered"],
-            ...filteredRows.map((r) => [r.id, r.name, r.email, r.role, r.course || "", r.blockNo || "", r.year || "", r.status, r.date || ""]),
+            ["ID", "Student ID", "Name", "Email", "Role", "Course", "Block No.", "Year", "Status", "Date Registered"],
+            ...filteredRows.map((r) => [r.id, r.studentId || "", r.name, r.email, r.role, r.course || "", r.blockNo || "", r.year || "", r.status, r.date || ""]),
         ];
         downloadCSV(`users-${dateStamp()}.csv`, rows);
         showToast(`Exported ${filteredRows.length} account${filteredRows.length === 1 ? "" : "s"}.`);
@@ -190,8 +191,8 @@ function Users() {
     /** Same columns as exportCSV, narrowed to whatever is ticked. */
     function exportSelectedCSV() {
         const rows = [
-            ["ID", "Name", "Email", "Role", "Course", "Block No.", "Year", "Status", "Date Registered"],
-            ...selection.selectedRows.map((r) => [r.id, r.name, r.email, r.role, r.course || "", r.blockNo || "", r.year || "", r.status, r.date || ""]),
+            ["ID", "Student ID", "Name", "Email", "Role", "Course", "Block No.", "Year", "Status", "Date Registered"],
+            ...selection.selectedRows.map((r) => [r.id, r.studentId || "", r.name, r.email, r.role, r.course || "", r.blockNo || "", r.year || "", r.status, r.date || ""]),
         ];
         downloadCSV(`users-selected-${dateStamp()}.csv`, rows);
         showToast(`Exported ${selection.selectedRows.length} selected account${selection.selectedRows.length === 1 ? "" : "s"}.`);
@@ -216,8 +217,8 @@ function Users() {
 
     function downloadImportTemplate() {
         downloadCSV("users-template.csv", [
-            ["ID", "Name", "Email", "Role", "Course", "Block No.", "Year", "Status", "Date Registered", "Password"],
-            ["USR-2216", "Paolo Ramos", "paolo.ramos@tmc.edu.ph", "Student", "BS Information Technology", "B3", "3", "Pending", dateKey(), "secret1234"],
+            ["ID", "Student ID", "Name", "Email", "Role", "Course", "Block No.", "Year", "Status", "Date Registered", "Password"],
+            ["USR-2216", "2026-00123", "Paolo Ramos", "paolo.ramos@tmc.edu.ph", "Student", "BS Information Technology", "B3", "3", "Pending", dateKey(), "secret1234"],
         ]);
     }
 
@@ -338,6 +339,7 @@ function Users() {
                     line,
                     ...mapUserToApi({
                         id: reference,
+                        studentId: cell(row, "studentId"),
                         name,
                         email,
                         role,
@@ -473,6 +475,7 @@ function Users() {
     function openAdd() {
         setEditingUser({
             id: nextId(users, "USR", 2001),
+            studentId: "",
             name: "",
             role: "Student",
             email: "",
@@ -489,6 +492,11 @@ function Users() {
     async function saveUser() {
         if (!editingUser.name.trim() || !editingUser.email.trim()) {
             showToast("Name and email are required.", "danger");
+            return;
+        }
+
+        if (editingUser.role === "Student" && !String(editingUser.studentId ?? "").trim()) {
+            showToast("Student ID is required for student accounts.", "danger");
             return;
         }
 
@@ -592,7 +600,7 @@ function Users() {
                     <input
                         type="text"
                         className="input-search"
-                        placeholder="Search by name or email"
+                        placeholder="Search by name, email, or student ID"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         aria-label="Search users"
@@ -605,10 +613,9 @@ function Users() {
                         aria-label="Filter by role"
                     >
                         <option value="all">All roles</option>
-                        <option value="admin">Admin</option>
-                        <option value="staff">Staff</option>
-                        <option value="organizer">Organizer</option>
-                        <option value="student">Student</option>
+                        {USER_ROLES.filter((role) => ["Admin", "Scanner", "Student"].includes(role)).map((role) => (
+                            <option key={role} value={role.toLowerCase()}>{role}</option>
+                        ))}
                     </select>
 
                     <select
@@ -785,6 +792,7 @@ function Users() {
                                             <div className="user-cell-text">
                                                 <span className="user-cell-name">{row.name}</span>
                                                 <span className="user-cell-id">{row.id}</span>
+                                                {row.studentId && <span className="user-cell-id">Student ID: {row.studentId}</span>}
                                             </div>
                                         </div>
                                     </td>
@@ -871,6 +879,20 @@ function Users() {
                                     onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
                                 />
                             </div>
+                            {editingUser.role === "Student" && (
+                                <div className="form-group">
+                                    <label htmlFor="editStudentId">Student ID <span className="required">*</span></label>
+                                    <input
+                                        id="editStudentId"
+                                        type="text"
+                                        maxLength="50"
+                                        autoComplete="off"
+                                        placeholder="Enter the student’s school ID"
+                                        value={editingUser.studentId || ""}
+                                        onChange={(e) => setEditingUser({ ...editingUser, studentId: e.target.value })}
+                                    />
+                                </div>
+                            )}
                             <div className="form-row-split">
                                 <div className="form-group">
                                     <label htmlFor="editCourse">Course</label>
@@ -928,7 +950,11 @@ function Users() {
                                     <select
                                         id="editRole"
                                         value={editingUser.role}
-                                        onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                                        onChange={(e) => setEditingUser({
+                                            ...editingUser,
+                                            role: e.target.value,
+                                            studentId: e.target.value === "Student" ? editingUser.studentId : "",
+                                        })}
                                     >
                                         {user.role === "Admin" && <option>Admin</option>}
                                         <option>Scanner</option>
@@ -1022,7 +1048,7 @@ function Users() {
                                     }}
                                 />
                                 <p className="field-help">
-                                    Name and Email are required. ID, Role, Course, Block No., Year, Status,
+                                    Name and Email are required. ID, Student ID, Role, Course, Block No., Year, Status,
                                     Date Registered and Password are optional; anything the file leaves out
                                     falls back to the defaults on this page. Download the template for the
                                     exact layout.

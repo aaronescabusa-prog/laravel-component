@@ -36,6 +36,7 @@ class AttendanceRecorder
         Registration $registration,
         ?CarbonImmutable $at = null,
         ?string $actor = null,
+        ?int $actorUserId = null,
     ): Attendance {
         $this->guardSession($session);
         $at ??= CarbonImmutable::now();
@@ -58,6 +59,7 @@ class AttendanceRecorder
                 : ($this->isLate($session, $at) ? Attendance::LATE : Attendance::PRESENT),
             'recorded_at' => $at,
             'recorded_by' => $actor,
+            'recorded_by_user_id' => $actorUserId,
         ])->save();
 
         $this->syncRollup($registration);
@@ -73,6 +75,7 @@ class AttendanceRecorder
         Registration $registration,
         ?CarbonImmutable $at = null,
         ?string $actor = null,
+        ?int $actorUserId = null,
     ): Attendance {
         $this->guardSession($session);
         $at ??= CarbonImmutable::now();
@@ -104,6 +107,7 @@ class AttendanceRecorder
                 : ($attendance->status === Attendance::LATE ? Attendance::LATE : Attendance::PRESENT),
             'recorded_at' => $at,
             'recorded_by' => $actor,
+            'recorded_by_user_id' => $actorUserId,
         ])->save();
 
         $this->syncRollup($registration);
@@ -127,6 +131,7 @@ class AttendanceRecorder
         string $direction,
         ?CarbonImmutable $at = null,
         ?string $actor = null,
+        ?int $actorUserId = null,
     ): array {
         $this->guardSession($session);
         $at ??= CarbonImmutable::now();
@@ -134,12 +139,12 @@ class AttendanceRecorder
         $punched = new Collection;
         $skipped = [];
 
-        DB::transaction(function () use ($session, $registrations, $direction, $at, $actor, $punched, &$skipped) {
+        DB::transaction(function () use ($session, $registrations, $direction, $at, $actor, $actorUserId, $punched, &$skipped) {
             foreach ($registrations as $registration) {
                 try {
                     $punched->push($direction === 'out'
-                        ? $this->punchOut($session, $registration, $at, $actor)
-                        : $this->punchIn($session, $registration, $at, $actor));
+                        ? $this->punchOut($session, $registration, $at, $actor, $actorUserId)
+                        : $this->punchIn($session, $registration, $at, $actor, $actorUserId));
                 } catch (ValidationException $e) {
                     $skipped[$registration->reference] = collect($e->errors())->flatten()->first();
                 }
@@ -162,6 +167,7 @@ class AttendanceRecorder
         Registration $registration,
         string $status,
         ?string $actor = null,
+        ?int $actorUserId = null,
     ): Attendance {
         $this->guardSession($session);
 
@@ -179,6 +185,7 @@ class AttendanceRecorder
             'time_out' => null,
             'recorded_at' => CarbonImmutable::now(),
             'recorded_by' => $actor,
+            'recorded_by_user_id' => $actorUserId,
         ])->save();
 
         $this->syncRollup($registration);
