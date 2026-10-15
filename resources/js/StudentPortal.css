@@ -58,3 +58,30 @@
 .student-evaluation-modal p { color: var(--ui-text-muted); font-size: 13px; line-height: 1.5; }
 .student-modal-close { position: absolute; top: 13px; right: 15px; color: var(--ui-text-muted); }
 @media (max-width: 700px) { .student-welcome { align-items: flex-start; flex-direction: column; padding: 23px; } .student-stat-grid { grid-template-columns: 1fr; } .student-registration { flex-direction: column; } .student-pass { width: 100%; } }
+
+.student-event-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 240px); gap: 12px; }
+.student-event-filters input, .student-event-filters select { width: 100%; min-height: 44px; padding: 10px 13px; border: 1px solid var(--ui-border-strong); border-radius: 10px; color: var(--ui-text); background: #fff; font: inherit; }
+.student-event-filters input:focus, .student-event-filters select:focus { outline: 3px solid rgb(29 78 216 / 14%); border-color: var(--ui-primary); }
+.student-event-content { min-height: 235px; }
+.student-event-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: auto; padding-top: 5px; }
+.student-event-actions button { min-height: 40px; }
+.student-event-card { display: flex; flex-direction: column; }
+.student-event-detail-modal { position: relative; overflow: auto; width: min(100%, 680px); max-height: min(90vh, 780px); border-radius: 16px; background: #fff; box-shadow: 0 20px 60px rgb(4 20 43 / 22%); }
+.student-detail-banner { display: block; width: 100%; height: 230px; object-fit: cover; background: var(--ui-primary-soft); }
+.student-detail-content { display: grid; gap: 14px; padding: 25px; }
+.student-detail-content h2, .student-detail-content p { margin: 0; }
+.student-detail-content h2 { padding-right: 32px; color: var(--ui-navy-900); font-size: 24px; }
+.student-detail-content > p { color: var(--ui-text-muted); line-height: 1.65; white-space: pre-line; }
+.student-detail-content .student-detail-deadline { color: var(--ui-accent); font-size: 13px; font-weight: 700; }
+.student-detail-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; padding-top: 5px; }
+.student-detail-actions button { min-height: 42px; }
+@media (max-width: 700px) {
+    .student-event-filters { grid-template-columns: 1fr; }
+    .student-event-content { min-height: 0; }
+    .student-event-actions { display: grid; grid-template-columns: 1fr; }
+    .student-event-actions button { width: 100%; }
+    .student-detail-banner { height: 180px; }
+    .student-detail-content { padding: 21px; }
+    .student-detail-actions { display: grid; grid-template-columns: 1fr; }
+    .student-detail-actions button { width: 100%; }
+}

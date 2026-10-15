@@ -31,7 +31,7 @@ function RequireAuth({ children }) {
 
     const allowedRoles = rolesForPath(location.pathname);
     if (allowedRoles && !allowedRoles.includes(user.role)) {
-        const home = user.role === "Student" ? "/dashboard" : user.role === "Scanner" ? "/check-in" : "/dashboard";
+        const home = user.role === "Student" ? "/dashboard" : user.role === "Scanner" ? "/attendance" : "/dashboard";
         return <Navigate to={home} replace />;
     }
 

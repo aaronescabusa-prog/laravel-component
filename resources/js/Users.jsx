@@ -479,10 +479,10 @@ function Users() {
             name: "",
             role: "Student",
             email: "",
-            course: "BS Information Technology",
+            course: "",
             blockNo: "",
-            year: "1",
-            status: "Pending",
+            year: "1st Year",
+            status: "Active",
             date: dateKey(),
             password: "",
         });
@@ -593,10 +593,13 @@ function Users() {
             <section className="panel">
                 <div className="panel-header">
                     <h2>All Accounts</h2>
-                    <button className="btn btn-primary" onClick={openAdd}>+ Add User</button>
+                    {user.role === "Admin" && (
+                        <button className="btn btn-primary" onClick={openAdd}>+ Add User</button>
+                    )}
                 </div>
 
                 <div className="toolbar">
+                    <div className="users-toolbar-actions">
                     <input
                         type="text"
                         className="input-search"
@@ -605,6 +608,30 @@ function Users() {
                         onChange={(e) => setSearch(e.target.value)}
                         aria-label="Search users"
                     />
+
+                    {/* Bulk import creates accounts in bulk with a password the
+                        importer chooses, so it is an administrator action only.
+                        Export stays available to every role: it reveals nothing
+                        beyond the listing already on screen, and carries no
+                        password column. */}
+                    {user.role === "Admin" && (
+                        <button className="btn btn-secondary" onClick={openImport}>Import CSV</button>
+                    )}
+                    <button className="btn btn-secondary" onClick={exportCSV}>Export CSV</button>
+                    </div>
+
+                    <div className="users-toolbar-filters">
+                    <select
+                        className="input-select"
+                        value={yearFilter}
+                        onChange={(e) => setYearFilter(e.target.value)}
+                        aria-label="Filter by year"
+                    >
+                        <option value="all">All years</option>
+                        {YEARS.map((year) => (
+                            <option key={year} value={year}>{year}</option>
+                        ))}
+                    </select>
 
                     <select
                         className="input-select"
@@ -667,28 +694,7 @@ function Users() {
                             <option key={block} value={block.toLowerCase()}>{block}</option>
                         ))}
                     </select>
-
-                    <select
-                        className="input-select"
-                        value={yearFilter}
-                        onChange={(e) => setYearFilter(e.target.value)}
-                        aria-label="Filter by year"
-                    >
-                        <option value="all">All years</option>
-                        {YEARS.map((year) => (
-                            <option key={year} value={year}>{year}</option>
-                        ))}
-                    </select>
-
-                    {/* Bulk import creates accounts in bulk with a password the
-                        importer chooses, so it is an administrator action only.
-                        Export stays available to every role: it reveals nothing
-                        beyond the listing already on screen, and carries no
-                        password column. */}
-                    {user.role === "Admin" && (
-                        <button className="btn btn-secondary btn-toolbar" onClick={openImport}>Import CSV</button>
-                    )}
-                    <button className="btn btn-secondary" onClick={exportCSV}>Export CSV</button>
+                    </div>
                 </div>
 
                 {selection.selectedCount > 0 && (
@@ -860,39 +866,63 @@ function Users() {
                             <h3>{isNewUser ? "Add User" : "Edit User"}</h3>
                             <button className="modal-close" onClick={() => setEditingUser(null)} aria-label="Close">×</button>
                         </div>
-                        <div className="modal-body">
+                        <form
+                            id="user-account-form"
+                            className="modal-body"
+                            onSubmit={(event) => { event.preventDefault(); saveUser(); }}
+                        >
                             <div className="form-group">
-                                <label htmlFor="editName">Full name</label>
+                                <label htmlFor="editName">Full name <span className="required"></span></label>
                                 <input
                                     id="editName"
                                     type="text"
+                                    required
                                     value={editingUser.name}
                                     onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
                                 />
                             </div>
                             <div className="form-group">
-                                <label htmlFor="editEmail">Email</label>
+                                <label htmlFor="editEmail">Email <span className="required"></span></label>
                                 <input
                                     id="editEmail"
                                     type="email"
+                                    required
                                     value={editingUser.email}
                                     onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
                                 />
                             </div>
                             {editingUser.role === "Student" && (
                                 <div className="form-group">
-                                    <label htmlFor="editStudentId">Student ID <span className="required">*</span></label>
+                                    <label htmlFor="editStudentId">Student ID <span className="required"></span></label>
                                     <input
                                         id="editStudentId"
                                         type="text"
+                                        required
                                         maxLength="50"
                                         autoComplete="off"
-                                        placeholder="Enter the student’s school ID"
+                                        placeholder=""
                                         value={editingUser.studentId || ""}
                                         onChange={(e) => setEditingUser({ ...editingUser, studentId: e.target.value })}
                                     />
                                 </div>
                             )}
+                            <div className="form-group">
+                                <label htmlFor="editDepartment">Department</label>
+                                <select
+                                    id="editDepartment"
+                                    value={departmentForCourse(editingUser.course)?.name || ""}
+                                    onChange={(e) => {
+                                        const department = departments.find((item) => item.name === e.target.value);
+                                        setEditingUser({ ...editingUser, course: department?.courses?.[0] || "" });
+                                    }}
+                                    className={departmentForCourse(editingUser.course) ? "has-value" : ""}
+                                >
+                                    <option value="">Select your department...</option>
+                                    {departments.map((department) => (
+                                        <option key={department.code} value={department.name}>{department.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                             <div className="form-row-split">
                                 <div className="form-group">
                                     <label htmlFor="editCourse">Course</label>
@@ -900,15 +930,12 @@ function Users() {
                                         id="editCourse"
                                         value={editingUser.course || ""}
                                         onChange={(e) => setEditingUser({ ...editingUser, course: e.target.value })}
+                                        className={editingUser.course ? "has-value" : ""}
+                                        disabled={!departmentForCourse(editingUser.course)}
                                     >
-                                        <option value="">Select course...</option>
-                                        {COURSES.map((c) => <option key={c} value={c}>{c}</option>)}
+                                        <option value="">Select your course...</option>
+                                        {(departmentForCourse(editingUser.course)?.courses || []).map((c) => <option key={c} value={c}>{c}</option>)}
                                     </select>
-                                    <span className="field-help">
-                                        Department: {departmentForCourse(editingUser.course)
-                                            ? `${departmentForCourse(editingUser.course).code} — ${departmentForCourse(editingUser.course).name}`
-                                            : "Select a supported program"}
-                                    </span>
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="editYear">Year</label>
@@ -934,12 +961,14 @@ function Users() {
                             </div>
                             <div className="form-group">
                                 <label htmlFor="editPassword">
-                                    {isNewUser ? "Password" : "Reset password (leave blank to keep current)"}
+                                    {isNewUser ? <>Password <span className="required"></span> <span className="field-help">(at least 8 characters)</span></> : "Reset password (leave blank to keep current)"}
                                 </label>
                                 <input
                                     id="editPassword"
                                     type="password"
                                     autoComplete="new-password"
+                                    required={isNewUser}
+                                    minLength={isNewUser || editingUser.password ? 8 : undefined}
                                     value={editingUser.password}
                                     onChange={(e) => setEditingUser({ ...editingUser, password: e.target.value })}
                                 />
@@ -958,8 +987,6 @@ function Users() {
                                     >
                                         {user.role === "Admin" && <option>Admin</option>}
                                         <option>Scanner</option>
-                                        <option>Staff</option>
-                                        <option>Organizer</option>
                                         <option>Student</option>
                                     </select>
                                 </div>
@@ -978,10 +1005,10 @@ function Users() {
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </form>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setEditingUser(null)}>Cancel</button>
-                <button className="btn btn-primary" onClick={saveUser} disabled={savingUser}>
+                            <button type="button" className="btn btn-secondary" onClick={() => setEditingUser(null)}>Cancel</button>
+                <button type="submit" form="user-account-form" className="btn btn-primary" disabled={savingUser}>
                     {savingUser ? "Saving…" : isNewUser ? "Add User" : "Save Changes"}
                 </button>
                         </div>
@@ -1009,9 +1036,12 @@ function Users() {
 
             {importOpen && user.role === "Admin" && (
                 <div className="modal-overlay" onClick={() => !importBusy && setImportOpen(false)}>
-                    <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+                    <div className="modal-card import-modal-card" role="dialog" aria-modal="true" aria-labelledby="import-users-title" onClick={(event) => event.stopPropagation()}>
                         <div className="modal-header">
-                            <h3>Import Users from CSV</h3>
+                            <div className="import-modal-heading">
+                                <span className="import-modal-kicker">USER ACCOUNTS</span>
+                                <h3 id="import-users-title">Import users from CSV</h3>
+                            </div>
                             <button
                                 className="modal-close"
                                 onClick={() => setImportOpen(false)}
@@ -1023,7 +1053,7 @@ function Users() {
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
-                                <label>CSV file</label>
+                                <label htmlFor="importCsvFile">CSV file</label>
                                 <div className="import-file-row">
                                     <button
                                         type="button"
@@ -1031,13 +1061,14 @@ function Users() {
                                         onClick={() => importInputRef.current?.click()}
                                         disabled={importBusy}
                                     >
-                                        Choose file
+                                        Choose CSV file
                                     </button>
-                                    <span className="import-filename">
+                                    <span className={`import-filename${importFile ? " has-file" : ""}`} aria-live="polite">
                                         {importFile ? importFile.name : "No file chosen"}
                                     </span>
                                 </div>
                                 <input
+                                    id="importCsvFile"
                                     ref={importInputRef}
                                     type="file"
                                     accept=".csv,text/csv"
@@ -1047,7 +1078,7 @@ function Users() {
                                         setImportReport(null);
                                     }}
                                 />
-                                <p className="field-help">
+                                <p className="field-help import-help">
                                     Name and Email are required. ID, Student ID, Role, Course, Block No., Year, Status,
                                     Date Registered and Password are optional; anything the file leaves out
                                     falls back to the defaults on this page. Download the template for the
@@ -1056,17 +1087,17 @@ function Users() {
                             </div>
 
                             <div className="form-group">
-                                <label htmlFor="importPassword">Default password</label>
+                                <label htmlFor="importPassword">Default password <span className="import-label-note">(for rows without a Password column)</span></label>
                                 <input
                                     id="importPassword"
                                     type="text"
                                     autoComplete="off"
-                                    placeholder="Used for rows with no Password column"
+                                    placeholder="Enter a default password"
                                     value={importPassword}
                                     onChange={(event) => setImportPassword(event.target.value)}
                                     disabled={importBusy}
                                 />
-                                <p className="field-help">
+                                <p className="field-help import-help">
                                     At least {IMPORT_PASSWORD_MIN} characters. Imported accounts are created
                                     as Pending unless the file says otherwise, so nobody can sign in until an
                                     administrator activates them.

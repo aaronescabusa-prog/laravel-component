@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import "./CheckIn.css";
 import logo from "./assets/Tmc_Logo.png";
 import Toast from "./components/Toast";
-import QrCode from "./components/QrCode";
 import ConfirmDialog from "./components/ConfirmDialog";
 import { useToast } from "./lib/useToast";
 import { api, checkinApi, mapEventFromApi } from "./lib/api";
@@ -56,25 +55,6 @@ function clockOf(stamp) {
 }
 
 /**
- * The canonical address a QR code should carry.
- *
- * Derived from the address bar rather than a bare origin + "/check-in", because
- * the app is served from a sub-folder under XAMPP and a hard-coded path would
- * produce a QR that dead-ends. Encoding the bare token instead - as this once
- * did - produces a QR that scans to a meaningless string rather than a page.
- */
-function checkInUrl(token) {
-    const { origin, pathname } = window.location;
-    // Everything before "/check-in" is where the app is mounted. Taking that as
-    // the base rather than assuming the site root keeps the QR correct under
-    // XAMPP, and falling back to an empty base means a path that is not the
-    // check-in desk at all still yields a valid URL instead of a doubled one.
-    const at = pathname.indexOf("/check-in");
-    const base = at > 0 ? pathname.slice(0, at) : "";
-    return `${origin}${base}/check-in/${token}`;
-}
-
-/**
  * Pick which punch a row still needs for the session on screen.
  *
  * Returns "out" once someone is in, so a single button walks them through the
@@ -86,7 +66,9 @@ function nextAction(sessionState) {
     return null;
 }
 
-function Shell({ children, title, subtitle, navOpen, setNavOpen, user, handleLogout }) {
+function Shell({ children, title, subtitle, navOpen, setNavOpen, user, handleLogout, embedded = false }) {
+    if (embedded) return children;
+
     const closeNav = () => setNavOpen(false);
     const navItems = visibleNavItems(user?.role);
 
@@ -106,7 +88,6 @@ function Shell({ children, title, subtitle, navOpen, setNavOpen, user, handleLog
                         <NavLink
                             key={item.to}
                             to={item.to}
-                            end={item.to === "/check-in"}
                             className={({ isActive }) => (isActive ? "regs-sidebar-link active" : "regs-sidebar-link")}
                             onClick={closeNav}
                         >
@@ -169,10 +150,10 @@ function Shell({ children, title, subtitle, navOpen, setNavOpen, user, handleLog
 /* ------------------------------------------------------------ event picker */
 
 /**
- * Shown at /check-in with no token: choose an event, then hand over to its QR
- * target so the same screen a scanner reaches is the one staff drive.
+ * Shown at /attendance with no event token: choose an event and open its
+ * check-in desk.
  */
-function EventPicker({ user, handleLogout, navOpen, setNavOpen, showToast }) {
+function EventPicker({ user, handleLogout, navOpen, setNavOpen, showToast, embedded = false }) {
     const navigate = useNavigate();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -240,7 +221,7 @@ function EventPicker({ user, handleLogout, navOpen, setNavOpen, showToast }) {
                 ? event.checkinToken
                 : (await checkinApi.poster(event.id)).token;
             if (!token) throw new Error("This assigned event has no check-in token. Contact an administrator.");
-            navigate(`/check-in/${token}`);
+            navigate(`/attendance/check-in/${token}?event=${encodeURIComponent(event.id)}`);
         } catch (err) {
             showToast(err.message, "danger");
         } finally {
@@ -249,7 +230,7 @@ function EventPicker({ user, handleLogout, navOpen, setNavOpen, showToast }) {
     }
 
     return (
-        <Shell title="Check-In" subtitle="Pick an event to open its check-in desk." user={user} handleLogout={handleLogout} navOpen={navOpen} setNavOpen={setNavOpen}>
+        <Shell title="Check-In" subtitle="Pick an event to open its check-in desk." user={user} handleLogout={handleLogout} navOpen={navOpen} setNavOpen={setNavOpen} embedded={embedded}>
             <section className="regs-panel">
                 <div className="regs-panel-header">
                     <h2>Events</h2>
@@ -342,23 +323,28 @@ function EventPicker({ user, handleLogout, navOpen, setNavOpen, showToast }) {
 
 /* ------------------------------------------------------------- check-in desk */
 
-function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast }) {
+function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast, embedded = false }) {
+    const navigate = useNavigate();
     const canManageSessions = user.role === "Admin";
-    const [poster, setPoster] = useState(null);
+    const [eventInfo, setEventInfo] = useState(null);
     const [roster, setRoster] = useState(null);
     const [sessions, setSessions] = useState([]);
     const [counts, setCounts] = useState({ registered: 0, fully_recorded: 0 });
     const [activeSessionId, setActiveSessionId] = useState(null);
+    const [viewingAllSessions, setViewingAllSessions] = useState(false);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
     const [busy, setBusy] = useState(false);
 
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [departmentFilter, setDepartmentFilter] = useState("all");
+    const [courseFilter, setCourseFilter] = useState("all");
+    const [yearFilter, setYearFilter] = useState("all");
+    const [blockFilter, setBlockFilter] = useState("all");
     const [rosterSortKey, setRosterSortKey] = useState("participant");
     const [rosterSortDir, setRosterSortDir] = useState("asc");
     const [selected, setSelected] = useState(() => new Set());
-    const [showPoster, setShowPoster] = useState(false);
     const [editingWindow, setEditingWindow] = useState(false);
     const [windowDraft, setWindowDraft] = useState({ time_in: "", time_out: "", grace_minutes: "" });
     const [pendingClose, setPendingClose] = useState(null);
@@ -379,7 +365,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
             setRoster(data.roster ?? []);
             setSessions(data.sessions ?? []);
             setCounts(data.counts ?? { registered: 0, fully_recorded: 0 });
-            setPoster((prev) => prev ?? data.event);
+            setEventInfo((prev) => prev ?? data.event);
             setActiveSessionId((prev) => {
                 if (prev && (data.sessions ?? []).some((s) => s.id === prev)) return prev;
                 return (data.sessions ?? [])[0]?.id ?? null;
@@ -408,19 +394,54 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
 
     const rows = roster ?? [];
 
+    const academicOptions = useMemo(() => {
+        const unique = (values) => [...new Set(values.filter(Boolean))].sort((a, b) =>
+            String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" })
+        );
+        const departmentRows = rows.filter((row) => departmentFilter === "all" || row.department === departmentFilter);
+        const courseRows = departmentRows.filter((row) => courseFilter === "all" || row.course === courseFilter);
+        const yearRows = courseRows.filter((row) => yearFilter === "all" || row.year === yearFilter);
+        return {
+            departments: unique(rows.map((row) => row.department)).map((code) => ({
+                code,
+                name: rows.find((row) => row.department === code)?.department_name || code,
+            })),
+            courses: unique(departmentRows.map((row) => row.course)),
+            years: unique(courseRows.map((row) => row.year)),
+            blocks: unique(yearRows.map((row) => row.block_no)),
+        };
+    }, [rows, departmentFilter, courseFilter, yearFilter]);
+
     const filtered = useMemo(() => {
         const term = search.trim().toLowerCase();
         const matched = rows.filter((row) => {
             const matchesTerm = !term
                 || row.participant.toLowerCase().includes(term)
-                || String(row.reference).toLowerCase().includes(term);
+                || String(row.reference).toLowerCase().includes(term)
+                || String(row.department_name ?? row.department ?? "").toLowerCase().includes(term)
+                || String(row.course ?? "").toLowerCase().includes(term)
+                || String(row.year ?? "").toLowerCase().includes(term)
+                || String(row.block_no ?? "").toLowerCase().includes(term);
             if (!matchesTerm) return false;
+            if (departmentFilter !== "all" && row.department !== departmentFilter) return false;
+            if (courseFilter !== "all" && row.course !== courseFilter) return false;
+            if (yearFilter !== "all" && row.year !== yearFilter) return false;
+            if (blockFilter !== "all" && row.block_no !== blockFilter) return false;
             if (statusFilter === "all") return true;
 
             const state = activeSession ? row.sessions?.[String(activeSession.id)] : null;
             if (statusFilter === "complete") return row.sessions_complete === row.sessions_total;
-            if (statusFilter === "unrecorded") return !state?.time_in && !state?.time_out;
-            return state?.status === statusFilter;
+            if (statusFilter === "unrecorded") {
+                return viewingAllSessions
+                    ? !sessions.some((session) => {
+                        const sessionState = row.sessions?.[String(session.id)];
+                        return sessionState?.time_in || sessionState?.time_out;
+                    })
+                    : !state?.time_in && !state?.time_out;
+            }
+            return viewingAllSessions
+                ? sessions.some((session) => row.sessions?.[String(session.id)]?.status === statusFilter)
+                : state?.status === statusFilter;
         });
 
         const stateOf = (row) => activeSession ? row.sessions?.[String(activeSession.id)] : null;
@@ -441,11 +462,26 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
             return a.participant.toLowerCase() < b.participant.toLowerCase() ? -1 : 1;
         });
         return matched;
-    }, [rows, search, statusFilter, activeSession, rosterSortKey, rosterSortDir]);
+    }, [rows, sessions, search, statusFilter, departmentFilter, courseFilter, yearFilter, blockFilter, activeSession, viewingAllSessions, rosterSortKey, rosterSortDir]);
 
     const rosterPager = usePagination(filtered, {
-        resetKey: [search, statusFilter, activeSessionId, rosterSortKey, rosterSortDir].join("|"),
+        resetKey: [search, statusFilter, departmentFilter, courseFilter, yearFilter, blockFilter, activeSessionId, viewingAllSessions, rosterSortKey, rosterSortDir].join("|"),
     });
+
+    const hasActiveFilters = Boolean(
+        search || statusFilter !== "all" || departmentFilter !== "all"
+        || courseFilter !== "all" || yearFilter !== "all" || blockFilter !== "all"
+    );
+
+    function clearRosterFilters() {
+        setSearch("");
+        setStatusFilter("all");
+        setDepartmentFilter("all");
+        setCourseFilter("all");
+        setYearFilter("all");
+        setBlockFilter("all");
+        setSelected(new Set());
+    }
 
     function toggleRosterSort(key) {
         if (rosterSortKey === key) {
@@ -457,26 +493,33 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
     }
 
     function exportRosterCSV() {
-        const sessionLabel = activeSession?.label ?? "All sessions";
+        const sessionColumns = sessions.flatMap((session) => [
+            `${session.label} in (${session.session_date ?? ""})`,
+            `${session.label} out (${session.session_date ?? ""})`,
+            `${session.label} status`,
+        ]);
         const rows = [
-            ["Reference", "Participant", "Email", "Role", "Block No.", `In (${sessionLabel})`, `Out (${sessionLabel})`, "Status", "Sessions complete", "Sessions total"],
+            ["Reference", "Participant", "Email", "Role", "Department", "Course", "Year", "Block", ...sessionColumns, "Sessions complete", "Sessions total"],
             ...filtered.map((row) => {
-                const state = activeSession ? row.sessions?.[String(activeSession.id)] : null;
                 return [
                     row.reference,
                     row.participant,
                     row.email ?? "",
                     row.role ?? "",
+                    row.department_name ?? row.department ?? "",
+                    row.course ?? "",
+                    row.year ?? "",
                     row.block_no ?? "",
-                    state?.time_in ?? "",
-                    state?.time_out ?? "",
-                    state?.status ?? "Not Yet Recorded",
+                    ...sessions.flatMap((session) => {
+                        const state = row.sessions?.[String(session.id)];
+                        return [state?.time_in ?? "", state?.time_out ?? "", state?.status ?? "Not Yet Recorded"];
+                    }),
                     row.sessions_complete ?? 0,
                     row.sessions_total ?? 0,
                 ];
             }),
         ];
-        const stamp = `${(poster?.title ?? "roster").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "roster"}-${dateStamp()}`;
+        const stamp = `${(eventInfo?.title ?? "roster").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "roster"}-${dateStamp()}`;
         downloadCSV(`${stamp}.csv`, rows);
         showToast(`Exported ${filtered.length} participant${filtered.length === 1 ? "" : "s"}.`);
     }
@@ -491,6 +534,8 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
         };
     }, [rows, activeSession]);
 
+    const filteredIds = new Set(filtered.map((row) => row.registration_id));
+    const selectedIds = [...selected].filter((id) => filteredIds.has(id));
     const visibleIds = rosterPager.pageRows.map((row) => row.registration_id);
     const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
 
@@ -641,7 +686,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
     function startAddSession() {
         setSessionDraft({
             label: "",
-            session_date: poster?.event_date ?? "",
+            session_date: eventInfo?.event_date ?? "",
             time_in: "",
             time_out: "",
             grace_minutes: "15",
@@ -699,12 +744,12 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
 
     if (loadError) {
         return (
-            <Shell title="Check-In" user={user} handleLogout={handleLogout} navOpen={navOpen} setNavOpen={setNavOpen}>
+            <Shell title="Check-In" user={user} handleLogout={handleLogout} navOpen={navOpen} setNavOpen={setNavOpen} embedded={embedded}>
                 <section className="regs-panel">
                     <div className="regs-panel-header"><h2>Cannot open this check-in</h2></div>
                     <p className="checkin-empty">{loadError}</p>
                     <p className="checkin-empty">
-                        The QR code may belong to an event that no longer exists. Open
+                        This check-in link may belong to an event that no longer exists. Open
                         check-in from the Events page to pick another.
                     </p>
                 </section>
@@ -712,17 +757,15 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
         );
     }
 
-    const selectedIds = [...selected];
-    const posterUrl = checkInUrl(token);
-
     return (
         <Shell
             title="Check-In"
-            subtitle={poster ? `${poster.title} · ${poster.event_date ?? "no date"}` : "Loading event…"}
+            subtitle={eventInfo ? `${eventInfo.title} · ${eventInfo.event_date ?? "no date"}` : "Loading event…"}
             user={user}
             handleLogout={handleLogout}
             navOpen={navOpen}
             setNavOpen={setNavOpen}
+            embedded={embedded}
         >
             <div className="regs-kpi-strip">
                 <div className="regs-kpi-item">
@@ -745,22 +788,24 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
 
             <section className="regs-panel">
                 <div className="regs-panel-header">
-                    <h2>{poster?.title ?? "Roster"}</h2>
+                    <h2>{eventInfo?.title ?? "Roster"}</h2>
                     <div className="regs-panel-actions">
+                        <button
+                            type="button"
+                            className="regs-btn regs-btn-secondary"
+                            onClick={() => navigate("/attendance")}
+                        >
+                            Choose another event
+                        </button>
                         {canManageSessions && sessions.length > 0 && !addingSession && (
                             <button
                                 type="button"
                                 className="regs-btn regs-btn-secondary"
-                                disabled={busy || !poster?.event_date}
-                                title={poster?.event_date ? undefined : "Give the event a date first"}
+                                disabled={busy || !eventInfo?.event_date}
+                                title={eventInfo?.event_date ? undefined : "Give the event a date first"}
                                 onClick={startAddSession}
                             >
                                 Add session
-                            </button>
-                        )}
-                        {canManageSessions && (
-                            <button type="button" className="regs-btn regs-btn-secondary" onClick={() => setShowPoster(true)}>
-                                QR poster
                             </button>
                         )}
                         <button type="button" className="regs-btn regs-btn-secondary" onClick={() => void load()}>
@@ -826,7 +871,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                 {sessions.length === 0 ? (
                     <div className="checkin-empty-panel">
                         <p>This event has no check-in windows yet, so there is nothing to record against.</p>
-                        {canManageSessions && poster?.event_date ? (
+                        {canManageSessions && eventInfo?.event_date ? (
                             <button
                                 type="button"
                                 className="regs-btn regs-btn-primary"
@@ -848,6 +893,21 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                     <>
 
                 <div className="checkin-session-tabs" role="tablist" aria-label="Sessions">
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={viewingAllSessions}
+                        className={`checkin-session-tab${viewingAllSessions ? " active" : ""}`}
+                        onClick={() => {
+                            setViewingAllSessions(true);
+                            setRosterSortKey("sessions");
+                            setRosterSortDir("desc");
+                            setSelected(new Set());
+                        }}
+                    >
+                        <span className="checkin-session-label">All sessions</span>
+                        <span className="checkin-session-window">Full attendance report</span>
+                    </button>
                     {sessions.map((session) => (
                         <button
                             key={session.id}
@@ -855,7 +915,13 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                             role="tab"
                             aria-selected={session.id === activeSessionId}
                             className={`checkin-session-tab${session.id === activeSessionId ? " active" : ""}`}
-                            onClick={() => { setActiveSessionId(session.id); setSelected(new Set()); }}
+                            onClick={() => {
+                                setActiveSessionId(session.id);
+                                setViewingAllSessions(false);
+                                setRosterSortKey("participant");
+                                setRosterSortDir("asc");
+                                setSelected(new Set());
+                            }}
                         >
                             <span className="checkin-session-label">{session.label}</span>
                             <span className="checkin-session-window">
@@ -868,7 +934,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                     ))}
                 </div>
 
-                {activeSession && (
+                {activeSession && !viewingAllSessions && (
                     <div className="checkin-session-bar">
                         <div className="checkin-session-meta">
                             {activeSession.session_date ? <span>{activeSession.session_date}</span> : null}
@@ -901,7 +967,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                     </div>
                 )}
 
-                {canManageSessions && editingWindow && activeSession && (
+                {canManageSessions && editingWindow && activeSession && !viewingAllSessions && (
                     <form className="checkin-window-form" onSubmit={saveWindow}>
                         <label>
                             Opens
@@ -949,6 +1015,56 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                     />
                     <select
                         className="regs-input-select"
+                        value={departmentFilter}
+                        onChange={(e) => {
+                            setDepartmentFilter(e.target.value);
+                            setCourseFilter("all");
+                            setYearFilter("all");
+                            setBlockFilter("all");
+                        }}
+                        aria-label="Filter by department"
+                    >
+                        <option value="all">All departments</option>
+                        {academicOptions.departments.map((department) => (
+                            <option key={department.code} value={department.code}>{department.name}</option>
+                        ))}
+                    </select>
+                    <select
+                        className="regs-input-select"
+                        value={courseFilter}
+                        onChange={(e) => {
+                            setCourseFilter(e.target.value);
+                            setYearFilter("all");
+                            setBlockFilter("all");
+                        }}
+                        aria-label="Filter by course"
+                    >
+                        <option value="all">All courses</option>
+                        {academicOptions.courses.map((course) => <option key={course} value={course}>{course}</option>)}
+                    </select>
+                    <select
+                        className="regs-input-select"
+                        value={yearFilter}
+                        onChange={(e) => {
+                            setYearFilter(e.target.value);
+                            setBlockFilter("all");
+                        }}
+                        aria-label="Filter by year"
+                    >
+                        <option value="all">All years</option>
+                        {academicOptions.years.map((year) => <option key={year} value={year}>{year}</option>)}
+                    </select>
+                    <select
+                        className="regs-input-select"
+                        value={blockFilter}
+                        onChange={(e) => setBlockFilter(e.target.value)}
+                        aria-label="Filter by block"
+                    >
+                        <option value="all">All blocks</option>
+                        {academicOptions.blocks.map((block) => <option key={block} value={block}>{block}</option>)}
+                    </select>
+                    <select
+                        className="regs-input-select"
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
                         aria-label="Filter by status"
@@ -963,14 +1079,22 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                     </select>
 
                     <button type="button" className="regs-btn regs-btn-secondary regs-btn-toolbar" onClick={exportRosterCSV}>Export CSV</button>
+                    {hasActiveFilters && (
+                        <button type="button" className="regs-btn regs-btn-secondary" onClick={clearRosterFilters}>
+                            Clear filters
+                        </button>
+                    )}
                 </div>
+                <p className="checkin-results-count" aria-live="polite">
+                    Showing {filtered.length} of {rows.length} participants. Export includes every session for the filtered roster.
+                </p>
 
                 <div className="checkin-bulk">
-                    <span>{selectedIds.length} selected</span>
+                    <span>{viewingAllSessions ? `All sessions report · read only${activeSession ? ` · KPIs use ${activeSession.label}` : ""}` : `${selectedIds.length} selected`}</span>
                     <button
                         type="button"
                         className="regs-btn regs-btn-primary"
-                        disabled={busy || !activeSession?.open || selectedIds.length === 0}
+                        disabled={viewingAllSessions || busy || !activeSession?.open || selectedIds.length === 0}
                         onClick={() => void punch("in", selectedIds)}
                     >
                         Check in
@@ -978,7 +1102,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                     <button
                         type="button"
                         className="regs-btn regs-btn-secondary"
-                        disabled={busy || !activeSession?.open || selectedIds.length === 0}
+                        disabled={viewingAllSessions || busy || !activeSession?.open || selectedIds.length === 0}
                         onClick={() => void punch("out", selectedIds)}
                     >
                         Check out
@@ -986,7 +1110,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                     <button
                         type="button"
                         className="regs-btn regs-btn-secondary"
-                        disabled={busy || !activeSession?.open || selectedIds.length === 0}
+                        disabled={viewingAllSessions || busy || !activeSession?.open || selectedIds.length === 0}
                         onClick={() => void mark("Absent", selectedIds)}
                     >
                         Mark absent
@@ -994,7 +1118,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                     <button
                         type="button"
                         className="regs-btn regs-btn-secondary"
-                        disabled={busy || !activeSession?.open || selectedIds.length === 0}
+                        disabled={viewingAllSessions || busy || !activeSession?.open || selectedIds.length === 0}
                         onClick={() => void mark("Excused", selectedIds)}
                     >
                         Mark excused
@@ -1008,7 +1132,8 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                                 <th className="checkin-check-col">
                                     <input
                                         type="checkbox"
-                                        checked={allVisibleSelected}
+                                            checked={!viewingAllSessions && allVisibleSelected}
+                                            disabled={viewingAllSessions}
                                         onChange={toggleAllVisible}
                                         aria-label="Select all shown participants"
                                     />
@@ -1016,19 +1141,27 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                                 <th className="checkin-th-sortable" onClick={() => toggleRosterSort("participant")}>
                                     Participant <SortIcon active={rosterSortKey === "participant"} dir={rosterSortDir} />
                                 </th>
-                                {activeSession ? (
+                                <th>Department</th>
+                                <th>Course</th>
+                                <th>Year</th>
+                                <th>Block</th>
+                                {viewingAllSessions ? sessions.map((session) => (
+                                    <th key={session.id} className="checkin-session-report-head">
+                                        {session.label}<small>{session.session_date}</small>
+                                    </th>
+                                )) : activeSession ? (
                                     <th className="checkin-th-sortable" onClick={() => toggleRosterSort("in")}>
                                         {activeSession.label} in <SortIcon active={rosterSortKey === "in"} dir={rosterSortDir} />
                                     </th>
                                 ) : null}
-                                {activeSession ? (
+                                {!viewingAllSessions && activeSession ? (
                                     <th className="checkin-th-sortable" onClick={() => toggleRosterSort("out")}>
                                         {activeSession.label} out <SortIcon active={rosterSortKey === "out"} dir={rosterSortDir} />
                                     </th>
                                 ) : null}
-                                <th className="checkin-th-sortable" onClick={() => toggleRosterSort("status")}>
+                                {!viewingAllSessions && <th className="checkin-th-sortable" onClick={() => toggleRosterSort("status")}>
                                     Status <SortIcon active={rosterSortKey === "status"} dir={rosterSortDir} />
-                                </th>
+                                </th>}
                                 <th className="checkin-th-sortable" onClick={() => toggleRosterSort("sessions")}>
                                     Sessions <SortIcon active={rosterSortKey === "sessions"} dir={rosterSortDir} />
                                 </th>
@@ -1037,10 +1170,10 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                         </thead>
                         <tbody>
                             {loading && (
-                                <tr><td className="regs-empty-row" colSpan={7}>Loading roster…</td></tr>
+                                <tr><td className="regs-empty-row" colSpan={viewingAllSessions ? 8 + sessions.length : 11}>Loading roster…</td></tr>
                             )}
                             {!loading && filtered.length === 0 && (
-                                <tr><td className="regs-empty-row" colSpan={7}>No participants match those filters.</td></tr>
+                                <tr><td className="regs-empty-row" colSpan={viewingAllSessions ? 8 + sessions.length : 11}>No participants match those filters.</td></tr>
                             )}
                             {rosterPager.pageRows.map((row) => {
                                 const state = activeSession ? row.sessions?.[String(activeSession.id)] : null;
@@ -1052,7 +1185,8 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                                         <td className="checkin-check-col">
                                             <input
                                                 type="checkbox"
-                                                checked={selected.has(row.registration_id)}
+                                                checked={!viewingAllSessions && selected.has(row.registration_id)}
+                                                disabled={viewingAllSessions}
                                                 onChange={() => toggleOne(row.registration_id)}
                                                 aria-label={`Select ${row.participant}`}
                                             />
@@ -1066,6 +1200,24 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                                                 </div>
                                             </div>
                                         </td>
+                                        <td className="regs-cell-muted">{row.department_name ?? row.department ?? "—"}</td>
+                                        <td className="regs-cell-muted">{row.course ?? "—"}</td>
+                                        <td className="regs-cell-muted">{row.year ?? "—"}</td>
+                                        <td className="regs-cell-muted">{row.block_no ?? "—"}</td>
+                                        {viewingAllSessions ? sessions.map((session) => {
+                                            const sessionState = row.sessions?.[String(session.id)];
+                                            const status = sessionState?.status ?? "Not Yet Recorded";
+                                            return (
+                                                <td key={session.id}>
+                                                    <span className={`checkin-status checkin-status-${status.toLowerCase().replaceAll(" ", "-")}`}>
+                                                        {STATUS_LABELS[status] ?? status}
+                                                    </span>
+                                                    <small className="checkin-session-report-times">
+                                                        In {clockOf(sessionState?.time_in)} · Out {clockOf(sessionState?.time_out)}
+                                                    </small>
+                                                </td>
+                                            );
+                                        }) : <>
                                         <td>{clockOf(state?.time_in)}</td>
                                         <td>{clockOf(state?.time_out)}</td>
                                         <td>
@@ -1073,11 +1225,12 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                                                 {STATUS_LABELS[state?.status ?? "Not Yet Recorded"]}
                                             </span>
                                         </td>
+                                        </>}
                                         <td>
                                             {row.sessions_complete}/{row.sessions_total}
                                         </td>
                                         <td>
-                                            {action && !locked ? (
+                                            {action && !locked && !viewingAllSessions ? (
                                                 <button
                                                     type="button"
                                                     className="regs-btn regs-btn-primary"
@@ -1088,7 +1241,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                                                 </button>
                                             ) : (
                                                 <span className="checkin-cell-note">
-                                                    {action ? "Session closed" : "Complete"}
+                                                    {viewingAllSessions ? "Use a session tab to act" : action ? "Session closed" : "Complete"}
                                                 </span>
                                             )}
                                         </td>
@@ -1109,49 +1262,6 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                 )}
             </section>
 
-            {canManageSessions && showPoster && (
-                <div className="regs-modal-overlay" role="dialog" aria-modal="true" aria-label="QR poster">
-                    <div className="regs-modal-card checkin-poster">
-                        <div className="regs-modal-header">
-                            <h3>Check-in poster</h3>
-                            <button
-                                type="button"
-                                className="regs-modal-close"
-                                onClick={() => setShowPoster(false)}
-                                aria-label="Close poster"
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <div className="regs-modal-body checkin-poster-body">
-                            <QrCode value={posterUrl} size={260} alt="QR code that opens this event's check-in desk" />
-                            <h4>{poster?.title}</h4>
-                            <p>{poster?.event_date ?? "No date set"} {poster?.venue ? `· ${poster.venue}` : ""}</p>
-                            <p className="checkin-poster-hint">
-                                Staff scan this at the door, or type the link below on a phone.
-                                Signing in is still required — the QR identifies the event, it does
-                                not grant access.
-                            </p>
-                            <code className="checkin-poster-url">{posterUrl}</code>
-                        </div>
-
-                        <div className="regs-modal-footer">
-                            <button type="button" className="regs-btn regs-btn-secondary" onClick={() => setShowPoster(false)}>
-                                Close
-                            </button>
-                            <button
-                                type="button"
-                                className="regs-btn regs-btn-primary"
-                                onClick={() => window.print()}
-                            >
-                                Print poster
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             <ConfirmDialog
                 open={pendingClose !== null}
                 title="Close this session?"
@@ -1168,7 +1278,7 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
     );
 }
 
-function CheckIn() {
+function CheckIn({ embedded = false }) {
     const { token } = useParams();
     const user = useUser();
     const handleLogout = useLogout();
@@ -1185,6 +1295,7 @@ function CheckIn() {
                     navOpen={navOpen}
                     setNavOpen={setNavOpen}
                     showToast={showToast}
+                    embedded={embedded}
                 />
             ) : (
                 <EventPicker
@@ -1193,6 +1304,7 @@ function CheckIn() {
                     navOpen={navOpen}
                     setNavOpen={setNavOpen}
                     showToast={showToast}
+                    embedded={embedded}
                 />
             )}
             {toast && <Toast toast={toast} onDismiss={dismissToast} />}

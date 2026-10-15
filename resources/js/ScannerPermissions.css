@@ -1,135 +1,100 @@
-/* ScannerPermissions — admin surface for assigning Scanner accounts to events.
-   Self-contained: defines only the classes this screen uses that ui.css does not
-   already provide globally (layout + the scanner rows + checkbox affordances).
-   Reuses the shared .events-form-group, .events-toolbar, .events-btn,
-   .events-empty-row, .events-cell-muted, .events-status-*, and .action-btn-*
-   primitives from ui.css. */
-
 .scanner-page {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.scanner-page .events-form-group {
-    max-width: 420px;
-}
-
-.scanner-panels {
+    --scanner-navy: #102b4e;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 16px;
-    align-items: start;
+    gap: 18px;
+    max-width: 1360px;
+    margin: 0 auto;
+    color: var(--ui-text);
 }
 
+.scanner-event-card,
+.scanner-event-summary,
 .scanner-panel {
     background: var(--ui-surface);
     border: 1px solid var(--ui-border);
     border-radius: var(--ui-radius);
     box-shadow: var(--ui-shadow-xs);
-    padding: 16px;
 }
 
-.scanner-panel-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
+.scanner-event-card { padding: 20px 22px; }
+.scanner-section-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 17px; }
+.scanner-heading-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--ui-primary); background: var(--ui-primary-soft); }
+.scanner-eyebrow { margin: 0 0 4px; color: var(--ui-text-muted); font-size: 10px; font-weight: 750; letter-spacing: .12em; }
+.scanner-section-heading h2, .scanner-event-summary h2, .scanner-roster-tools h2 { margin: 0; color: var(--ui-text); font-size: 17px; font-weight: 700; }
+.scanner-event-control { display: flex; align-items: end; gap: 18px; }
+.scanner-select-wrap { width: min(100%, 560px); }
+.scanner-select-wrap label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 650; color: var(--ui-text-soft); }
+.scanner-select-wrap select { width: 100%; min-height: 42px; padding: 0 12px; border: 1px solid var(--ui-border-strong); border-radius: var(--ui-radius-sm); background: var(--ui-surface); color: var(--ui-text); font: inherit; font-size: 13px; outline: none; }
+.scanner-select-wrap select:focus, .scanner-search:focus-within { border-color: var(--ui-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-primary) 14%, transparent); }
+.scanner-select-wrap select:disabled { opacity: .68; cursor: not-allowed; }
+.scanner-event-hint { margin: 0 0 11px; color: var(--ui-text-muted); font-size: 12px; }
+.scanner-inline-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid #f1c5c1; border-radius: var(--ui-radius-sm); background: #fff6f5; color: #842f29; font-size: 13px; }
+.scanner-inline-error button { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.scanner-empty-state { display: grid; justify-items: center; gap: 7px; padding: 38px 18px; border: 1px dashed var(--ui-border-strong); border-radius: var(--ui-radius); background: var(--ui-surface-muted); text-align: center; }
+.scanner-empty-state strong { color: var(--ui-text); font-size: 14px; }
+.scanner-empty-state > span:last-child { color: var(--ui-text-muted); font-size: 12px; }
+.scanner-empty-icon { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 4px; border-radius: 50%; background: var(--ui-primary-soft); color: var(--ui-primary); }
+.scanner-event-summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 22px; border-left: 3px solid var(--ui-primary); }
+.scanner-event-summary h2 { font-size: 18px; }
+.scanner-event-summary > div:first-child > p:last-child { margin: 6px 0 0; color: var(--ui-text-muted); font-size: 12px; }
+.scanner-summary-count { display: grid; justify-items: center; min-width: 78px; padding: 9px 14px; border-radius: 10px; background: var(--ui-primary-soft); color: var(--ui-primary); }
+.scanner-summary-count strong { font-size: 20px; line-height: 1.1; }
+.scanner-summary-count span { margin-top: 3px; color: var(--ui-text-soft); font-size: 10px; font-weight: 650; text-transform: uppercase; letter-spacing: .07em; }
+.scanner-roster-tools { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.scanner-roster-tools h2 { font-size: 16px; }
+.scanner-roster-tools p { margin: 4px 0 0; color: var(--ui-text-muted); font-size: 12px; }
+.scanner-search { display: flex; align-items: center; gap: 8px; width: min(100%, 300px); min-height: 38px; padding: 0 11px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius-sm); background: var(--ui-surface); transition: border-color .16s, box-shadow .16s; }
+.scanner-search-symbol { color: var(--ui-text-muted); font-size: 20px; line-height: 1; }
+.scanner-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ui-text); font: inherit; font-size: 12px; }
+.scanner-search input::placeholder { color: var(--ui-text-muted); }
+.scanner-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.scanner-panel { overflow: hidden; }
+.scanner-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--ui-border); }
+.scanner-panel-head h3 { margin: 0; color: var(--ui-text); font-size: 13px; font-weight: 700; }
+.scanner-panel-head p { margin: 4px 0 0; color: var(--ui-text-muted); font-size: 11px; }
+.scanner-count { display: grid; place-items: center; min-width: 27px; height: 27px; padding: 0 7px; border-radius: 99px; background: var(--ui-primary-soft); color: var(--ui-primary); font-size: 12px; font-weight: 700; }
+.scanner-list { display: grid; gap: 0; max-height: 440px; overflow: auto; margin: 0; padding: 0 16px; list-style: none; }
+.scanner-row { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 11px 2px; border-bottom: 1px solid var(--ui-border); }
+.scanner-row:last-child { border-bottom: 0; }
+.scanner-row:hover { background: color-mix(in srgb, var(--ui-primary-soft) 34%, transparent); }
+.scanner-avatar { display: grid; flex: none; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #e9eef5; color: var(--scanner-navy); font-size: 10px; font-weight: 750; }
+.scanner-identity { display: grid; flex: 1; min-width: 70px; gap: 3px; }
+.scanner-identity strong { overflow: hidden; color: var(--ui-text); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.scanner-identity > span { overflow: hidden; color: var(--ui-text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.scanner-checkbox { display: grid; flex: none; place-items: center; width: 22px; height: 22px; cursor: pointer; }
+.scanner-checkbox input { width: 16px; height: 16px; margin: 0; accent-color: var(--ui-primary); cursor: pointer; }
+.scanner-checkbox input:disabled { cursor: not-allowed; opacity: .45; }
+.scanner-selection-mark { display: grid; flex: none; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--ui-success-bg); color: var(--ui-success); }
+.scanner-row .events-status-approved, .scanner-row .events-status-pending, .scanner-row .events-status-cancelled { flex: none; font-size: 10px; }
+.scanner-row .action-btn { flex: none; }
+.scanner-row.is-disabled { opacity: .72; }
+.scanner-inactive-note { flex: none; color: var(--ui-text-muted); font-size: 10px; }
+.scanner-panel-empty { display: grid; justify-items: center; gap: 5px; padding: 30px 16px; text-align: center; }
+.scanner-panel-empty > span { color: var(--ui-text-soft); font-size: 12px; font-weight: 650; }
+.scanner-panel-empty small { max-width: 280px; color: var(--ui-text-muted); font-size: 11px; line-height: 1.5; }
+.scanner-savebar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); box-shadow: var(--ui-shadow-xs); }
+.scanner-save-status { display: flex; align-items: center; gap: 8px; color: var(--ui-text-muted); font-size: 12px; }
+.scanner-save-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ui-success); }
+.scanner-save-status.is-dirty { color: var(--ui-text-soft); }
+.scanner-save-status.is-dirty .scanner-save-dot { background: #d89b24; }
+.scanner-save-actions { display: flex; gap: 8px; }
+.scanner-save-actions .events-btn { min-height: 36px; font-size: 12px; }
+.scanner-loader { width: 22px; height: 22px; border: 2px solid var(--ui-border); border-top-color: var(--ui-primary); border-radius: 50%; animation: scanner-spin .7s linear infinite; }
+@keyframes scanner-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 900px) {
+    .scanner-panels { grid-template-columns: 1fr; }
+    .scanner-list { max-height: 360px; }
 }
 
-.scanner-panel-head h2 {
-    margin: 0;
-    font-size: var(--ui-font-size-h3);
-    font-weight: 650;
-    color: var(--ui-text);
-}
-
-.scanner-panel-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: var(--ui-radius-sm);
-    background: var(--ui-primary-soft);
-    color: var(--ui-primary);
-}
-
-.scanner-count {
-    color: var(--ui-text-soft);
-    font-weight: 500;
-}
-
-/* Muted helper text under fields / in empty sub-sections. */
-.events-field-help {
-    margin: 6px 0 0;
-    font-size: var(--ui-font-size-small);
-    color: var(--ui-text-muted);
-}
-
-/* Scanner rows: a compact flex line (state · name · email · status · action). */
-.events-scanner-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 8px;
-}
-
-.events-scanner-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border: 1px solid var(--ui-border);
-    border-radius: var(--ui-radius-sm);
-    background: var(--ui-surface-muted);
-}
-
-.events-scanner-row:hover {
-    border-color: var(--ui-border-strong);
-    background: var(--ui-surface-hover);
-}
-
-.events-scanner-name {
-    font-weight: 600;
-    color: var(--ui-text);
-    min-width: 140px;
-}
-
-.events-scanner-row .events-cell-muted {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* Assigned rows show a filled check; the add list uses a real toggle. */
-.events-checkbox {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    flex: none;
-    cursor: pointer;
-}
-
-.events-checkbox input {
-    width: 16px;
-    height: 16px;
-    margin: 0;
-    cursor: pointer;
-    accent-color: var(--ui-primary);
-}
-
-.events-checkbox-disabled input {
-    cursor: not-allowed;
-    opacity: 0.5;
-}
-
-.events-checkbox-on {
-    border-radius: var(--ui-radius-xs);
-    background: var(--ui-success-bg);
-    color: var(--ui-success);
+@media (max-width: 600px) {
+    .scanner-event-card { padding: 16px; }
+    .scanner-event-control, .scanner-roster-tools, .scanner-savebar { align-items: stretch; flex-direction: column; }
+    .scanner-event-hint { margin: 0; }
+    .scanner-search { width: 100%; box-sizing: border-box; }
+    .scanner-event-summary { padding: 15px 16px; }
+    .scanner-row { gap: 7px; }
+    .scanner-row .events-status-approved, .scanner-row .events-status-pending, .scanner-row .events-status-cancelled { display: none; }
+    .scanner-save-actions { width: 100%; }
+    .scanner-save-actions .events-btn { flex: 1; }
 }

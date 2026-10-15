@@ -14,16 +14,16 @@ class EnsureRole
      * `write` may be expanded by the roles & permissions settings.
      */
     private const DEFAULT_MATRIX = [
-        'announcements' => ['read' => ['Admin', 'Staff', 'Organizer', 'Student'], 'write' => ['Admin', 'Staff']],
-        'events' => ['read' => ['Admin', 'Staff', 'Organizer', 'Student'], 'write' => ['Admin', 'Staff', 'Organizer']],
-        'user-accounts' => ['read' => ['Admin', 'Staff', 'Organizer'], 'write' => ['Admin', 'Staff']],
-        'registrations' => ['read' => ['Admin', 'Staff', 'Organizer', 'Student'], 'write' => ['Admin', 'Staff', 'Organizer']],
+        'announcements' => ['read' => ['Admin', 'Student'], 'write' => ['Admin']],
+        'events' => ['read' => ['Admin', 'Student'], 'write' => ['Admin']],
+        'user-accounts' => ['read' => ['Admin'], 'write' => ['Admin']],
+        'registrations' => ['read' => ['Admin', 'Student'], 'write' => ['Admin']],
         'checkin' => ['read' => ['Scanner'], 'write' => ['Scanner']],
-        'certificates' => ['read' => ['Admin', 'Staff', 'Organizer', 'Student'], 'write' => ['Admin', 'Staff', 'Organizer']],
-        'evaluations' => ['read' => ['Admin', 'Staff', 'Organizer', 'Student'], 'write' => ['Admin', 'Staff', 'Organizer', 'Student']],
-        'activity-logs' => ['read' => ['Admin', 'Staff'], 'write' => ['Admin']],
-        'settings' => ['read' => ['Admin', 'Staff'], 'write' => ['Admin']],
-        'reports' => ['read' => ['Admin', 'Staff', 'Organizer'], 'write' => []],
+        'certificates' => ['read' => ['Admin', 'Student'], 'write' => ['Admin']],
+        'evaluations' => ['read' => ['Admin', 'Student'], 'write' => ['Admin', 'Student']],
+        'activity-logs' => ['read' => ['Admin'], 'write' => ['Admin']],
+        'settings' => ['read' => ['Admin'], 'write' => ['Admin']],
+        'reports' => ['read' => ['Admin'], 'write' => []],
     ];
 
     /**
@@ -83,7 +83,7 @@ class EnsureRole
             $granted = ['Admin'];
 
             foreach ($persisted as $row) {
-                if (! is_array($row) || empty($row['role'])) {
+                if (! is_array($row) || empty($row['role']) || ! in_array($row['role'], ['Admin', 'Student', 'Scanner'], true)) {
                     continue;
                 }
 

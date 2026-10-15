@@ -130,15 +130,12 @@ test('a mobile student-pass scan is recorded and appears in the web check-in ros
     ])->assertNotFound();
 });
 
-test('staff and organizers do not inherit scanner permissions and scanners cannot configure sessions', function () {
+test('students do not inherit scanner permissions and scanners cannot configure sessions', function () {
     $event = scannerAccessEvent('ROLE');
     app(EventSchedule::class)->ensureSessions($event);
     $session = $event->attendanceSessions()->firstOrFail();
 
-    Sanctum::actingAs(scannerAccessAccount('Staff', 'STAFF'));
-    $this->getJson("/api/checkin/{$event->checkin_token}")->assertForbidden();
-
-    Sanctum::actingAs(scannerAccessAccount('Organizer', 'ORGANIZER'));
+    Sanctum::actingAs(scannerAccessAccount('Student', 'STUDENT'));
     $this->getJson("/api/checkin/{$event->checkin_token}")->assertForbidden();
 
     Sanctum::actingAs(scannerAccessAccount('Scanner', 'CONFIG'));

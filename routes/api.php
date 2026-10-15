@@ -23,6 +23,8 @@ Route::get('/user', function (Request $request) {
 Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
 Route::post('auth/admin-login', [AuthController::class, 'adminLogin'])->middleware('throttle:login');
 Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:register');
+Route::post('auth/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->middleware('throttle:password-reset');
+Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
 
 // `active` re-checks the account status on every request, so an account that
 // was suspended or deactivated after its token was issued is locked out
@@ -99,8 +101,8 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
         ->middleware('role:evaluations');
 
     // Only administrators and event-assigned scanners can open rosters or write
-    // attendance. The event QR resolves a target; EventScannerAccess verifies
-    // the signed-in scanner's event assignment on every roster/punch request.
+    // attendance. EventScannerAccess verifies the signed-in scanner's event
+    // assignment on every roster/punch request.
     Route::middleware('role:checkin')->group(function () {
         Route::get('checkin/{token}', [CheckInController::class, 'show']);
         Route::post('checkin/{token}/punch', [CheckInController::class, 'punch']);

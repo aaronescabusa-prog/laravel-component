@@ -6,6 +6,10 @@ Route::get('/login', function () {
     return view('app');
 })->name('login');
 
+Route::get('/reset-password/{token}', function () {
+    return view('app');
+})->name('password.reset');
+
 Route::get('/{any?}', function (string $any = '') {
     if ($any === 'api' || str_starts_with($any, 'api/') || str_starts_with($any, 'sanctum')) {
         abort(404);

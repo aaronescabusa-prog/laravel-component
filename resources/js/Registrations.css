@@ -611,6 +611,11 @@ body {
     margin-bottom: 16px;
 }
 
+.regs-qr-block strong {
+    color: #1a1f26;
+    font-size: 14px;
+}
+
 .regs-qr-placeholder {
     width: 96px;
     height: 96px;

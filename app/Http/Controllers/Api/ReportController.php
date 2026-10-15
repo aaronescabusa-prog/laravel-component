@@ -26,7 +26,6 @@ class ReportController extends Controller
             // grouping below meaningful, where filtering registrations by title
             // could not be reconciled back to a single event.
             ->when($request->filled('event'), fn ($q) => $q->where('title', $request->string('event')->toString()))
-            ->when($request->user()?->role === 'Organizer', fn ($q) => $q->where('organizer_user_id', $request->user()->getKey()))
             ->orderByDesc('event_date')
             ->get();
 
@@ -96,9 +95,7 @@ class ReportController extends Controller
 
         return [
             // Accounts are not scoped to an event, so this stays global.
-            'users' => $request->user()?->role === 'Organizer'
-                ? UserAccount::whereIn('id', Registration::whereIn('event_id', $eventIds)->whereNotNull('user_account_id')->select('user_account_id'))->count()
-                : UserAccount::count(),
+            'users' => UserAccount::count(),
             'events' => $events->count(),
             'events_active' => $events->whereIn('status', ['Approved', 'Pending'])->count(),
             'events_pending' => $events->where('status', 'Pending')->count(),
@@ -125,12 +122,6 @@ class ReportController extends Controller
      */
     public function summary(Request $request)
     {
-        if ($request->user()?->role === 'Organizer') {
-            $payload = $this->index($request)->getData(true);
-
-            return response()->json($payload['summary']);
-        }
-
         $statuses = Event::query()
             ->selectRaw('status, COUNT(*) AS total')
             ->groupBy('status')

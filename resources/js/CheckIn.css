@@ -256,87 +256,6 @@
     color: var(--ui-text-soft);
 }
 
-/* ---------- poster ---------- */
-
-.checkin-poster {
-    max-width: 380px;
-}
-
-.checkin-poster-body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    text-align: center;
-}
-
-.checkin-poster-body h4 {
-    margin: 6px 0 0;
-    font-size: 17px;
-}
-
-.checkin-poster-body p {
-    margin: 0;
-    color: var(--ui-text-muted);
-}
-
-.checkin-poster-hint {
-    margin-top: 6px !important;
-    font-size: 12px;
-    line-height: 1.5;
-}
-
-.checkin-poster-url {
-    padding: 7px 10px;
-    border-radius: 8px;
-    background: var(--ui-surface-muted);
-    border: 1px solid var(--ui-border);
-    font-family: var(--ui-font-mono);
-    font-size: 11px;
-    color: var(--ui-text-muted);
-    word-break: break-all;
-}
-
-/* The poster is the one screen meant for a printer, so drop the chrome. */
-@media print {
-    /*
-     * Print the poster and nothing else.
-     *
-     * Hiding the chrome alone is not enough: the overlay is a child of the same
-     * page as the roster, so un-hiding it for print leaves the participant
-     * table and session tabs printed underneath the QR. Everything is hidden by
-     * default and only the poster subtree is revealed again, which keeps the
-     * modal's own layout intact.
-     */
-    body * {
-        visibility: hidden;
-    }
-
-    .regs-modal-overlay,
-    .regs-modal-overlay * {
-        visibility: visible;
-    }
-
-    .regs-modal-overlay {
-        position: absolute !important;
-        inset: 0 auto auto 0 !important;
-        width: 100% !important;
-        height: auto !important;
-        padding: 0 !important;
-        background: none !important;
-        overflow: visible !important;
-    }
-
-    .checkin-poster {
-        border: none !important;
-        box-shadow: none !important;
-    }
-
-    .regs-modal-footer {
-        display: none !important;
-    }
-}
-
 /* ---------- sortable column headers ---------- */
 
 .checkin-th-sortable {
@@ -362,4 +281,25 @@
 
 .checkin-sort-icon.flipped {
     transform: rotate(180deg);
+}
+
+.checkin-results-count {
+    margin: -6px 0 12px;
+    color: var(--ui-text-muted);
+    font-size: 12px;
+}
+
+.checkin-session-report-head {
+    min-width: 190px;
+    white-space: nowrap;
+}
+
+.checkin-session-report-head small,
+.checkin-session-report-times {
+    display: block;
+    margin-top: 4px;
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    font-weight: 400;
+    white-space: nowrap;
 }

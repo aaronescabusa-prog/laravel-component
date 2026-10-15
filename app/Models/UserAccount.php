@@ -3,17 +3,20 @@
 namespace App\Models;
 
 use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
+use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
+use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\HasApiTokens;
 use App\Support\AcademicStructure;
 
-class UserAccount extends Model implements AuthenticatableContract
+class UserAccount extends Model implements AuthenticatableContract, CanResetPasswordContract
 {
-    use AuthenticatableTrait, HasApiTokens, SoftDeletes;
+    use AuthenticatableTrait, CanResetPassword, HasApiTokens, Notifiable, SoftDeletes;
 
     /**
      * Cache key holding the last verified status of an account, shared with

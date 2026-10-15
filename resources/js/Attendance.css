@@ -1,0 +1,57 @@
+.attendance-workspace {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.attendance-workspace-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-bottom: 1px solid var(--ui-border, #e2e8f0);
+}
+
+.attendance-workspace-tab {
+    appearance: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--ui-text-muted, #64748b);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: -1px;
+    padding: 11px 14px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.attendance-workspace-tab:hover,
+.attendance-workspace-tab.active {
+    color: var(--ui-accent, #174ea6);
+}
+
+.attendance-workspace-tab.active {
+    border-bottom-color: currentColor;
+}
+
+.attendance-workspace-tab:focus-visible {
+    outline: 2px solid var(--ui-accent, #174ea6);
+    outline-offset: 2px;
+}
+
+.attendance-workspace-tab:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.attendance-workspace-panel > .attendance-page {
+    margin: 0;
+}
+
+@media (max-width: 520px) {
+    .attendance-workspace-tab {
+        flex: 1;
+        padding-inline: 8px;
+    }
+}

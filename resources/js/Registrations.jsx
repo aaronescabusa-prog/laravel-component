@@ -14,6 +14,13 @@ import Pagination from "./components/Pagination";
 import { ActionIcon, IconView, IconEdit, IconCheck, IconTrash, IconCheckCircle, IconCheckSquare } from "./components/Icons";
 
 const EVENT_NAMES = [];
+const STUDENT_PASS_QR_PREFIX = "EVENTEASE_STUDENT:";
+
+function createStudentPassCode() {
+    const bytes = globalThis.crypto.getRandomValues(new Uint8Array(5));
+    const token = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+    return `PASS-${token}`;
+}
 
 function initialsOf(text) {
     return String(text ?? "")
@@ -209,6 +216,19 @@ function Registrations() {
         setIsNewReg(false);
     }
 
+    function openRegistrationDetails(row) {
+        if (row.qrCode) {
+            setViewingItem(row);
+            return;
+        }
+
+        const updated = { ...row, qrCode: createStudentPassCode() };
+        setViewingItem(updated);
+        setRegistrations((prev) => prev.map((registration) => (
+            registration.id === row.id ? updated : registration
+        )));
+    }
+
     function saveReg() {
         if (!editingReg.participant.trim() || !editingReg.email.trim() || !editingReg.event.trim()) {
             showToast("Participant, email and event are required.", "danger");
@@ -216,10 +236,9 @@ function Registrations() {
         }
 
         if (isNewReg) {
-            const digits = editingReg.id.replace(/\D/g, "");
             const created = {
                 ...editingReg,
-                qrCode: editingReg.qrCode || `QR-${digits}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`,
+                qrCode: editingReg.qrCode || createStudentPassCode(),
             };
 
             setRegistrations((prev) => [created, ...prev]);
@@ -230,13 +249,14 @@ function Registrations() {
             });
             showToast(`Registration ${created.id} was added.`);
         } else {
-            setRegistrations((prev) => prev.map((r) => (r.id === editingReg.id ? editingReg : r)));
+            const updated = { ...editingReg, qrCode: editingReg.qrCode || createStudentPassCode() };
+            setRegistrations((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
             logActivity({
                 category: "Registration",
-                action: `Updated registration ${editingReg.id}`,
+                action: `Updated registration ${updated.id}`,
                 details: `${editingReg.participant} · ${editingReg.event} · ${editingReg.paymentStatus}`,
             });
-            showToast(`Registration ${editingReg.id} was updated.`);
+            showToast(`Registration ${updated.id} was updated.`);
         }
         setEditingReg(null);
     }
@@ -497,7 +517,7 @@ function Registrations() {
                                         </span>
                                     </td>
                                     <td className="regs-cell-actions">
-                                        <ActionIcon icon={IconView} label="View" onClick={() => setViewingItem(row)} />
+                                        <ActionIcon icon={IconView} label="View" onClick={() => openRegistrationDetails(row)} />
                                         {row.paymentStatus === "Pending" && (
                                             <ActionIcon icon={IconCheck} label="Verify Payment" tone="approve" onClick={() => verifyPayment(row)} />
                                         )}
@@ -532,7 +552,11 @@ function Registrations() {
                         </div>
                         <div className="regs-modal-body">
                             <div className="regs-qr-block">
-                                <QrCode value={viewingItem.qrCode} />
+                                <strong>Student Pass QR</strong>
+                                <QrCode
+                                    value={viewingItem.qrCode ? `${STUDENT_PASS_QR_PREFIX}${viewingItem.qrCode}` : ""}
+                                    alt={`Student pass QR code for ${viewingItem.participant}`}
+                                />
                                 <span className="regs-qr-code">{viewingItem.qrCode}</span>
                             </div>
 

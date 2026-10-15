@@ -33,13 +33,13 @@ function makeStudent(): UserAccount
     ]);
 }
 
-function makeStaff(): UserAccount
+function makeRestrictedStudent(): UserAccount
 {
     return UserAccount::create([
         'reference' => 'USR-STAFF',
         'name' => 'Staff One',
         'email' => 'staff@tmc.edu.ph',
-        'role' => 'Staff',
+        'role' => 'Student',
         'status' => 'Active',
         'password' => 'password',
     ]);
@@ -86,8 +86,8 @@ test('an administrator can bulk import accounts', function () {
         ->and(UserAccount::where('reference', 'USR-9002')->exists())->toBeTrue();
 });
 
-test('bulk import is refused for a staff account', function () {
-    Sanctum::actingAs(makeStaff());
+test('bulk import is refused for a student account', function () {
+    Sanctum::actingAs(makeRestrictedStudent());
 
     $this->postJson('/api/user-accounts/import', ['rows' => [importRow()]])
         ->assertForbidden();
@@ -95,14 +95,13 @@ test('bulk import is refused for a staff account', function () {
     expect(UserAccount::where('reference', 'USR-9001')->exists())->toBeFalse();
 });
 
-test('bulk import cannot be delegated through the roles and permissions settings', function () {
-    // Staff hold user-accounts write access by default, and an administrator can
-    // widen it further from the settings screen. Neither may reach bulk import.
+test('legacy role permission rows cannot grant account access', function () {
+    // Legacy settings cannot restore write access to retired account roles.
     Setting::set('roles_permissions', [
         ['role' => 'Staff', 'manage_users' => true],
     ]);
 
-    Sanctum::actingAs(makeStaff());
+    Sanctum::actingAs(makeRestrictedStudent());
 
     // The ordinary single create is admin-only under Step 1 (requireAdmin),
     // even when the settings screen widens Staff write access.

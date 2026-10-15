@@ -2849,3 +2849,618 @@
 :root .auth-page .btn-primary:hover:not(:disabled) {
   background-color: #f1b900;
 }
+
+/* ---------- 17. Shared screen polish ---------- */
+
+:root :is(.main-column, .ann-main-column, .cert-main-column, .eval-main-column, .events-main-column, .log-main-column, .regs-main-column, .rpt-main-column, .settings-main-column) {
+  background-color: var(--ui-bg);
+  background-image:
+    radial-gradient(ellipse at 92% 0%, rgba(22, 85, 138, 0.055), transparent 34rem),
+    linear-gradient(180deg, #f8fafd 0%, var(--ui-bg) 26rem);
+}
+
+:root :is(.sidebar, .ann-sidebar, .cert-sidebar, .eval-sidebar, .events-sidebar, .log-sidebar, .regs-sidebar, .rpt-sidebar, .settings-sidebar) {
+  background-image: linear-gradient(180deg, #0b3459 0%, var(--ui-navy-900) 42%, #03172c 100%);
+}
+
+:root :is(.sidebar-brand, .ann-sidebar-brand, .cert-sidebar-brand, .eval-sidebar-brand, .events-sidebar-brand, .log-sidebar-brand, .regs-sidebar-brand, .rpt-sidebar-brand, .settings-sidebar-brand) {
+  padding-top: 20px;
+  padding-bottom: 19px;
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+:root :is(.sidebar-nav, .ann-sidebar-nav, .cert-sidebar-nav, .eval-sidebar-nav, .events-sidebar-nav, .log-sidebar-nav, .regs-sidebar-nav, .rpt-sidebar-nav, .settings-sidebar-nav) {
+  gap: 4px;
+  padding-right: 14px;
+  padding-left: 14px;
+}
+
+:root :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link) {
+  min-height: 42px;
+}
+
+:root :is(.topbar, .ann-topbar, .cert-topbar, .eval-topbar, .events-topbar, .log-topbar, .regs-topbar, .rpt-topbar, .settings-topbar) {
+  background-image: linear-gradient(105deg, #041d38 0%, #0a3559 100%);
+  border-bottom-width: 3px;
+  border-bottom-color: var(--ui-highlight);
+  box-shadow: 0 8px 24px -18px rgba(4, 29, 56, 0.9);
+}
+
+:root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content) {
+  padding-bottom: 36px;
+}
+
+:root :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel, .dash-panel) {
+  padding: 18px 20px;
+  border-color: rgba(203, 215, 228, 0.82);
+  box-shadow: 0 2px 6px rgba(15, 35, 59, 0.025), 0 12px 30px -24px rgba(4, 29, 56, 0.22);
+}
+
+:root :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel, .dash-panel):hover {
+  border-color: #c4d3e2;
+  box-shadow: 0 8px 24px -20px rgba(4, 29, 56, 0.34);
+}
+
+:root :is(.kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item) {
+  border-color: rgba(203, 215, 228, 0.85);
+  box-shadow: 0 3px 10px rgba(15, 35, 59, 0.035), 0 14px 28px -24px rgba(4, 29, 56, 0.3);
+}
+
+:root :is(.kpi-strip, .ann-kpi-strip, .cert-kpi-strip, .eval-kpi-strip, .events-kpi-strip, .log-kpi-strip, .regs-kpi-strip, .rpt-kpi-strip) {
+  gap: 12px;
+}
+
+:root :is(.dash-bento-grid, .bento-grid) {
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+:root :is(.toolbar, .ann-toolbar, .cert-toolbar, .eval-toolbar, .events-toolbar, .log-toolbar, .regs-toolbar, .rpt-controls) {
+  gap: 12px;
+}
+
+:root :is(.panel-header, .ann-panel-header, .cert-panel-header, .eval-panel-header, .events-panel-header, .log-panel-header, .regs-panel-header, .rpt-panel-header, .settings-panel-header, .dash-panel-header) {
+  margin-bottom: 14px;
+}
+
+:root :is(.input-search, .input-date, .input-select, .ann-input-select, .cert-input-select, .eval-input-select, .events-input-select, .log-input-date, .log-input-select, .regs-input-select, .cert-verify-input),
+:root input[type="text"],
+:root input[type="search"],
+:root input[type="email"],
+:root input[type="password"],
+:root input[type="date"],
+:root input[type="number"],
+:root select,
+:root textarea {
+  border-color: #d5dfeb;
+  box-shadow: 0 1px 2px rgba(15, 35, 59, 0.025);
+}
+
+:root :is(.btn, .btn-danger, .ann-btn, .cert-btn, .events-btn, .log-btn, .regs-btn, .rpt-btn, .settings-btn) {
+  min-height: 42px;
+  letter-spacing: 0.005em;
+}
+
+:root :is(.table-wrapper, .cert-table-wrapper, .eval-table-wrapper, .events-table-wrapper, .log-table-wrapper, .regs-table-wrapper, .rpt-table-wrapper, .settings-table-wrapper) {
+  box-shadow: 0 2px 8px rgba(15, 35, 59, 0.025);
+}
+
+:root tbody tr:hover {
+  box-shadow: inset 3px 0 0 0 var(--ui-highlight);
+}
+
+@media (max-width: 768px) {
+  :root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content) {
+    padding: 20px 18px 30px;
+  }
+
+  :root :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel, .dash-panel) {
+    padding: 16px;
+    border-radius: var(--ui-radius);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel, .dash-panel, .kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item, tbody tr) {
+    transition: none;
+  }
+}
+
+/* ---------- 19. Cross-screen finishing details ---------- */
+
+/* Keep admin pages on the same reading grid while allowing wide data tables to
+   scroll inside their own wrappers. The student portal keeps its own layout. */
+:root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content) > * {
+  min-width: 0;
+}
+
+:root :is(.dash-refresh-bar, .dash-actions, .dash-bento-grid, .attendance-workspace, .attendance-page, .scanner-page, .student-portal) {
+  min-width: 0;
+}
+
+/* Focus rings remain visible across the shared controls and the custom
+   attendance/check-in workflows. */
+:root :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ui-primary) 28%, transparent);
+  outline-offset: 2px;
+}
+
+:root :is(.attendance-workspace-tab, .checkin-session-tab):focus-visible {
+  outline-color: var(--ui-primary);
+}
+
+/* Standardize disabled controls so busy and unavailable actions read the same
+   in event, account, certificate, attendance, and scanner workflows. */
+:root :is(.btn, .events-btn, .cert-btn, .regs-btn, .dash-refresh-btn, .student-primary-link, .student-secondary-button):disabled {
+  cursor: not-allowed;
+  filter: saturate(.72);
+}
+
+@media (max-width: 700px) {
+  :root :is(.dash-refresh-bar, .dash-refresh-actions) {
+    align-items: stretch;
+  }
+
+  :root .dash-refresh-bar {
+    flex-direction: column;
+  }
+
+  :root .dash-refresh-actions {
+    flex-wrap: wrap;
+  }
+
+  :root .dash-refresh-btn {
+    min-height: 42px;
+  }
+}
+
+/* ---------- 18. Student discovery shell ---------- */
+
+:root .student-app-shell {
+  min-height: 100vh;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+}
+
+:root .student-app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--ui-border);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4px 18px rgba(4, 29, 56, 0.045);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+:root .student-app-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  width: min(100%, 1440px);
+  min-height: 72px;
+  margin: 0 auto;
+  padding: 10px clamp(18px, 3vw, 40px);
+}
+
+:root .student-app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  color: var(--ui-navy-900);
+  text-decoration: none;
+}
+
+:root .student-app-brand img {
+  width: 38px;
+  height: 38px;
+  padding: 3px;
+  border: 1px solid var(--ui-border);
+  border-radius: 11px;
+  object-fit: contain;
+}
+
+:root .student-app-brand span {
+  display: grid;
+  gap: 1px;
+}
+
+:root .student-app-brand strong {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+:root .student-app-brand small {
+  color: var(--ui-text-muted);
+  font-size: 11px;
+}
+
+:root .student-app-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+}
+
+:root .student-nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--ui-transition), background-color var(--ui-transition);
+}
+
+:root .student-nav-link:hover,
+:root .student-nav-link.active {
+  background: var(--ui-primary-soft);
+  color: var(--ui-navy-900);
+}
+
+:root .student-nav-link.active::after {
+  position: absolute;
+  right: 12px;
+  bottom: 3px;
+  left: 12px;
+  height: 2px;
+  border-radius: var(--ui-radius-pill);
+  background: var(--ui-highlight);
+  content: "";
+}
+
+:root .student-app-account,
+:root .student-account-link {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+:root .student-app-account {
+  flex: 0 0 auto;
+}
+
+:root .student-account-link {
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+:root .student-account-avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--ui-primary-gradient);
+  box-shadow: 0 0 0 1px var(--ui-border-strong);
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+:root .student-signout {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+:root .student-signout:hover {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-surface-muted);
+  color: var(--ui-navy-900);
+}
+
+:root .student-menu-toggle,
+:root .student-mobile-nav {
+  display: none;
+}
+
+:root .student-mobile-signout {
+  display: none;
+}
+
+:root .student-app-main {
+  width: min(100%, 1440px);
+  margin: 0 auto;
+  padding: clamp(20px, 3vw, 36px) clamp(18px, 3vw, 40px) 48px;
+}
+
+:root .student-page-heading {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 26px;
+}
+
+:root .student-page-heading > span {
+  color: var(--ui-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+:root .student-page-heading h1 {
+  margin: 0;
+  color: var(--ui-navy-900);
+  font-size: clamp(26px, 3vw, 34px);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+:root .student-page-heading p {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 14px;
+}
+
+:root .student-portal {
+  gap: 28px;
+}
+
+:root .student-welcome {
+  position: relative;
+  overflow: hidden;
+  min-height: 250px;
+  padding: clamp(30px, 5vw, 56px);
+  border: 0;
+  border-radius: 22px;
+  background-color: var(--ui-navy-900);
+  background-image: linear-gradient(90deg, rgba(4, 29, 56, 0.94) 0%, rgba(4, 29, 56, 0.8) 48%, rgba(4, 29, 56, 0.25) 100%), url("./assets/campus.png");
+  background-position: center, center 48%;
+  background-size: cover;
+  box-shadow: 0 20px 40px -24px rgba(4, 29, 56, 0.55);
+}
+
+:root .student-welcome > div {
+  max-width: 620px;
+}
+
+:root .student-welcome h2 {
+  color: #fff;
+  font-size: clamp(28px, 4vw, 42px);
+  letter-spacing: -0.035em;
+}
+
+:root .student-welcome p {
+  max-width: 520px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+:root .student-welcome .student-eyebrow {
+  color: var(--ui-highlight);
+}
+
+:root .student-welcome .student-primary-link {
+  min-height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 11px;
+  background: var(--ui-highlight);
+  color: var(--ui-navy-900);
+}
+
+:root .student-welcome .student-primary-link:hover {
+  background: #f2b91f;
+  color: var(--ui-navy-900);
+}
+
+:root .student-stat-grid {
+  gap: 12px;
+}
+
+:root .student-summary-card,
+:root .student-event-card,
+:root .student-announcement,
+:root .student-registration,
+:root .student-profile-card {
+  border-color: rgba(203, 215, 228, 0.85);
+  border-radius: 16px;
+  box-shadow: 0 5px 18px -16px rgba(4, 29, 56, 0.45);
+}
+
+:root .student-card-grid {
+  gap: 12px;
+}
+
+:root .student-event-card {
+  transition: transform var(--ui-transition), box-shadow var(--ui-transition), border-color var(--ui-transition);
+}
+
+:root .student-event-card:hover {
+  transform: translateY(-3px);
+  border-color: #c4d3e2;
+  box-shadow: 0 18px 34px -24px rgba(4, 29, 56, 0.48);
+}
+
+:root .student-event-banner,
+:root .student-event-banner-placeholder {
+  height: 172px;
+}
+
+:root .student-event-content {
+  gap: 12px;
+  padding: 18px;
+}
+
+:root .student-announcement-tag {
+  border: 1px solid rgba(255, 202, 27, 0.42);
+  background: #fff8df;
+  color: var(--ui-navy-900);
+}
+
+@media (max-width: 980px) {
+  :root .student-app-header-inner {
+    justify-content: space-between;
+  }
+
+  :root .student-app-nav {
+    display: none;
+  }
+
+  :root .student-account-name,
+  :root .student-signout {
+    display: none;
+  }
+
+  :root .student-menu-toggle {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: white;
+  }
+
+  :root .student-menu-toggle span {
+    width: 17px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--ui-navy-900);
+  }
+
+  :root .student-mobile-nav {
+    display: grid;
+    gap: 4px;
+    padding: 8px 18px 16px;
+    border-top: 1px solid var(--ui-border);
+    background: #fff;
+  }
+
+  :root .student-mobile-nav .student-nav-link {
+    min-height: 44px;
+  }
+
+  :root #student-navigation:not([hidden]) .student-mobile-nav {
+    display: grid;
+  }
+
+  :root .student-mobile-signout {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin: 0 18px 14px;
+    padding: 0 12px;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ui-danger);
+    font-size: 13px;
+    font-weight: 700;
+  }
+}
+
+@media (max-width: 700px) {
+  :root .student-app-header-inner {
+    min-height: 64px;
+    padding: 8px 16px;
+  }
+
+  :root .student-app-main {
+    padding: 20px 16px 32px;
+  }
+
+  :root .student-page-heading {
+    margin-bottom: 20px;
+  }
+
+  :root .student-portal {
+    gap: 22px;
+  }
+
+  :root .student-welcome {
+    min-height: 260px;
+    justify-content: flex-end;
+    padding: 24px;
+    border-radius: 18px;
+    background-image: linear-gradient(0deg, rgba(4, 29, 56, 0.96) 0%, rgba(4, 29, 56, 0.78) 58%, rgba(4, 29, 56, 0.28) 100%), url("./assets/campus.png");
+    background-position: center, 58% center;
+  }
+
+  :root .student-welcome h2 {
+    font-size: 30px;
+  }
+
+  :root .student-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  :root .student-summary-card {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  :root .student-summary-card strong {
+    font-size: 19px;
+  }
+
+  :root .student-card-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  :root .student-event-banner,
+  :root .student-event-banner-placeholder {
+    height: 190px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root .student-event-card {
+    transition: none;
+  }
+}
+
+/* Keep the admin workspace light and readable against its navy navigation. */
+:root :is(.topbar, .ann-topbar, .cert-topbar, .eval-topbar, .events-topbar, .log-topbar, .regs-topbar, .rpt-topbar, .settings-topbar) {
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid var(--ui-border);
+  box-shadow: 0 4px 18px rgba(4, 29, 56, 0.045);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+:root :is(.page-title, .ann-page-title, .cert-page-title, .eval-page-title, .events-page-title, .log-page-title, .regs-page-title, .rpt-page-title, .settings-page-title) {
+  color: var(--ui-navy-900);
+}
+
+:root :is(.breadcrumb, .ann-breadcrumb, .cert-breadcrumb, .eval-breadcrumb, .events-breadcrumb, .log-breadcrumb, .regs-breadcrumb, .rpt-breadcrumb, .settings-breadcrumb) {
+  color: var(--ui-text-muted);
+}
+
+:root :is(.topbar-user, .ann-topbar-user, .cert-topbar-user, .eval-topbar-user, .events-topbar-user, .log-topbar-user, .regs-topbar-user, .rpt-topbar-user, .settings-topbar-user) {
+  border-color: var(--ui-border);
+  background: #fff;
+  box-shadow: var(--ui-shadow-xs);
+}
+
+:root :is(.user-name, .ann-topbar-name, .cert-topbar-name, .eval-topbar-name, .events-topbar-name, .log-topbar-name, .regs-topbar-name, .rpt-topbar-name, .settings-topbar-name) {
+  color: var(--ui-text);
+}
+
+:root :is(.user-role, .ann-topbar-role, .cert-topbar-role, .eval-topbar-role, .events-topbar-role, .log-topbar-role, .regs-topbar-role, .rpt-topbar-role, .settings-topbar-role) {
+  color: var(--ui-text-muted);
+}
+
+:root .nav-toggle {
+  border-color: var(--ui-border);
+  background-color: #fff;
+}

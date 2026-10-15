@@ -10,7 +10,7 @@ import { useCollection, logActivity, nextId, dateKey } from "./lib/storage";
 import { usePagination } from "./lib/usePagination";
 import Pagination from "./components/Pagination";
 import CertificateGenerator from "./components/CertificateGenerator";
-import { api, certificatesApi, mapEventFromApi, getSessionUser } from "./lib/api";
+import { api, certificatesApi, mapEventFromApi, mapRegistrationFromApi, getSessionUser } from "./lib/api";
 import { ActionIcon, IconView, IconEdit, IconTrash, IconAward, IconDownload } from "./components/Icons";
 
 
@@ -41,6 +41,13 @@ function Certificates() {
     const [viewingCert, setViewingCert] = useState(null);
     const [verifyId, setVerifyId] = useState("");
     const [verifyResult, setVerifyResult] = useState(null);
+    const [myRegistrations, setMyRegistrations] = useState([]);
+    const [registrationsLoading, setRegistrationsLoading] = useState(isReadOnly);
+    const [registrationError, setRegistrationError] = useState("");
+    const [registrationReload, setRegistrationReload] = useState(0);
+    const [studentSearch, setStudentSearch] = useState("");
+    const [checkingEvent, setCheckingEvent] = useState("");
+    const [downloadingCertificate, setDownloadingCertificate] = useState("");
 
     const filteredRows = useMemo(() => {
         return certificates.filter((row) => {
@@ -70,6 +77,25 @@ function Certificates() {
 
         return () => { active = false; };
     }, []);
+
+    useEffect(() => {
+        if (!isReadOnly) return undefined;
+        let active = true;
+        setRegistrationsLoading(true);
+        api.list("registrations", { per_page: "all" })
+            .then((rows) => {
+                if (!active) return;
+                setMyRegistrations(rows.map(mapRegistrationFromApi));
+                setRegistrationError("");
+            })
+            .catch((err) => {
+                if (active) setRegistrationError(err.message || "Could not load your event registrations.");
+            })
+            .finally(() => {
+                if (active) setRegistrationsLoading(false);
+            });
+        return () => { active = false; };
+    }, [isReadOnly, registrationReload]);
 
     function openCreate() {
         setEditingCert({ id: nextId(certificates, "CERT", 9001), participant: "", email: "", event: "", status: "Pending", dateIssued: "", qrCode: "" });
@@ -133,8 +159,33 @@ function Certificates() {
         showToast(`${pending} certificates issued.`);
     }
 
-    function handleDownload(row) {
-        certificatesApi.download(row.id).catch((err) => showToast(err.message, "danger"));
+    async function handleDownload(row) {
+        setDownloadingCertificate(row.id);
+        try {
+            await certificatesApi.download(row.id);
+        } catch (err) {
+            showToast(err.message, "danger");
+        } finally {
+            setDownloadingCertificate("");
+        }
+    }
+
+    async function checkCertificateStatus(eventTitle) {
+        setCheckingEvent(eventTitle);
+        try {
+            const refreshed = await refreshCertificates();
+            const issued = refreshed.find((row) =>
+                row.event.toLowerCase() === eventTitle.toLowerCase() && row.status === "Issued"
+            );
+            if (issued) {
+                showToast("Your certificate is issued. Downloading the official PDF.");
+                await handleDownload(issued);
+            } else {
+                showToast("No issued certificate was found yet.", "danger");
+            }
+        } finally {
+            setCheckingEvent("");
+        }
     }
 
     function handleVerify(e) {
@@ -156,7 +207,7 @@ function Certificates() {
     return (
         <AppShell title="Certificates" prefix="cert-">
 
-            <div className="cert-kpi-strip">
+            {!isReadOnly && <div className="cert-kpi-strip">
                 <div className="cert-kpi-item">
                     <span className="cert-kpi-label">Total Issued</span>
                     <span className="cert-kpi-value">{totalIssued}</span>
@@ -169,7 +220,7 @@ function Certificates() {
                     <span className="cert-kpi-label">Not Eligible</span>
                     <span className="cert-kpi-value">{notEligible}</span>
                 </div>
-            </div>
+            </div>}
 
             {!isReadOnly && (
             <CertificateGenerator
@@ -178,7 +229,7 @@ function Certificates() {
             />
             )}
 
-            <section className="cert-panel cert-verify-panel">
+            {!isReadOnly && <section className="cert-panel cert-verify-panel">
                 <div className="cert-panel-header">
                     <h2>Verify a Certificate</h2>
                     <p className="cert-panel-subtitle">Enter a certificate ID or QR code to check its authenticity.</p>
@@ -209,9 +260,122 @@ function Certificates() {
                         )}
                     </div>
                 )}
-            </section>
+            </section>}
 
-            <section className="cert-panel">
+            {isReadOnly && (
+                <section className="cert-panel cert-student-workflow" aria-labelledby="my-event-certificates-title">
+                    <div className="cert-panel-header">
+                        <div>
+                            <h2 id="my-event-certificates-title">My Event Certificates</h2>
+                            <p className="cert-panel-subtitle">
+                                Certificates unlock when your attendance is marked Present. After an administrator issues one, download the official PDF here.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="cert-student-toolbar">
+                        <label className="cert-student-search-wrap" htmlFor="myCertificateEventsSearch">
+                            <span>Find an event</span>
+                            <input
+                                id="myCertificateEventsSearch"
+                                type="search"
+                                value={studentSearch}
+                                onChange={(e) => setStudentSearch(e.target.value)}
+                                placeholder="Search your registered events"
+                            />
+                        </label>
+                        {!registrationsLoading && !registrationError && (
+                            <span className="cert-student-count">
+                                {myRegistrations.filter((registration) => registration.event.toLowerCase().includes(studentSearch.trim().toLowerCase())).length} registered event(s)
+                            </span>
+                        )}
+                    </div>
+                    {registrationsLoading ? (
+                        <div className="cert-student-loading" role="status">
+                            <span className="cert-student-spinner" aria-hidden="true" />
+                            Loading your registered events…
+                        </div>
+                    ) : registrationError ? (
+                        <div className="cert-student-state cert-student-state-error" role="alert">
+                            <span>{registrationError}</span>
+                            <button type="button" className="cert-btn cert-btn-secondary" onClick={() => setRegistrationReload((value) => value + 1)}>
+                                Try again
+                            </button>
+                        </div>
+                    ) : myRegistrations.length === 0 ? (
+                        <div className="cert-empty-row">You do not have any registered events yet.</div>
+                    ) : (
+                        <div className="cert-student-event-list">
+                            {myRegistrations
+                                .filter((registration) => registration.event.toLowerCase().includes(studentSearch.trim().toLowerCase()))
+                                .map((registration) => {
+                                const eventInfo = events.find((event) => event.name.toLowerCase() === registration.event.toLowerCase());
+                                const eventCertificate = certificates.find((certificate) =>
+                                    certificate.event.toLowerCase() === registration.event.toLowerCase()
+                                );
+                                const attendanceReady = registration.attendance === "Present";
+                                const eventIssuesCertificates = eventInfo?.hasCertificate !== false;
+                                const issued = eventCertificate?.status === "Issued";
+                                const status = !eventIssuesCertificates
+                                    ? "No certificate offered"
+                                    : issued
+                                        ? "Issued"
+                                        : eventCertificate?.status === "Pending"
+                                            ? "Pending issuance"
+                                            : attendanceReady
+                                                ? "Awaiting issuance"
+                                                : registration.attendance || "Not yet recorded";
+
+                                const checking = checkingEvent === registration.event;
+                                const downloading = downloadingCertificate === eventCertificate?.id;
+
+                                return (
+                                    <article className="cert-student-event" key={registration.id}>
+                                        <div className="cert-student-event-icon" aria-hidden="true"><IconAward size={20} /></div>
+                                        <div className="cert-student-event-main">
+                                            <div className="cert-student-event-title-row">
+                                                <h3>{registration.event}</h3>
+                                                {eventInfo?.date && <span className="cert-student-event-date">{eventInfo.date}</span>}
+                                            </div>
+                                            <p>
+                                                {!eventIssuesCertificates
+                                                    ? "This event does not issue certificates."
+                                                    : !attendanceReady
+                                                        ? "Your attendance must be marked Present before the certificate workflow unlocks."
+                                                        : issued
+                                                            ? `Issued ${eventCertificate.dateIssued || ""}`
+                                                        : "Your attendance is marked Present. Check again after an administrator issues your certificate."}
+                                            </p>
+                                        </div>
+                                        <div className="cert-student-event-actions">
+                                            <span className={`cert-student-attendance ${attendanceReady ? "is-present" : ""}`}>
+                                                <span className="cert-student-attendance-dot" />
+                                                Attendance: {registration.attendance || "Not recorded"}
+                                            </span>
+                                            <span className={`cert-status ${issued ? "cert-status-issued" : eventIssuesCertificates && attendanceReady ? "cert-status-pending" : "cert-status-noteligible"}`}>
+                                                {status}
+                                            </span>
+                                            {eventIssuesCertificates && attendanceReady && (issued ? (
+                                                <button type="button" className="cert-btn cert-btn-primary" disabled={downloading} onClick={() => void handleDownload(eventCertificate)}>
+                                                    <IconDownload size={15} /> {downloading ? "Preparing PDF…" : "Download certificate"}
+                                                </button>
+                                            ) : (
+                                                <button type="button" className="cert-btn cert-btn-secondary" disabled={checking} onClick={() => void checkCertificateStatus(registration.event)}>
+                                                    {checking ? "Checking…" : "Check certificate status"}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </article>
+                                );
+                            })}
+                            {myRegistrations.length > 0 && !myRegistrations.some((registration) => registration.event.toLowerCase().includes(studentSearch.trim().toLowerCase())) && (
+                                <div className="cert-empty-row">No registered events match that search.</div>
+                            )}
+                        </div>
+                    )}
+                </section>
+            )}
+
+            {!isReadOnly && <section className="cert-panel">
                 <div className="cert-panel-header">
                     <h2>{isReadOnly ? "My Certificates" : "All Certificates"}</h2>
                     {!isReadOnly && (
@@ -306,7 +470,7 @@ function Certificates() {
                     classPrefix="cert"
                     unit="certificates"
                 />
-            </section>
+            </section>}
 
 
             {editingCert && (

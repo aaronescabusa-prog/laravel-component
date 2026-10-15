@@ -42,6 +42,72 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
     const nameClass = prefix ? `${prefix}topbar-name` : "user-name";
     const roleClass = prefix ? `${prefix}topbar-role` : "user-role";
 
+    if (user?.role === "Student") {
+        const studentNavigation = (className) => (
+            <nav className={className} aria-label="Student navigation">
+                {items.map((item) => (
+                    <NavLink
+                        key={item.to}
+                        to={item.to}
+                        className={({ isActive }) => `student-nav-link${isActive ? " active" : ""}`}
+                        onClick={closeNav}
+                    >
+                        {item.to === "/dashboard" ? "Home" : item.label}
+                    </NavLink>
+                ))}
+            </nav>
+        );
+
+        return (
+            <div className={`student-app-shell${navOpen ? " nav-open" : ""}`}>
+                <header className="student-app-header">
+                    <div className="student-app-header-inner">
+                        <NavLink to="/dashboard" className="student-app-brand" onClick={closeNav}>
+                            <img src={logo} alt="" />
+                            <span><strong>TMC EventEase</strong><small>Student events</small></span>
+                        </NavLink>
+
+                        {studentNavigation("student-app-nav")}
+
+                        <div className="student-app-account">
+                            <NavLink to="/profile" className="student-account-link" onClick={closeNav}>
+                                <span className="student-account-avatar">{initialsOf(user?.name)}</span>
+                                <span className="student-account-name">{user?.name || "My profile"}</span>
+                            </NavLink>
+                            <button type="button" className="student-signout" onClick={logout}>Sign out</button>
+                            <button
+                                type="button"
+                                className="student-menu-toggle"
+                                onClick={() => setNavOpen((open) => !open)}
+                                aria-label={navOpen ? "Close navigation menu" : "Open navigation menu"}
+                                aria-controls="student-navigation"
+                                aria-expanded={navOpen}
+                            >
+                                <span /><span /><span />
+                            </button>
+                        </div>
+                    </div>
+                    <div id="student-navigation" hidden={!navOpen}>
+                            {studentNavigation("student-mobile-nav")}
+                            <button type="button" className="student-mobile-signout" onClick={() => { closeNav(); logout(); }}>
+                                Sign out
+                            </button>
+                    </div>
+                </header>
+                <main className="student-app-main">
+                    {title !== "Welcome to EventEase" && title !== "Explore Events" && (
+                        <div className="student-page-heading">
+                            <span>STUDENT PORTAL</span>
+                            <h1>{title}</h1>
+                            {subtitle && <p>{subtitle}</p>}
+                        </div>
+                    )}
+                    {children}
+                </main>
+            </div>
+        );
+    }
+
     return (
         <div className={`${shellClass}${navOpen ? " nav-open" : ""}`}>
             <aside className={sidebarClass} id="primary-navigation" aria-label="Primary navigation">
@@ -58,7 +124,6 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
                         <NavLink
                             key={item.to}
                             to={item.to}
-                            end={item.to === "/check-in"}
                             className={({ isActive }) =>
                                 `${sidebarClass}-link${isActive ? " active" : ""}`
                             }

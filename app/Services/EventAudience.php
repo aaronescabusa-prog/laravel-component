@@ -73,9 +73,8 @@ class EventAudience
         }
 
         // Status rather than role decides who counts: an account that is still
-        // Pending has not been cleared to take part in anything yet, while a
-        // Staff or Organizer account is a legitimate participant in their own
-        // course's event.
+        // Pending has not been cleared to take part in anything yet. Eligible
+        // event participants are active accounts matching the student audience.
         $query = UserAccount::query()->where('status', 'Active');
 
         if ($course !== '') {

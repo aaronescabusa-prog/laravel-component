@@ -20,10 +20,10 @@ function initialsOf(text) {
 function Announcements() {
     const [announcements, setAnnouncements] = useState([]);
     const sessionRole = getSessionUser()?.role ?? "Admin";
-    // Only the announcements managers (Admin, Staff) may create, edit or
+    // Only administrators may create, edit or
     // delete notices; every other reader gets the published list without
     // mutation affordances. The API enforces the same split.
-    const canManage = sessionRole === "Admin" || sessionRole === "Staff";
+    const canManage = sessionRole === "Admin";
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [pendingDelete, setPendingDelete] = useState(null);

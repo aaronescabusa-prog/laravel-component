@@ -16,7 +16,7 @@ beforeEach(function () {
     $this->student = audienceAccount('IT Student', 'student.it@student.tmc.edu.ph', 'BS Information Technology');
     $this->otherStudent = audienceAccount('CS Student', 'student.cs@student.tmc.edu.ph', 'BS Computer Science');
     $this->pendingStudent = audienceAccount('Pending IT Student', 'pending.it@student.tmc.edu.ph', 'BS Information Technology', 'Pending');
-    $this->itStaff = audienceAccount('IT Staff', 'staff.it@student.tmc.edu.ph', 'BS Information Technology', 'Active', 'Staff');
+    $this->formerStaff = audienceAccount('IT Student 2', 'former.staff@student.tmc.edu.ph', 'BS Information Technology');
 });
 
 function audienceAccount(string $name, string $email, string $course, string $status = 'Active', string $role = 'Student'): UserAccount
@@ -49,19 +49,19 @@ it('enrols the active accounts in the targeted course', function () {
 
     $emails = Registration::pluck('email')->sort()->values()->all();
 
-    expect($emails)->toContain($this->student->email, $this->itStaff->email)
+    expect($emails)->toContain($this->student->email, $this->formerStaff->email)
         ->not->toContain($this->otherStudent->email, $this->pendingStudent->email);
 });
 
-it('enrols regardless of role because the course is what is being matched', function () {
+it('enrols matching student accounts in the targeted course', function () {
     $event = audienceEvent(['target_course' => 'BS Information Technology']);
 
     $result = app(EventAudience::class)->sync($event);
 
-    $staff = Registration::where('email', $this->itStaff->email)->first();
+    $student = Registration::where('email', $this->formerStaff->email)->first();
 
     expect($result['matched'])->toBe(2)
-        ->and($staff->role)->toBe('Staff');
+        ->and($student->role)->toBe('Student');
 });
 
 it('leaves a public event with nobody enrolled', function () {

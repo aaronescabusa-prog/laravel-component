@@ -60,14 +60,14 @@ test('admin attendance report reflects a student pass scan', function () {
         ->assertJsonPath("roster.0.sessions.{$session->id}.status", 'Late');
 });
 
-test('staff can read attendance reports under the reports role policy', function () {
+test('administrators can read attendance reports', function () {
     $event = Event::create([
         'reference' => 'EVE-ATT-RPT-2',
         'title' => 'Department Seminar',
         'status' => 'Approved',
         'event_date' => '2026-10-14',
     ]);
-    Sanctum::actingAs(attendanceReportTestAccount('Staff', 'STAFF'));
+    Sanctum::actingAs(attendanceReportTestAccount('Admin', 'ADMIN'));
 
     $this->getJson("/api/events/{$event->reference}/attendance")
         ->assertOk()

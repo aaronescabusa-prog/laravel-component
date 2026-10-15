@@ -45,7 +45,7 @@ class SettingsController extends Controller
             'security.two_factor' => ['nullable', 'boolean'],
             'security.session_timeout' => ['nullable', Rule::in(['15', '30', '60', 'never'])],
             'roles_permissions' => ['nullable', 'array'],
-            'roles_permissions.*.role' => ['required_with:roles_permissions', 'string', 'max:255'],
+            'roles_permissions.*.role' => ['required_with:roles_permissions', Rule::in(['Admin', 'Student', 'Scanner'])],
         ]);
 
         $groups = ['general', 'notifications', 'security', 'roles_permissions'];

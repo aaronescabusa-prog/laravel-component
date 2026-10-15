@@ -76,6 +76,12 @@ class AppServiceProvider extends ServiceProvider
                 'message' => 'Too many registration attempts. Please try again in a minute.',
             ], 429, $headers)));
 
+        RateLimiter::for('password-reset', fn (Request $request) => Limit::perMinute(5)
+            ->by((string) $request->ip())
+            ->response(fn (Request $request, array $headers) => response()->json([
+                'message' => 'Too many password reset requests. Please try again in a minute.',
+            ], 429, $headers)));
+
         // A stolen token is a full account takeover, so cap how fast one
         // account can drive the API regardless of how it authenticated.
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(180)

@@ -65,8 +65,8 @@ test('registration is throttled after three attempts', function () {
 
 /* ------------------------------------------------------------ password resets */
 
-test('staff cannot reset another account password', function () {
-    $staff = securityAccount(['reference' => 'USR-STF', 'email' => 'staff-sec@tmc.edu.ph', 'role' => 'Staff']);
+test('students cannot reset another account password', function () {
+    $staff = securityAccount(['reference' => 'USR-STF', 'email' => 'staff-sec@tmc.edu.ph', 'role' => 'Student']);
     $student = securityAccount(['reference' => 'USR-STU', 'email' => 'student-sec@tmc.edu.ph', 'role' => 'Student']);
 
     Sanctum::actingAs($staff);
@@ -77,19 +77,20 @@ test('staff cannot reset another account password', function () {
     expect(Hash::check('new-password-1', $student->refresh()->password))->toBeFalse();
 });
 
-test('changing your own password on the account endpoint requires the current password', function () {
-    $staff = securityAccount(['reference' => 'USR-SELF', 'email' => 'self-sec@tmc.edu.ph', 'role' => 'Staff']);
+test('changing your own password requires the current password', function () {
+    $staff = securityAccount(['reference' => 'USR-SELF', 'email' => 'self-sec@tmc.edu.ph', 'role' => 'Student']);
 
     Sanctum::actingAs($staff);
 
-    $this->putJson('/api/user-accounts/USR-SELF', ['password' => 'new-password-1'])
+    $this->putJson('/api/settings/password', ['current_password' => '', 'new_password' => 'new-password-1', 'new_password_confirmation' => 'new-password-1'])
         ->assertStatus(422);
 
     expect(Hash::check('new-password-1', $staff->refresh()->password))->toBeFalse();
 
-    $this->putJson('/api/user-accounts/USR-SELF', [
-        'password' => 'new-password-1',
+    $this->putJson('/api/settings/password', [
         'current_password' => 'password',
+        'new_password' => 'new-password-1',
+        'new_password_confirmation' => 'new-password-1',
     ])->assertOk();
 
     expect(Hash::check('new-password-1', $staff->refresh()->password))->toBeTrue();
@@ -183,7 +184,7 @@ test('a suspended account cannot use a token issued before the suspension', func
         'reference' => 'USR-LOCK',
         'name' => 'Locked Out',
         'email' => 'locked@tmc.edu.ph',
-        'role' => 'Staff',
+        'role' => 'Student',
     ]);
 
     $token = $account->createToken('browser')->plainTextToken;
@@ -219,7 +220,7 @@ test('a pending account cannot use a token either', function () {
 
 test('suspending an account revokes its tokens so it is locked out everywhere', function () {
     $admin = securityAccount(['reference' => 'USR-ADM3', 'email' => 'admin3-sec@tmc.edu.ph', 'role' => 'Admin']);
-    $staff = securityAccount(['reference' => 'USR-TGT', 'email' => 'target-sec@tmc.edu.ph', 'role' => 'Staff']);
+    $staff = securityAccount(['reference' => 'USR-TGT', 'email' => 'target-sec@tmc.edu.ph', 'role' => 'Student']);
 
     $staff->createToken('phone');
     $staff->createToken('laptop');
@@ -234,12 +235,12 @@ test('suspending an account revokes its tokens so it is locked out everywhere', 
 });
 
 test('an active account keeps working after the status check', function () {
-    $account = securityAccount(['reference' => 'USR-OK', 'email' => 'fine-sec@tmc.edu.ph', 'role' => 'Staff']);
+    $account = securityAccount(['reference' => 'USR-OK', 'email' => 'fine-sec@tmc.edu.ph', 'role' => 'Student']);
 
     $token = $account->createToken('browser')->plainTextToken;
 
     $this->withToken($token)->getJson('/api/auth/me')->assertOk();
-    $this->withToken($token)->getJson('/api/user-accounts')->assertOk();
+    $this->withToken($token)->getJson('/api/user-accounts')->assertForbidden();
 });
 
 /* ------------------------------------------------------------- pagination */
@@ -370,10 +371,10 @@ test('registration role is stored, defaulted and validated', function () {
         'participant' => 'Maria Santos',
         'email' => 'maria@tmc.edu.ph',
         'event' => 'IT Congress',
-        'role' => 'Organizer',
+        'role' => 'Student',
         'payment_status' => 'N/A',
         'attendance' => 'Not Yet Recorded',
-    ])->assertStatus(201)->assertJsonPath('role', 'Organizer');
+    ])->assertStatus(201)->assertJsonPath('role', 'Student');
 
     // Legacy clients that do not send a role still get a sensible default.
     $this->postJson('/api/registrations', [
@@ -386,6 +387,7 @@ test('registration role is stored, defaulted and validated', function () {
     ])->assertStatus(201)->assertJsonPath('role', 'Student');
 
     $this->putJson('/api/registrations/REG-ROLE-1', ['role' => 'Bogus'])->assertStatus(422);
+    $this->putJson('/api/registrations/REG-ROLE-1', ['role' => 'Organizer'])->assertStatus(422);
 
-    expect(Registration::where('reference', 'REG-ROLE-1')->first()->role)->toBe('Organizer');
+    expect(Registration::where('reference', 'REG-ROLE-1')->first()->role)->toBe('Student');
 });

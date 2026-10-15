@@ -2,6 +2,39 @@
     box-sizing: border-box;
 }
 
+.users-toolbar-actions,
+.users-toolbar-filters {
+    display: flex;
+    flex: 1 1 100%;
+    width: 100%;
+    align-items: center;
+    gap: 10px;
+}
+
+.users-toolbar-actions .input-search {
+    flex: 1 1 260px;
+    min-width: 0;
+}
+
+.users-toolbar-filters .input-select {
+    flex: 1 1 140px;
+    width: auto;
+    min-width: 0;
+}
+
+@media (max-width: 640px) {
+    .users-toolbar-actions,
+    .users-toolbar-filters {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .users-toolbar-actions > *,
+    .users-toolbar-filters > * {
+        width: 100%;
+    }
+}
+
 /* ---------- Table checkbox column ---------- */
 
 .th-checkbox {
@@ -324,4 +357,131 @@
     max-height: 160px;
     overflow-y: auto;
     color: #5f6b7c;
+}
+
+/* ---------- CSV import dialog ---------- */
+
+.import-modal-card {
+    width: min(620px, 100%);
+}
+
+.import-modal-heading {
+    display: grid;
+    gap: 4px;
+}
+
+.import-modal-kicker {
+    color: var(--ui-accent);
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: .12em;
+}
+
+.import-modal-card .modal-header {
+    padding: 18px 24px;
+}
+
+.import-modal-card .modal-header h3 {
+    font-size: 18px;
+}
+
+.import-modal-card .modal-body {
+    display: grid;
+    gap: 18px;
+    padding: 22px 28px;
+}
+
+.import-modal-card .modal-body .form-group {
+    min-width: 0;
+    margin: 0;
+    gap: 8px;
+}
+
+.import-modal-card .modal-body label {
+    margin: 0;
+    color: var(--ui-text);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.import-label-note {
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    font-weight: 450;
+}
+
+.import-modal-card .modal-body input[type="text"] {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 13px;
+    border: 1px solid var(--ui-border-strong);
+    border-radius: 10px;
+    background: var(--ui-surface);
+    font-size: 13px;
+}
+
+.import-file-row {
+    min-height: 58px;
+    flex-wrap: nowrap;
+    padding: 8px 10px;
+    border: 1px dashed var(--ui-border-strong);
+    border-radius: 10px;
+    background: var(--ui-surface-muted);
+}
+
+.import-file-row .btn {
+    flex: none;
+}
+
+.import-filename {
+    overflow: hidden;
+    min-width: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.import-filename.has-file {
+    color: var(--ui-text);
+    font-weight: 600;
+}
+
+.import-help {
+    margin: 0;
+    color: var(--ui-text-muted);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.import-report {
+    padding: 13px 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    background: var(--ui-surface-muted);
+}
+
+.import-modal-card .modal-footer {
+    gap: 9px;
+    padding: 14px 24px;
+}
+
+@media (max-width: 600px) {
+    .import-modal-card .modal-header,
+    .import-modal-card .modal-footer {
+        padding-inline: 16px;
+    }
+
+    .import-modal-card .modal-body {
+        gap: 16px;
+        padding: 18px 16px;
+    }
+
+    .import-file-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .import-modal-card .modal-footer > button:first-child {
+        order: 1;
+        width: 100%;
+    }
 }

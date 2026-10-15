@@ -18,12 +18,12 @@ export const APP_BASE = readAppBase();
 export const API_BASE = (import.meta.env.VITE_API_URL || `${APP_BASE}/api`).replace(/\/+$/, "");
 
 export const EVENT_STATUSES = ["Draft", "Pending", "Approved", "Rejected", "Completed", "Cancelled"];
-export const ANNOUNCEMENT_AUDIENCES = ["All Users", "Students", "Organizers", "Staff"];
+export const ANNOUNCEMENT_AUDIENCES = ["All Users", "Students"];
 export const ANNOUNCEMENT_CATEGORIES = ["General", "Event", "Emergency", "Maintenance"];
 export const ANNOUNCEMENT_STATUSES = ["Draft", "Scheduled", "Published"];
-export const USER_ROLES = ["Admin", "Staff", "Organizer", "Student", "Scanner"];
-export const REGISTRATION_ROLES = ["Admin", "Staff", "Organizer", "Student"];
-export const EVENT_TARGET_ROLES = ["All", "Admin", "Staff", "Organizer", "Student"];
+export const USER_ROLES = ["Admin", "Student", "Scanner"];
+export const REGISTRATION_ROLES = ["Admin", "Student"];
+export const EVENT_TARGET_ROLES = ["All", "Admin", "Student"];
 
 export const TOKEN_KEY = "tmc_token";
 export const USER_KEY = "tmc_user";
@@ -283,6 +283,8 @@ export const scannerEventsApi = {
 export const authApi = {
   login: (email, password) => request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   register: (data) => request("/auth/register", { method: "POST", body: JSON.stringify(data) }),
+  sendPasswordResetLink: (email) => request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
+  resetPassword: (data) => request("/auth/reset-password", { method: "POST", body: JSON.stringify(data) }),
   logout: () => request("/auth/logout", { method: "POST" }),
   me: () => request("/auth/me"),
   updateProfile: (data) => request("/auth/profile", { method: "PUT", body: JSON.stringify(data) }),

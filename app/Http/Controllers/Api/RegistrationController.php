@@ -17,7 +17,7 @@ class RegistrationController extends Controller
     /**
      * Roles a registration may carry, matching the user account roles.
      */
-    private const ROLES = ['Admin', 'Staff', 'Organizer', 'Student'];
+    private const ROLES = ['Admin', 'Student'];
 
     /**
      * Role applied when a registration does not specify one.
@@ -35,9 +35,6 @@ class RegistrationController extends Controller
             $query->whereRaw('LOWER(email) = ?', [mb_strtolower(trim($request->user()->email))]);
         }
 
-        if ($request->user()?->role === 'Organizer') {
-            $query->whereHas('eventRelation', fn ($event) => $event->where('organizer_user_id', $request->user()->getKey()));
-        }
 
         if ($request->filled('search')) {
             $term = $request->string('search')->toString();
@@ -90,16 +87,12 @@ class RegistrationController extends Controller
 
         $validated['role'] ??= self::DEFAULT_ROLE;
 
-        // Staff may register anybody, but the duplicate and capacity rules
+        // Administrators may register anybody, but the duplicate and capacity rules
         // still apply: the event behind the title is resolved and checked
         // with the registrant's own account when one exists, so a registrar
         // cannot double-book a student or overfill an event by hand.
         $event = Event::where('title', trim($validated['event']))->first();
 
-        if ($request->user()?->role === 'Organizer'
-            && (! $event || (int) $event->organizer_user_id !== (int) $request->user()->getKey())) {
-            abort(404);
-        }
 
         if ($event) {
             $account = UserAccount::whereRaw('LOWER(email) = ?', [mb_strtolower(trim($validated['email']))])->first();
@@ -166,7 +159,6 @@ class RegistrationController extends Controller
             abort(404);
         }
 
-        $this->authorizeOrganizerRegistration($request, $registration);
 
         return response()->json($registration);
     }
@@ -254,7 +246,6 @@ class RegistrationController extends Controller
      */
     public function update(Request $request, Registration $registration)
     {
-        $this->authorizeOrganizerRegistration($request, $registration);
 
         $validated = $request->validate([
             'reference' => ['sometimes', 'string', 'max:50', Rule::unique('registrations', 'reference')->ignore($registration->id)],
@@ -269,11 +260,6 @@ class RegistrationController extends Controller
             'reg_date' => ['nullable', 'string', 'max:20'],
             'qr_code' => ['nullable', 'string', 'max:100'],
         ]);
-
-        if ($request->user()?->role === 'Organizer' && array_key_exists('event', $validated)) {
-            $newEvent = Event::where('title', trim($validated['event']))->first();
-            abort_unless($newEvent && (int) $newEvent->organizer_user_id === (int) $request->user()->getKey(), 404);
-        }
 
         $registration->update($validated);
 
@@ -292,7 +278,6 @@ class RegistrationController extends Controller
      */
     public function destroy(Request $request, Registration $registration)
     {
-        $this->authorizeOrganizerRegistration($request, $registration);
         $registration->delete();
 
         return response()->noContent();
@@ -323,18 +308,6 @@ class RegistrationController extends Controller
         return response()->json(['message' => 'Registration cancelled.']);
     }
 
-    private function authorizeOrganizerRegistration(Request $request, Registration $registration): void
-    {
-        if ($request->user()?->role !== 'Organizer') {
-            return;
-        }
-
-        abort_unless(
-            (int) $registration->eventRelation?->organizer_user_id === (int) $request->user()->getKey(),
-            404,
-        );
-    }
-
     /**
      * Return a downloadable .ics calendar invite for the registration's event.
      *
@@ -348,7 +321,6 @@ class RegistrationController extends Controller
             && strcasecmp((string) $registration->email, (string) $request->user()->email) !== 0) {
             abort(404);
         }
-        $this->authorizeOrganizerRegistration($request, $registration);
 
         $registration->loadMissing('eventRelation');
 
@@ -397,11 +369,7 @@ class RegistrationController extends Controller
         // the same reminder twice.
         $wanted = array_values(array_unique($validated['references']));
 
-        $registrationsQuery = Registration::with('eventRelation')->whereIn('reference', $wanted);
-        if ($request->user()?->role === 'Organizer') {
-            $registrationsQuery->whereHas('eventRelation', fn ($event) => $event->where('organizer_user_id', $request->user()->getKey()));
-        }
-        $registrations = $registrationsQuery->get()->keyBy('reference');
+        $registrations = Registration::with('eventRelation')->whereIn('reference', $wanted)->get()->keyBy('reference');
 
         $queued = 0;
         $skipped = [];

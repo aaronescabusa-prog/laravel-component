@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
-use App\Models\UserAccount;
 use App\Services\EventAudience;
 use App\Services\EventEligibility;
 use App\Services\EventSchedule;
@@ -29,9 +28,6 @@ class EventController extends Controller
             $query->where('status', 'Approved');
         }
 
-        if ($request->user()?->role === 'Organizer') {
-            $query->where('organizer_user_id', $request->user()->getKey());
-        }
 
         if ($request->filled('search')) {
             $term = $request->string('search')->toString();
@@ -84,7 +80,7 @@ class EventController extends Controller
             'capacity' => ['nullable', 'integer', 'min:0'],
             'participants' => ['nullable', 'integer', 'min:0'],
             'status' => ['sometimes', 'required', 'string', Rule::in(['Draft', 'Pending', 'Approved', 'Rejected', 'Completed', 'Cancelled'])],
-            'target_role' => ['sometimes', 'string', Rule::in(['All', 'Admin', 'Staff', 'Organizer', 'Student'])],
+            'target_role' => ['sometimes', 'string', Rule::in(['All', 'Admin', 'Student'])],
             'target_course' => ['sometimes', 'nullable', 'string', Rule::in($this->courses())],
             'target_department' => ['sometimes', 'nullable', 'string', Rule::in(array_column(AcademicStructure::DEPARTMENTS, 'code'))],
             'target_year' => ['sometimes', 'nullable', 'string', Rule::in(AcademicStructure::YEARS)],
@@ -98,7 +94,7 @@ class EventController extends Controller
         $this->validateRegistrationWindow($request);
 
         $validated['reference'] ??= $this->nextEventReference();
-        $validated['status'] ??= $request->user()?->role === 'Organizer' ? 'Pending' : 'Draft';
+        $validated['status'] ??= 'Draft';
 
         // Fill, derive the duration from the start/end range, then save once:
         // duration_value/duration_unit are calculated, never accepted from the
@@ -113,15 +109,6 @@ class EventController extends Controller
         }
 
         $event->fill($validated);
-        if ($request->user()?->role === 'Organizer') {
-            $event->forceFill([
-                'organizer' => $request->user()->name,
-                'organizer_user_id' => $request->user()->getKey(),
-                'status' => 'Pending',
-            ]);
-        } elseif (array_key_exists('organizer', $validated)) {
-            $event->forceFill(['organizer_user_id' => $this->organizerAccountId($validated['organizer'])]);
-        }
         $event->syncDuration();
         $event->save();
 
@@ -150,10 +137,6 @@ class EventController extends Controller
             abort(404);
         }
 
-        if (request()->user()?->role === 'Organizer'
-            && (int) $event->organizer_user_id !== (int) request()->user()->getKey()) {
-            abort(404);
-        }
 
         return response()->json($event);
     }
@@ -215,7 +198,7 @@ class EventController extends Controller
             'capacity' => ['nullable', 'integer', 'min:0'],
             'participants' => ['nullable', 'integer', 'min:0'],
             'status' => ['sometimes', 'required', 'string', Rule::in(['Draft', 'Pending', 'Approved', 'Rejected', 'Completed', 'Cancelled'])],
-            'target_role' => ['sometimes', 'nullable', 'string', Rule::in(['All', 'Admin', 'Staff', 'Organizer', 'Student'])],
+            'target_role' => ['sometimes', 'nullable', 'string', Rule::in(['All', 'Admin', 'Student'])],
             'target_course' => ['sometimes', 'nullable', 'string', Rule::in($this->courses())],
             'target_department' => ['sometimes', 'nullable', 'string', Rule::in(array_column(AcademicStructure::DEPARTMENTS, 'code'))],
             'target_year' => ['sometimes', 'nullable', 'string', Rule::in(AcademicStructure::YEARS)],
@@ -230,18 +213,7 @@ class EventController extends Controller
         $this->validateSchedule($request, $event);
         $this->validateRegistrationWindow($request, $event);
 
-        if ($request->user()?->role === 'Organizer') {
-            abort_unless((int) $event->organizer_user_id === (int) $request->user()->getKey(), 404);
-            if (array_key_exists('status', $validated) && $validated['status'] !== $event->status) {
-                abort(403, 'Only administrators and staff may change an event status.');
-            }
-            $validated['organizer'] = $request->user()->name;
-        }
-
         $event->fill($validated);
-        if ($request->user()?->role !== 'Organizer' && array_key_exists('organizer', $validated)) {
-            $event->forceFill(['organizer_user_id' => $this->organizerAccountId($validated['organizer'])]);
-        }
         $event->syncDuration();
         $event->save();
 
@@ -279,10 +251,6 @@ class EventController extends Controller
      */
     public function destroy(Request $request, Event $event)
     {
-        if ($request->user()?->role === 'Organizer') {
-            abort_unless((int) $event->organizer_user_id === (int) $request->user()->getKey(), 404);
-        }
-
         $event->delete();
 
         return response()->noContent();
@@ -291,10 +259,6 @@ class EventController extends Controller
     /** Store the event banner uploaded by the web admin or event organizer. */
     public function uploadBanner(Request $request, Event $event)
     {
-        if ($request->user()?->role === 'Organizer') {
-            abort_unless((int) $event->organizer_user_id === (int) $request->user()->getKey(), 404);
-        }
-
         $validated = $request->validate([
             'banner' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
@@ -389,18 +353,6 @@ class EventController extends Controller
                 'registration_deadline' => ['The registration deadline cannot be after the event start date.'],
             ]);
         }
-    }
-
-    private function organizerAccountId(?string $name): ?int
-    {
-        $matches = UserAccount::query()
-            ->where('role', 'Organizer')
-            ->where('status', 'Active')
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim((string) $name))])
-            ->limit(2)
-            ->pluck('id');
-
-        return $matches->count() === 1 ? (int) $matches->first() : null;
     }
 
     private function nextEventReference(): string

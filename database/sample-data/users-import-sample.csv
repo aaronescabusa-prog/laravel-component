@@ -1,7 +1,7 @@
 ID,Name,Email,Role,Course,Block No.,Year,Status,Date Registered,Password
 USR-2220,Alina Reyes,alina.reyes@tmc.edu.ph,Admin,BS Office Administration,A1,4,Active,2026-10-03,USR-2220
-USR-2221,Benedicto Mantla,benedicto.mantla@tmc.edu.ph,Staff,BS Criminology,B2,3,Active,2026-10-03,USR-2221
-USR-2222,Corinna Delgado,corinna.delgado@tmc.edu.ph,Organizer,BS Information Technology,A1,3,Active,2026-10-03,USR-2222
+USR-2221,Benedicto Mantla,benedicto.mantla@tmc.edu.ph,Student,BS Criminology,B2,3,Active,2026-10-03,USR-2221
+USR-2222,Corinna Delgado,corinna.delgado@tmc.edu.ph,Student,BS Information Technology,A1,3,Active,2026-10-03,USR-2222
 USR-2223,Dario Samonte,dario.samonte@tmc.edu.ph,Student,BS Information Technology,A1,1,Active,2026-10-03,USR-2223
 USR-2224,Elvira Navarro,elvira.navarro@tmc.edu.ph,Student,BS Criminology,B2,2,Active,2026-10-03,USR-2224
 USR-2225,Felomena Ocampo,felomena.ocampo@tmc.edu.ph,Student,BS Office Administration,A1,2,Active,2026-10-03,USR-2225

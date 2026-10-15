@@ -461,5 +461,5 @@ test('the poster exposes the QR target only to administrators', function () {
         ->assertOk()
         ->assertJsonPath('token', $event->checkin_token)
         ->assertJsonPath('event.title', 'Tech Fest')
-        ->assertJsonPath('url', url('/check-in/'.$event->checkin_token));
+        ->assertJsonPath('url', url('/attendance/check-in/'.$event->checkin_token));
 });

@@ -13,7 +13,6 @@ function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
-    const [showSignInHelp, setShowSignInHelp] = useState(false);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [suspendedPopup, setSuspendedPopup] = useState(null);
@@ -51,7 +50,7 @@ function Login() {
             };
             setSession(response.token, signedInUser);
             setUser(signedInUser);
-            navigate(role === "Scanner" ? "/check-in" : "/dashboard", { replace: true });
+            navigate(role === "Scanner" ? "/attendance" : "/dashboard", { replace: true });
         } catch (err) {
             const message = err?.payload?.message
                 || (err?.httpStatus ? err.message : "Unable to connect. Check your connection and try again.");
@@ -184,22 +183,10 @@ function Login() {
 
                                 <div className="form-row">
                                     <span className="signin-security-note">Your session stays in this browser tab.</span>
-                                    <button
-                                        type="button"
-                                        className="form-link signin-help-toggle"
-                                        aria-expanded={showSignInHelp}
-                                        aria-controls="signin-help"
-                                        onClick={() => setShowSignInHelp((shown) => !shown)}
-                                    >
+                                    <Link to="/forgot-password" className="form-link signin-help-toggle">
                                         Forgot password?
-                                    </button>
+                                    </Link>
                                 </div>
-
-                                {showSignInHelp && (
-                                    <p className="signin-help" id="signin-help">
-                                        Password resets aren't available here yet. Please contact your college administrator for help.
-                                    </p>
-                                )}
 
                                 <button 
                                     type="submit" 

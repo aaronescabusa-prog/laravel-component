@@ -48,7 +48,7 @@ class UserAccountController extends Controller
             'student_id' => ['nullable', 'string', 'max:50', $studentIdUnique],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', $live('email')],
-            'role' => ['required', 'string', Rule::in(['Admin', 'Staff', 'Organizer', 'Student', 'Scanner'])],
+            'role' => ['required', 'string', Rule::in(['Admin', 'Student', 'Scanner'])],
             'status' => ['required', 'string', Rule::in(['Active', 'Pending', 'Suspended'])],
             'course' => ['nullable', 'string', 'max:255'],
             'block_no' => ['nullable', 'string', 'max:50'],
@@ -134,9 +134,7 @@ class UserAccountController extends Controller
      * Create many accounts from one CSV in a single request.
      *
      * Administrator-only by route, through the `admin` middleware rather than
-     * `role:user-accounts`. The ordinary create above stays available to Staff,
-     * because adding one user is a much smaller thing to delegate than adding
-     * five hundred.
+     * `role:user-accounts`.
      *
      * Each row is validated and written on its own so that one bad line is
      * reported instead of costing the whole file. Validating the envelope with
@@ -220,12 +218,8 @@ class UserAccountController extends Controller
         $actor = $request->user();
         $isSelf = $actor instanceof UserAccount && $actor->is($userAccount);
 
-        // Step 1: account writes reached this method passed role:user-accounts
-        // (Staff may update) but the admin-only creation/deletion live behind
-        // requireAdmin. Re-gate here: non-admins may change ONLY their own
-        // password (with current_password); every other non-admin write 403s.
-        // This keeps Staff self-service working while the back office stays
-        // admin-only.
+        // Account writes are admin-only. Keep this defensive check so future
+        // route changes cannot expose account editing to non-admin roles.
         $nonAdmin = ($actor?->role ?? null) !== 'Admin';
 
         if ($nonAdmin) {
@@ -247,7 +241,7 @@ class UserAccountController extends Controller
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('user_accounts', 'email')
                 ->whereNull('deleted_at')
                 ->ignore($userAccount->id)],
-            'role' => ['sometimes', 'required', 'string', Rule::in(['Admin', 'Staff', 'Organizer', 'Student', 'Scanner'])],
+            'role' => ['sometimes', 'required', 'string', Rule::in(['Admin', 'Student', 'Scanner'])],
             'status' => ['sometimes', 'required', 'string', Rule::in(['Active', 'Pending', 'Suspended'])],
             'course' => ['nullable', 'string', 'max:255'],
             'block_no' => ['nullable', 'string', 'max:50'],

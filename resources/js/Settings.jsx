@@ -13,9 +13,8 @@ const TABS = [
 
 const ROLE_PERMISSIONS = [
     { role: "Admin", manageUsers: true, manageEvents: true, approveEvents: true, viewReports: true, manageSettings: true },
-    { role: "Staff", manageUsers: false, manageEvents: true, approveEvents: true, viewReports: true, manageSettings: false },
-    { role: "Organizer", manageUsers: false, manageEvents: true, approveEvents: false, viewReports: false, manageSettings: false },
     { role: "Student", manageUsers: false, manageEvents: false, approveEvents: false, viewReports: false, manageSettings: false },
+    { role: "Scanner", manageUsers: false, manageEvents: false, approveEvents: false, viewReports: false, manageSettings: false },
 ];
 
 const PERMISSION_FIELDS = [

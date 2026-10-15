@@ -7,7 +7,6 @@ import {
     IconList,
     IconMegaphone,
     IconReport,
-    IconScanner,
     IconSettings,
     IconShield,
     IconStar,
@@ -25,26 +24,30 @@ import {
  * Keep the `to` values in sync with the <Route> paths in App.jsx.
  */
 export const NAV_ITEMS = [
-    { to: "/dashboard", label: "Dashboard", icon: IconDashboard, roles: ["Admin", "Staff", "Organizer", "Student"] },
-    { to: "/users", label: "User Accounts", icon: IconUsers, roles: ["Admin", "Staff", "Organizer"] },
-    { to: "/events", label: "Events", icon: IconCalendar, roles: ["Admin", "Staff", "Organizer", "Student"] },
+    { to: "/dashboard", label: "Dashboard", icon: IconDashboard, roles: ["Admin", "Student"] },
+    { to: "/users", label: "User Accounts", icon: IconUsers, roles: ["Admin"] },
+    { to: "/events", label: "Events", icon: IconCalendar, roles: ["Admin", "Student"] },
     { to: "/my-events", label: "My Events", icon: IconClipboard, roles: ["Student"] },
     { to: "/scanner-permissions", label: "Scanner Permissions", icon: IconShield, roles: ["Admin"] },
-    { to: "/attendance-reports", label: "Attendance Reports", icon: IconReport, roles: ["Admin"] },
-    { to: "/registrations", label: "Registrations", icon: IconClipboard, roles: ["Admin", "Staff", "Organizer"] },
-    { to: "/check-in", label: "Check-In", icon: IconScanner, roles: ["Admin", "Scanner"] },
-    { to: "/certificates", label: "Certificates", icon: IconAward, roles: ["Admin", "Staff", "Organizer", "Student"] },
+    { to: "/registrations", label: "Registrations", icon: IconClipboard, roles: ["Admin"] },
+    { to: "/attendance", label: "Attendance", icon: IconReport, roles: ["Admin", "Scanner"] },
+    { to: "/certificates", label: "Certificates", icon: IconAward, roles: ["Admin", "Student"] },
     { to: "/evaluations", label: "Evaluations", icon: IconStar, roles: ["Admin"] },
-    { to: "/announcements", label: "Announcements", icon: IconMegaphone, roles: ["Admin", "Staff", "Organizer", "Student"] },
+    { to: "/announcements", label: "Announcements", icon: IconMegaphone, roles: ["Admin", "Student"] },
     { to: "/profile", label: "My Profile", icon: IconUsers, roles: ["Student"] },
-    { to: "/activity-logs", label: "Activity Logs", icon: IconList, roles: ["Admin", "Staff"] },
-    { to: "/reports", label: "Reports", icon: IconChart, roles: ["Admin", "Staff", "Organizer"] },
-    { to: "/settings", label: "Settings", icon: IconSettings, roles: ["Admin", "Staff"] },
+    { to: "/activity-logs", label: "Activity Logs", icon: IconList, roles: ["Admin"] },
+    { to: "/reports", label: "Reports", icon: IconChart, roles: ["Admin"] },
+    { to: "/settings", label: "Settings", icon: IconSettings, roles: ["Admin"] },
 ];
 
 /** Roles allowed to visit a path. `null` = any authenticated account. */
 export function rolesForPath(pathname) {
-    const item = NAV_ITEMS.find((entry) => entry.to === pathname || (entry.to === "/check-in" && pathname.startsWith("/check-in/")));
+    const path = pathname === "/check-in" || pathname.startsWith("/check-in/") || pathname === "/attendance-reports"
+        ? "/attendance"
+        : pathname;
+    const item = NAV_ITEMS.find((entry) => (
+        entry.to === path || (entry.to === "/attendance" && path.startsWith("/attendance/"))
+    ));
     return item ? (item.roles ?? null) : null;
 }
 

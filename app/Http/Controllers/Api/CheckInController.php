@@ -19,10 +19,9 @@ use Illuminate\Validation\ValidationException;
 /**
  * The check-in desk.
  *
- * Staff open this by scanning the event's QR poster, which carries only the
- * event's check-in token. Every endpoint here still sits behind auth:sanctum
- * and the role middleware: the token identifies *which* event, it never grants
- * permission, so a photographed poster cannot be used to mark a roster.
+ * Web staff select an event and mobile scanners load assigned events. The
+ * event check-in token identifies which event is being handled; every endpoint
+ * still requires an authenticated account with permission for that event.
  */
 class CheckInController extends Controller
 {
@@ -50,7 +49,7 @@ class CheckInController extends Controller
     }
 
     /**
-     * Token and canonical URL for an event's poster.
+     * Check-in token and canonical URL for an event.
      */
     public function poster(Event $event)
     {
@@ -66,7 +65,7 @@ class CheckInController extends Controller
                 'venue' => $event->venue,
             ],
             'token' => $event->checkin_token,
-            'url' => url('/check-in/'.$event->checkin_token),
+            'url' => url('/attendance/check-in/'.$event->checkin_token),
         ]);
     }
 
@@ -328,7 +327,10 @@ class CheckInController extends Controller
         $sessions = $event->attendanceSessions;
         $sessionIds = $sessions->pluck('id');
 
-        $registrations = $event->registrations()->orderBy('participant')->get();
+        $registrations = $event->registrations()
+            ->with('userAccount:id,course,year,block_no')
+            ->orderBy('participant')
+            ->get();
 
         $punches = DB::table('attendances')
             ->whereIn('attendance_session_id', $sessionIds)
@@ -358,7 +360,11 @@ class CheckInController extends Controller
                 'participant' => $registration->participant,
                 'email' => $registration->email,
                 'role' => $registration->role,
-                'block_no' => $registration->block_no,
+                'department' => $registration->userAccount?->department,
+                'department_name' => $registration->userAccount?->department_name,
+                'course' => $registration->userAccount?->course,
+                'year' => $registration->userAccount?->year,
+                'block_no' => $registration->block_no ?: $registration->userAccount?->block_no,
                 'attendance' => $registration->attendance,
                 'sessions_complete' => $complete,
                 'sessions_total' => $sessions->count(),

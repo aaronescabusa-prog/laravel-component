@@ -3,6 +3,9 @@
 use App\Models\UserAccount;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
 
@@ -124,18 +127,18 @@ test('register honours the requested self-service role', function () {
         'email' => 'liza.fernandez@tmc.edu.ph',
         'course' => 'BS Information Technology',
         'year' => '2',
-        'role' => 'Organizer',
+        'role' => 'Student',
         'password' => 'Password123!',
     ]);
 
     $response->assertStatus(201)
         ->assertJson([
             'name' => 'Liza Fernandez',
-            'role' => 'Organizer',
+            'role' => 'Student',
             'status' => 'Pending',
         ]);
 
-    expect(UserAccount::where('email', 'liza.fernandez@tmc.edu.ph')->first()->role)->toBe('Organizer');
+    expect(UserAccount::where('email', 'liza.fernandez@tmc.edu.ph')->first()->role)->toBe('Student');
 });
 
 test('register refuses to self-assign the administrator role', function () {
@@ -238,6 +241,37 @@ test('logout revokes the current token', function () {
         ->assertOk();
 
     expect(PersonalAccessToken::count())->toBe(0);
+});
+
+test('forgot password sends a reset notification without confirming account existence', function () {
+    Notification::fake();
+    $account = makeAccount(['email' => 'recovery@tmc.edu.ph']);
+
+    $this->postJson('/api/auth/forgot-password', ['email' => $account->email])
+        ->assertOk()
+        ->assertJsonPath('message', 'If an active account uses that email, a password reset link has been sent.');
+
+    Notification::assertSentTo($account, ResetPassword::class);
+
+    $this->postJson('/api/auth/forgot-password', ['email' => 'unknown@tmc.edu.ph'])
+        ->assertOk()
+        ->assertJsonPath('message', 'If an active account uses that email, a password reset link has been sent.');
+});
+
+test('a valid password reset changes the password and revokes existing tokens', function () {
+    $account = makeAccount(['email' => 'reset@tmc.edu.ph']);
+    $account->createToken('old-device');
+    $token = Password::broker('user_accounts')->createToken($account);
+
+    $this->postJson('/api/auth/reset-password', [
+        'email' => $account->email,
+        'token' => $token,
+        'password' => 'NewPassword123!',
+        'password_confirmation' => 'NewPassword123!',
+    ])->assertOk();
+
+    expect(Hash::check('NewPassword123!', $account->fresh()->password))->toBeTrue()
+        ->and(PersonalAccessToken::count())->toBe(0);
 });
 
 test('unauthenticated requests to protected routes are rejected', function () {

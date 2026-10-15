@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\UserAccount;
 use App\Support\AcademicStructure;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
@@ -15,7 +17,7 @@ class AuthController extends Controller
      * Roles a visitor may request during self-registration. Administrator
      * accounts are only ever created by an existing admin in User Accounts.
      */
-    private const SELF_SERVICE_ROLES = ['Student', 'Organizer', 'Staff'];
+    private const SELF_SERVICE_ROLES = ['Student'];
 
     /**
      * Role assigned when a registration request does not ask for one.
@@ -32,6 +34,53 @@ class AuthController extends Controller
     public function adminLogin(Request $request)
     {
         return $this->authenticate($request, 'Admin');
+    }
+
+    /** Send a short-lived reset link without revealing whether an email exists. */
+    public function sendPasswordResetLink(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+
+        $status = Password::broker('user_accounts')->sendResetLink($validated);
+
+        if ($status === Password::RESET_THROTTLED) {
+            return response()->json([
+                'message' => 'A reset link was requested recently. Please wait before trying again.',
+            ], 429);
+        }
+
+        return response()->json([
+            'message' => 'If an active account uses that email, a password reset link has been sent.',
+        ]);
+    }
+
+    /** Apply a valid reset token and revoke sessions created with the old password. */
+    public function resetPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'token' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
+        ]);
+
+        $status = Password::broker('user_accounts')->reset(
+            $validated,
+            function (UserAccount $account, string $password): void {
+                $account->forceFill(['password' => $password])->save();
+                $account->tokens()->delete();
+                event(new PasswordReset($account));
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            return response()->json([
+                'message' => __($status),
+            ], 422);
+        }
+
+        return response()->json(['message' => 'Your password has been reset. You can now sign in.']);
     }
 
     private function authenticate(Request $request, ?string $requiredRole = null)

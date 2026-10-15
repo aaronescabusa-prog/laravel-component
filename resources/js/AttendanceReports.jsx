@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import AppShell from "./components/AppShell";
 import Toast from "./components/Toast";
 import { IconDownload } from "./components/Icons";
@@ -47,14 +48,28 @@ const statusOf = (punch) => {
 const statusClass = (status) => `events-cell-status-${STATUS_CLASS[status] ?? "not-recorded"}`;
 const statusLabel = (status) => STATUS_LABELS[status] ?? status;
 
-export default function AttendanceReports() {
+export default function AttendanceReports({ embedded = false }) {
+    const [searchParams, setSearchParams] = useSearchParams();
     const { toast, showToast, dismissToast } = useToast();
 
     const [events, setEvents] = useState([]);
     const [eventsLoading, setEventsLoading] = useState(true);
     const [eventsError, setEventsError] = useState("");
+    const [eventsReload, setEventsReload] = useState(0);
+    const [eventSearch, setEventSearch] = useState("");
+    const [eventSearchOpen, setEventSearchOpen] = useState(false);
 
-    const [selectedRef, setSelectedRef] = useState("");
+    const selectedRef = searchParams.get("event") || "";
+    const selectedEvent = events.find((event) => event.id === selectedRef);
+    const matchingEvents = useMemo(() => {
+        const query = eventSearch.trim().toLowerCase();
+        if (!query) return events.slice(0, 8);
+        return events.filter((event) =>
+            [event.name, event.date, event.venue, event.id]
+                .some((value) => String(value ?? "").toLowerCase().includes(query))
+        ).slice(0, 8);
+    }, [events, eventSearch]);
+    const reportRequest = useRef(0);
     const [report, setReport] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [loadError, setLoadError] = useState("");
@@ -80,10 +95,12 @@ export default function AttendanceReports() {
         return () => {
             active = false;
         };
-    }, []);
+    }, [eventsReload]);
 
     const loadReport = useCallback(async (ref) => {
+        const requestId = ++reportRequest.current;
         setReport(null);
+        setDetailLoading(false);
         if (!ref) {
             setLoadError("");
             return;
@@ -92,12 +109,14 @@ export default function AttendanceReports() {
         setLoadError("");
         try {
             const payload = await attendanceApi.get(ref);
-            setReport(payload);
+            if (requestId === reportRequest.current) setReport(payload);
         } catch (err) {
-            setReport(null);
-            setLoadError(err.message || "Could not load the attendance roster.");
+            if (requestId === reportRequest.current) {
+                setReport(null);
+                setLoadError(err.message || "Could not load the attendance roster.");
+            }
         } finally {
-            setDetailLoading(false);
+            if (requestId === reportRequest.current) setDetailLoading(false);
         }
     }, []);
 
@@ -154,32 +173,81 @@ export default function AttendanceReports() {
         }
     };
 
+    function selectEvent(reference) {
+        setSearchParams((current) => {
+            const next = new URLSearchParams(current);
+            if (reference) next.set("event", reference);
+            else next.delete("event");
+            return next;
+        });
+    }
 
-    return (
-        <AppShell
-            title="Attendance Reports"
-            subtitle="Per-session punch status for every registered participant."
-        >
-            <div className="attendance-page">
+
+    const content = (
+        <div className="attendance-page">
                 <section className="attendance-filter-panel" aria-label="Attendance report filters">
                     <div className="attendance-event-field">
-                        <label htmlFor="attendanceEvent">Choose an event</label>
-                        <select
-                            id="attendanceEvent"
-                            value={selectedRef}
-                            onChange={(e) => setSelectedRef(e.target.value)}
-                            disabled={eventsLoading || !!eventsError}
-                        >
-                            <option value="">
-                                {eventsLoading ? "Loading events…" : "Select an event to view attendance"}
-                            </option>
-                            {events.map((event) => (
-                                <option key={event._id} value={event.id}>
-                                    {event.name} — {event.date}
-                                </option>
-                            ))}
-                        </select>
+                        <label htmlFor="attendanceEventSearch">Search events</label>
+                        <div className="attendance-event-search">
+                            <input
+                                id="attendanceEventSearch"
+                                type="search"
+                                value={eventSearch}
+                                onChange={(e) => {
+                                    setEventSearch(e.target.value);
+                                    setEventSearchOpen(true);
+                                }}
+                                onFocus={() => setEventSearchOpen(true)}
+                                onBlur={() => window.setTimeout(() => setEventSearchOpen(false), 120)}
+                                placeholder={eventsLoading ? "Loading events…" : "Search by event, date, or venue"}
+                                aria-label="Search events by name, date, or venue"
+                                aria-controls="attendance-event-results"
+                                aria-expanded={eventSearchOpen && !eventsLoading && !eventsError}
+                                autoComplete="off"
+                                disabled={eventsLoading || !!eventsError}
+                            />
+                            {eventSearchOpen && !eventsLoading && !eventsError && (
+                                <div id="attendance-event-results" className="attendance-event-results" role="listbox" aria-label="Matching events">
+                                    {matchingEvents.length ? matchingEvents.map((event) => (
+                                        <button
+                                            key={event.id}
+                                            type="button"
+                                            role="option"
+                                            aria-selected={event.id === selectedRef}
+                                            className="attendance-event-result"
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => {
+                                                selectEvent(event.id);
+                                                setEventSearch("");
+                                                setEventSearchOpen(false);
+                                            }}
+                                        >
+                                            <span>{event.name}</span>
+                                            <small>{[event.date, event.venue].filter(Boolean).join(" · ")}</small>
+                                        </button>
+                                    )) : (
+                                        <p className="attendance-event-no-results">No matching events.</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        {selectedEvent && (
+                            <p className="attendance-selected-event">
+                                Showing: <strong>{selectedEvent.name}</strong>
+                                <button type="button" onClick={() => selectEvent("")} aria-label="Clear selected event">Clear</button>
+                            </p>
+                        )}
                         {eventsError && <p className="attendance-error-text">{eventsError}</p>}
+                        {eventsError && (
+                            <button
+                                type="button"
+                                className="events-btn events-btn-secondary attendance-retry"
+                                onClick={() => setEventsReload((value) => value + 1)}
+                                disabled={eventsLoading}
+                            >
+                                Try again
+                            </button>
+                        )}
                     </div>
 
                     {report && (
@@ -308,9 +376,20 @@ export default function AttendanceReports() {
                     </div>
                 )}
             </div>
+    );
 
+    return (
+        <>
+            {embedded ? content : (
+                <AppShell
+                    title="Attendance Reports"
+                    subtitle="Per-session punch status for every registered participant."
+                >
+                    {content}
+                </AppShell>
+            )}
             {toast && <Toast {...toast} onDismiss={dismissToast} />}
-        </AppShell>
+        </>
     );
 }
 

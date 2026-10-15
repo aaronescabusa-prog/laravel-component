@@ -25,7 +25,7 @@ class CertificateController extends Controller
         $query = Certificate::query();
 
         // The Student role may read certificates, so the listing is narrowed to
-        // the caller's own rows. Staff and above keep the full register.
+        // the caller's own rows. Administrators keep the full register.
         $this->restrictToOwner($query, $request->user());
 
         if ($request->filled('search')) {

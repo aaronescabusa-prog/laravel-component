@@ -24,11 +24,6 @@ class AttendanceReportController extends Controller
 
     public function index(Request $request, Event $event)
     {
-        if ($request->user()?->role === 'Organizer'
-            && (int) $event->organizer_user_id !== (int) $request->user()->getKey()) {
-            abort(404);
-        }
-
         $payload = $this->rosterPayload($event);
 
         return response()->json($payload);
@@ -42,7 +37,10 @@ class AttendanceReportController extends Controller
         $sessions = $event->attendanceSessions;
         $sessionIds = $sessions->pluck('id');
 
-        $registrations = $event->registrations()->orderBy('participant')->get();
+        $registrations = $event->registrations()
+            ->with('userAccount:id,course,year,block_no')
+            ->orderBy('participant')
+            ->get();
 
         $punches = DB::table('attendances')
             ->whereIn('attendance_session_id', $sessionIds)
@@ -72,7 +70,11 @@ class AttendanceReportController extends Controller
                 'participant' => $registration->participant,
                 'email' => $registration->email,
                 'role' => $registration->role,
-                'block_no' => $registration->block_no,
+                'department' => $registration->userAccount?->department,
+                'department_name' => $registration->userAccount?->department_name,
+                'course' => $registration->userAccount?->course,
+                'year' => $registration->userAccount?->year,
+                'block_no' => $registration->block_no ?: $registration->userAccount?->block_no,
                 'attendance' => $registration->attendance,
                 'sessions_complete' => $complete,
                 'sessions_total' => $sessions->count(),

@@ -75,6 +75,18 @@ test('creating an account without a password is refused', function () {
     expect(UserAccount::where('reference', 'USR-2215')->exists())->toBeFalse();
 });
 
+test('staff and organizer are not accepted as account roles', function () {
+    $this->actingAs(creationAdmin(), 'sanctum');
+
+    foreach (['Staff', 'Organizer'] as $role) {
+        $this->postJson('/api/user-accounts', accountPayload([
+            'reference' => 'USR-'.strtoupper($role),
+            'email' => strtolower($role).'@tmc.edu.ph',
+            'role' => $role,
+        ]))->assertStatus(422)->assertJsonValidationErrors('role');
+    }
+});
+
 test('a password shorter than eight characters is refused', function () {
     $this->actingAs(creationAdmin(), 'sanctum');
 
@@ -133,7 +145,7 @@ test('only an administrator can create an Admin account', function () {
         'reference' => 'USR-STAFF',
         'name' => 'Ana Cruz',
         'email' => 'ana.cruz@student.tmc.edu.ph',
-        'role' => 'Staff',
+        'role' => 'Student',
         'status' => 'Active',
         'password' => 'password',
     ]);

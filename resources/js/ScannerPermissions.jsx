@@ -6,21 +6,6 @@ import { api, eventScannersApi, mapEventFromApi } from "./lib/api";
 import { useToast } from "./lib/useToast";
 import "./ScannerPermissions.css";
 
-/**
- * Admin surface: assign Scanner accounts to an event.
- *
- * GET /events/{event}/scanners returns every Scanner account plus the ids that
- * are currently assigned to the event; PUT replaces the whole assignment with
- * the list we send. We keep a single `activeIds` set as the source of truth —
- * checking a box adds to it, unchecking (or the remove button) removes from it —
- * and always send that full set, so a freshly-ticked scanner can never be
- * dropped the way a "diff against the original list" save would drop it.
- *
- * `{event}` binds on the event `reference` (Event::getRouteKeyName), which is
- * what mapEventFromApi exposes as `id`.
- */
-
-// Tones that map onto the shared status badge palette in ui.css.
 const STATUS_CLASS = {
     Active: "events-status-approved",
     Pending: "events-status-pending",
@@ -29,14 +14,13 @@ const STATUS_CLASS = {
 };
 
 const statusClass = (status) => STATUS_CLASS[status] || "events-status-pending";
+const initials = (name = "") => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "S";
 
 export default function ScannerPermissions() {
     const { toast, showToast, dismissToast } = useToast();
-
     const [events, setEvents] = useState([]);
     const [eventsLoading, setEventsLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
-
     const [selectedRef, setSelectedRef] = useState("");
     const [scanners, setScanners] = useState([]);
     const [activeIds, setActiveIds] = useState(() => new Set());
@@ -44,31 +28,23 @@ export default function ScannerPermissions() {
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailError, setDetailError] = useState("");
     const [saving, setSaving] = useState(false);
+    const [query, setQuery] = useState("");
 
-    // Load the event picker once. Reuse the same mapping Events.jsx uses so the
-    // list shape (title, reference, status, date) stays identical.
-    useEffect(() => {
-        let active = true;
+    const loadEvents = useCallback(async () => {
         setEventsLoading(true);
-        api
-            .list("events", { per_page: "all" })
-            .then((rows) => {
-                if (!active) return;
-                setEvents(rows.map(mapEventFromApi));
-                setLoadError("");
-            })
-            .catch((err) => {
-                if (active) setLoadError(err.message || "Could not load events.");
-            })
-            .finally(() => {
-                if (active) setEventsLoading(false);
-            });
-        return () => {
-            active = false;
-        };
+        setLoadError("");
+        try {
+            const rows = await api.list("events", { per_page: "all" });
+            setEvents(rows.map(mapEventFromApi));
+        } catch (err) {
+            setLoadError(err.message || "Could not load events.");
+        } finally {
+            setEventsLoading(false);
+        }
     }, []);
 
-    // Load the scanner roster whenever the picked event changes.
+    useEffect(() => { loadEvents(); }, [loadEvents]);
+
     const loadScanners = useCallback(async (ref) => {
         if (!ref) {
             setScanners([]);
@@ -92,53 +68,29 @@ export default function ScannerPermissions() {
         }
     }, []);
 
-    useEffect(() => {
-        loadScanners(selectedRef);
-    }, [selectedRef, loadScanners]);
+    useEffect(() => { setQuery(""); loadScanners(selectedRef); }, [selectedRef, loadScanners]);
 
-    const toggleScanner = (id) => {
-        setActiveIds((prev) => {
-            const next = new Set(prev);
-            const key = Number(id);
-            if (next.has(key)) next.delete(key);
-            else next.add(key);
-            return next;
-        });
-    };
+    const selectedEvent = useMemo(() => events.find((event) => event.id === selectedRef) || null, [events, selectedRef]);
+    const dirty = useMemo(() => activeIds.size !== savedIds.size || [...activeIds].some((id) => !savedIds.has(id)), [activeIds, savedIds]);
+    const matchingScanners = useMemo(() => {
+        const needle = query.trim().toLowerCase();
+        return scanners.filter((scanner) => !needle || `${scanner.name} ${scanner.email}`.toLowerCase().includes(needle));
+    }, [scanners, query]);
+    const assignedScanners = matchingScanners.filter((scanner) => activeIds.has(Number(scanner.id)));
+    const availableScanners = matchingScanners.filter((scanner) => !activeIds.has(Number(scanner.id)));
 
-    const removeScanner = (id) => {
-        setActiveIds((prev) => {
-            const next = new Set(prev);
-            next.delete(Number(id));
-            return next;
-        });
-    };
-
-    const assignedScanners = useMemo(
-        () => scanners.filter((scanner) => activeIds.has(Number(scanner.id))),
-        [scanners, activeIds]
-    );
-    const availableScanners = useMemo(
-        () => scanners.filter((scanner) => !activeIds.has(Number(scanner.id))),
-        [scanners, activeIds]
-    );
-
-    const dirty = useMemo(() => {
-        if (activeIds.size !== savedIds.size) return true;
-        for (const id of activeIds) if (!savedIds.has(id)) return true;
-        return false;
-    }, [activeIds, savedIds]);
+    const toggleScanner = (id) => setActiveIds((prev) => {
+        const next = new Set(prev);
+        const key = Number(id);
+        if (next.has(key)) next.delete(key); else next.add(key);
+        return next;
+    });
 
     const saveAssignment = async () => {
         if (!selectedEvent) return;
         setSaving(true);
         try {
-            const payload = await eventScannersApi.update(
-                selectedEvent.id,
-                Array.from(activeIds)
-            );
-            // The endpoint echoes back the fresh roster; adopt it so the UI
-            // reflects exactly what the server stored.
+            const payload = await eventScannersApi.update(selectedEvent.id, Array.from(activeIds));
             const assigned = new Set((payload.assigned ?? []).map(Number));
             setScanners(payload.scanners ?? scanners);
             setActiveIds(new Set(assigned));
@@ -151,180 +103,73 @@ export default function ScannerPermissions() {
         }
     };
 
-    const selectedEvent = useMemo(
-        () => events.find((event) => event.id === selectedRef) || null,
-        [events, selectedRef]
-    );
+    const renderScanner = (scanner, assigned) => {
+        const disabled = scanner.status && scanner.status !== "Active";
+        return (
+            <li key={scanner.id} className={`scanner-row${disabled ? " is-disabled" : ""}`}>
+                {assigned ? (
+                    <span className="scanner-selection-mark" aria-hidden="true"><IconCheck size={14} /></span>
+                ) : (
+                    <label className="scanner-checkbox" aria-label={`Assign ${scanner.name}`}>
+                        <input type="checkbox" checked={activeIds.has(Number(scanner.id))} disabled={disabled} onChange={() => toggleScanner(scanner.id)} />
+                    </label>
+                )}
+                <span className="scanner-avatar" aria-hidden="true">{initials(scanner.name)}</span>
+                <span className="scanner-identity"><strong>{scanner.name}</strong><span>{scanner.email}</span></span>
+                <span className={statusClass(scanner.status)}>{scanner.status || "Unknown"}</span>
+                {assigned ? <ActionIcon icon={IconX} label={`Remove ${scanner.name}`} tone="danger" onClick={() => toggleScanner(scanner.id)} /> : disabled ? <span className="scanner-inactive-note">Unavailable</span> : null}
+            </li>
+        );
+    };
 
     return (
-        <AppShell
-            title="Scanner Permissions"
-            subtitle="Assign the Scanner accounts allowed to check attendees in for each event."
-        >
+        <AppShell title="Scanner Permissions" subtitle="Control which scanner accounts can check attendees in to each event.">
             <div className="scanner-page">
-                <div className="events-form-group">
-                    <label htmlFor="scannerEvent">Event</label>
-                    <select
-                        id="scannerEvent"
-                        value={selectedRef}
-                        onChange={(e) => setSelectedRef(e.target.value)}
-                        disabled={eventsLoading || !!loadError}
-                    >
-                        <option value="">
-                            {eventsLoading ? "Loading events…" : "Choose an event…"}
-                        </option>
-                        {events.map((event) => (
-                            <option key={event._id} value={event.id}>
-                                {event.name} — {event.date}
-                                {event.status ? ` (${event.status})` : ""}
-                            </option>
-                        ))}
-                    </select>
-                    {loadError && <p className="events-field-help">{loadError}</p>}
-                </div>
-
-                {!selectedRef && !eventsLoading && !loadError && (
-                    <div className="events-empty-row">
-                        Pick an event to manage who can scan it.
+                <section className="scanner-event-card" aria-labelledby="scanner-event-title">
+                    <div className="scanner-section-heading">
+                        <span className="scanner-heading-icon"><IconScanner size={18} /></span>
+                        <div><p className="scanner-eyebrow">ACCESS MANAGEMENT</p><h2 id="scanner-event-title">Choose an event</h2></div>
                     </div>
-                )}
-
-                {selectedRef && (
-                    <div className="scanner-panels">
-                        {detailError && (
-                            <div className="events-empty-row" role="alert">
-                                {detailError}
-                            </div>
-                        )}
-
-                        {detailLoading && !detailError && (
-                            <div className="events-empty-row">Loading scanners…</div>
-                        )}
-
-                        {!detailLoading && !detailError && (
-                            <>
-                                <section className="scanner-panel" aria-labelledby="assignedHead">
-                                    <div className="scanner-panel-head">
-                                        <span className="scanner-panel-icon" aria-hidden="true">
-                                            <IconScanner size={16} />
-                                        </span>
-                                        <h2 id="assignedHead">
-                                            Assigned scanners{" "}
-                                            <span className="scanner-count">
-                                                ({assignedScanners.length})
-                                            </span>
-                                        </h2>
-                                    </div>
-
-                                    {assignedScanners.length === 0 ? (
-                                        <p className="events-field-help">
-                                            No scanners assigned yet. Add one from the list below.
-                                        </p>
-                                    ) : (
-                                        <ul className="events-scanner-list">
-                                            {assignedScanners.map((scanner) => (
-                                                <li key={scanner.id} className="events-scanner-row">
-                                                    <span className="events-checkbox events-checkbox-on">
-                                                        <IconCheck size={14} />
-                                                    </span>
-                                                    <span className="events-scanner-name">
-                                                        {scanner.name}
-                                                    </span>
-                                                    <span className="events-cell-muted">
-                                                        {scanner.email}
-                                                    </span>
-                                                    <span className={statusClass(scanner.status)}>
-                                                        {scanner.status}
-                                                    </span>
-                                                    <ActionIcon
-                                                        icon={IconX}
-                                                        label={`Remove ${scanner.name}`}
-                                                        tone="danger"
-                                                        onClick={() => removeScanner(scanner.id)}
-                                                    />
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </section>
-
-                                <section className="scanner-panel" aria-labelledby="addHead">
-                                    <div className="scanner-panel-head">
-                                        <h2 id="addHead">Add scanners</h2>
-                                    </div>
-
-                                    {availableScanners.length === 0 ? (
-                                        <p className="events-field-help">
-                                            {scanners.length === 0
-                                                ? "No Scanner accounts exist yet. Create one in User Accounts first."
-                                                : "All scanners are already assigned to this event."}
-                                        </p>
-                                    ) : (
-                                        <ul className="events-scanner-list">
-                                            {availableScanners.map((scanner) => {
-                                                const disabled =
-                                                    scanner.status && scanner.status !== "Active";
-                                                return (
-                                                    <li key={scanner.id} className="events-scanner-row">
-                                                        <label
-                                                            className={`events-checkbox${
-                                                                disabled ? " events-checkbox-disabled" : ""
-                                                            }`}
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={activeIds.has(Number(scanner.id))}
-                                                                disabled={disabled}
-                                                                onChange={() => toggleScanner(scanner.id)}
-                                                            />
-                                                        </label>
-                                                        <span className="events-scanner-name">
-                                                            {scanner.name}
-                                                        </span>
-                                                        <span className="events-cell-muted">
-                                                            {scanner.email}
-                                                        </span>
-                                                        <span className={statusClass(scanner.status)}>
-                                                            {scanner.status}
-                                                        </span>
-                                                        {disabled && (
-                                                            <span className="events-cell-muted">
-                                                                not active
-                                                            </span>
-                                                        )}
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
-                                    )}
-                                </section>
-
-                                <div className="events-toolbar">
-                                    <button
-                                        type="button"
-                                        className="events-btn events-btn-primary"
-                                        onClick={saveAssignment}
-                                        disabled={saving || !dirty}
-                                    >
-                                        {saving ? "Saving…" : dirty ? "Save assignment" : "Saved"}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="events-btn"
-                                        onClick={() => loadScanners(selectedRef)}
-                                        disabled={detailLoading}
-                                    >
-                                        Reset
-                                    </button>
-                                </div>
-                            </>
-                        )}
+                    <div className="scanner-event-control">
+                        <div className="scanner-select-wrap">
+                            <label htmlFor="scannerEvent">Event</label>
+                            <select id="scannerEvent" value={selectedRef} onChange={(e) => setSelectedRef(e.target.value)} disabled={eventsLoading || !!loadError}>
+                                <option value="">{eventsLoading ? "Loading events..." : "Select an event to manage access"}</option>
+                                {events.map((event) => <option key={event._id} value={event.id}>{event.name} — {event.date}{event.status ? ` (${event.status})` : ""}</option>)}
+                            </select>
+                        </div>
+                        <p className="scanner-event-hint">{eventsLoading ? "Getting your event list ready." : `${events.length} ${events.length === 1 ? "event" : "events"} available`}</p>
                     </div>
-                )}
+                    {loadError && <div className="scanner-inline-error" role="alert"><span>{loadError}</span><button type="button" onClick={loadEvents}>Try again</button></div>}
+                </section>
+
+                {!selectedRef && !eventsLoading && !loadError && <div className="scanner-empty-state"><span className="scanner-empty-icon"><IconScanner size={22} /></span><strong>{events.length ? "Select an event to continue" : "No events to manage"}</strong><span>{events.length ? "The assigned scanner list will appear here." : "Create an event first, then return to assign scanner access."}</span></div>}
+
+                {selectedRef && <>
+                    {selectedEvent && <section className="scanner-event-summary" aria-label="Selected event">
+                        <div><p className="scanner-eyebrow">SELECTED EVENT</p><h2>{selectedEvent.name}</h2><p>{[selectedEvent.category, selectedEvent.date, selectedEvent.venue].filter(Boolean).join(" · ")}</p></div>
+                        <div className="scanner-summary-count"><strong>{activeIds.size}</strong><span>assigned</span></div>
+                    </section>}
+
+                    {detailError && <div className="scanner-inline-error" role="alert"><span>{detailError}</span><button type="button" onClick={() => loadScanners(selectedRef)}>Try again</button></div>}
+                    {detailLoading && <div className="scanner-empty-state scanner-loading" role="status"><span className="scanner-loader" /><strong>Loading scanner accounts</strong><span>Fetching the access list for this event.</span></div>}
+                    {!detailLoading && !detailError && <>
+                        <div className="scanner-roster-tools"><div><h2>Scanner access</h2><p>Assign active scanner accounts to this event.</p></div><label className="scanner-search"><span className="scanner-search-symbol" aria-hidden="true">⌕</span><input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name or email" aria-label="Search scanner accounts" /></label></div>
+                        <div className="scanner-panels">
+                            <section className="scanner-panel" aria-labelledby="assignedHead">
+                                <div className="scanner-panel-head"><div><h3 id="assignedHead">Assigned scanners</h3><p>Can check attendees in to this event.</p></div><span className="scanner-count">{activeIds.size}</span></div>
+                                {assignedScanners.length ? <ul className="scanner-list">{assignedScanners.map((scanner) => renderScanner(scanner, true))}</ul> : <div className="scanner-panel-empty"><span>No scanners assigned yet</span><small>Select an active account from the available list.</small></div>}
+                            </section>
+                            <section className="scanner-panel" aria-labelledby="availableHead">
+                                <div className="scanner-panel-head"><div><h3 id="availableHead">Available scanners</h3><p>Choose who can scan this event.</p></div><span className="scanner-count">{scanners.filter((scanner) => !activeIds.has(Number(scanner.id))).length}</span></div>
+                                {availableScanners.length ? <ul className="scanner-list">{availableScanners.map((scanner) => renderScanner(scanner, false))}</ul> : <div className="scanner-panel-empty"><span>{scanners.length === 0 ? "No scanner accounts found" : query ? "No matches found" : "All scanners are assigned"}</span><small>{scanners.length === 0 ? "Create a Scanner account in User Accounts to get started." : query ? "Try a different name or email." : "Every scanner account already has access to this event."}</small></div>}
+                            </section>
+                        </div>
+                        <div className="scanner-savebar"><div className={`scanner-save-status${dirty ? " is-dirty" : ""}`}><span className="scanner-save-dot" />{dirty ? "You have unsaved changes" : "All changes saved"}</div><div className="scanner-save-actions"><button type="button" className="events-btn" onClick={() => { setActiveIds(new Set(savedIds)); }} disabled={!dirty || saving}>Discard changes</button><button type="button" className="events-btn events-btn-primary" onClick={saveAssignment} disabled={saving || !dirty}>{saving ? "Saving..." : "Save permissions"}</button></div></div>
+                    </>}
+                </>}
             </div>
-
             {toast && <Toast {...toast} onDismiss={dismissToast} />}
         </AppShell>
     );
 }
-

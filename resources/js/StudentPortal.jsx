@@ -13,6 +13,7 @@ const viewCopy = {
     "my-events": ["My Events", "View your event passes, attendance, and feedback."],
     profile: ["My Profile", "Keep your student and academic details up to date."],
 };
+const STUDENT_PASS_QR_PREFIX = "EVENTEASE_STUDENT:";
 
 function StudentPortal({ view = "home" }) {
     const user = getSessionUser() ?? {};
@@ -28,6 +29,9 @@ function StudentPortal({ view = "home" }) {
     const [evaluation, setEvaluation] = useState(null);
     const [rating, setRating] = useState(5);
     const [comment, setComment] = useState("");
+    const [eventSearch, setEventSearch] = useState("");
+    const [eventCategory, setEventCategory] = useState("all");
+    const [selectedEvent, setSelectedEvent] = useState(null);
     const [profile, setProfile] = useState({ name: user.name ?? "", course: user.course ?? "", year: user.year ?? "", block_no: user.block_no ?? "" });
 
     const load = async () => {
@@ -57,6 +61,13 @@ function StudentPortal({ view = "home" }) {
         const deadline = event.registrationDeadline || event.date;
         return event.status === "Approved" && event.date >= today && deadline >= today && event.registrationOpen && !registeredIds.has(event.name);
     });
+    const eventCategories = [...new Set(upcomingEvents.map((event) => event.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const filteredEvents = upcomingEvents.filter((event) => {
+        const term = eventSearch.trim().toLowerCase();
+        const matchesSearch = !term || [event.name, event.description, event.category, event.venue]
+            .some((value) => String(value ?? "").toLowerCase().includes(term));
+        return matchesSearch && (eventCategory === "all" || event.category === eventCategory);
+    });
     const upcomingRegistrationCount = registrations.filter((row) => {
         const event = events.find((item) => item.name === row.event);
         return event?.date >= today;
@@ -69,11 +80,21 @@ function StudentPortal({ view = "home" }) {
         try {
             await registrationsApi.selfRegister(event.id);
             setMessage(`You are registered for ${event.name}.`);
+            setSelectedEvent(null);
             await load();
         } catch (registerError) {
             setError(registerError.message || "Registration could not be completed.");
         } finally { setBusy(""); }
     }
+
+    useEffect(() => {
+        if (!selectedEvent) return undefined;
+        const closeOnEscape = (event) => {
+            if (event.key === "Escape") setSelectedEvent(null);
+        };
+        document.addEventListener("keydown", closeOnEscape);
+        return () => document.removeEventListener("keydown", closeOnEscape);
+    }, [selectedEvent]);
 
     async function cancel(registration) {
         setBusy(registration.id); setMessage(""); setError("");
@@ -115,13 +136,13 @@ function StudentPortal({ view = "home" }) {
     return (
         <AppShell title={title} subtitle={subtitle}>
             <div className="student-portal">
-                {message && <div className="student-notice success" role="status">{message}<button onClick={() => setMessage("")} aria-label="Dismiss">×</button></div>}
-                {error && <div className="student-notice error" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss">×</button></div>}
-                {loading ? <div className="student-empty">Loading your EventEase data…</div> : null}
+                {message && <div className="student-notice success" role="status">{message}<button onClick={() => setMessage("")} aria-label="Dismiss">Ã—</button></div>}
+                {error && <div className="student-notice error" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss">Ã—</button></div>}
+                {loading ? <div className="student-empty">Loading your EventEase dataâ€¦</div> : null}
 
                 {!loading && view === "home" && <>
                     <section className="student-welcome">
-                        <div><span className="student-eyebrow">STUDENT PORTAL</span><h2>Hello, {user.name?.split(" ")[0] || "there"}!</h2><p>See what’s happening on campus and stay up to date with your registrations.</p></div>
+                        <div><span className="student-eyebrow">STUDENT PORTAL</span><h2>Hello, {user.name?.split(" ")[0] || "there"}!</h2><p>See whatâ€™s happening on campus and stay up to date with your registrations.</p></div>
                         <Link className="student-primary-link" to="/events">Browse events <IconArrowRight size={17} /></Link>
                     </section>
                     <section className="student-stat-grid" aria-label="Your event summary">
@@ -130,14 +151,37 @@ function StudentPortal({ view = "home" }) {
                         <SummaryCard icon={<IconMegaphone />} label="Announcements" value={announcements.length} />
                     </section>
                     <SectionHeading title="Recommended events" link="/events" linkText="View all" />
-                    <div className="student-card-grid">{upcomingEvents.slice(0, 3).map((event) => <EventCard key={event.id} event={event} onRegister={register} busy={busy} />)}</div>
+                    <div className="student-card-grid">{upcomingEvents.slice(0, 3).map((event) => <EventCard key={event.id} event={event} onViewDetails={setSelectedEvent} />)}</div>
                     <SectionHeading title="Latest announcements" link="/announcements" linkText="View all" />
                     <div className="student-announcement-list">{announcements.slice(0, 3).map((item) => <article key={item.id} className="student-announcement"><span className="student-announcement-tag">{item.category || "Announcement"}</span><h3>{item.title}</h3><p>{item.message}</p></article>)}</div>
                 </>}
 
                 {!loading && view === "events" && <>
                     <div className="student-section-intro"><h2>Upcoming campus events</h2><p>Registrations are connected to your student account.</p></div>
-                    {upcomingEvents.length ? <div className="student-card-grid">{upcomingEvents.map((event) => <EventCard key={event.id} event={event} onRegister={register} busy={busy} />)}</div> : <div className="student-empty">You’re all caught up. Check back when new events are published.</div>}
+                    <div className="student-event-filters" role="search">
+                        <input
+                            type="search"
+                            aria-label="Search events"
+                            placeholder="Search events by title, venue, or category"
+                            value={eventSearch}
+                            onChange={(event) => setEventSearch(event.target.value)}
+                        />
+                        <select aria-label="Filter events by category" value={eventCategory} onChange={(event) => setEventCategory(event.target.value)}>
+                            <option value="all">All categories</option>
+                            {eventCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                        </select>
+                    </div>
+                    {filteredEvents.length ? (
+                        <div className="student-card-grid">
+                            {filteredEvents.map((event) => <EventCard key={event.id} event={event} onViewDetails={setSelectedEvent} />)}
+                        </div>
+                    ) : (
+                        <div className="student-empty">
+                            <h2>{upcomingEvents.length ? "No events match your search" : "No upcoming events yet"}</h2>
+                            <p>{upcomingEvents.length ? "Try another title, venue, or category." : "Check back when new campus events are published."}</p>
+                            {(eventSearch || eventCategory !== "all") && <button className="student-secondary-button" onClick={() => { setEventSearch(""); setEventCategory("all"); }}>Clear filters</button>}
+                        </div>
+                    )}
                 </>}
 
                 {!loading && view === "my-events" && <>
@@ -145,10 +189,10 @@ function StudentPortal({ view = "home" }) {
                         const event = events.find((item) => item.name === row.event);
                         const canCancel = event && new Date(`${event.date}T23:59:59`) > new Date() && row.attendance === "Not Yet Recorded";
                         return <article className="student-registration" key={row.id}>
-                            <div className="student-registration-main"><span className="student-announcement-tag">{row.attendance || "Registered"}</span><h2>{row.event}</h2><p>{event ? `${formatDate(event.date)}${event.venue ? ` · ${event.venue}` : ""}` : "Your registration is confirmed."}</p><span className="student-reference">Pass {row.id}</span>
-                                <div className="student-card-actions"><button className="student-secondary-button" onClick={() => { setEvaluation({ id: event?.id, name: row.event }); setRating(5); setComment(""); }} disabled={!event || row.attendance !== "Present" || busy === row.id}>{row.attendance === "Present" ? "Give feedback" : "Feedback after check-in"}</button>{canCancel && <button className="student-text-button" onClick={() => cancel(row)} disabled={busy === row.id}>{busy === row.id ? "Cancelling…" : "Cancel registration"}</button>}</div>
+                            <div className="student-registration-main"><span className="student-announcement-tag">{row.attendance || "Registered"}</span><h2>{row.event}</h2><p>{event ? `${formatDate(event.date)}${event.venue ? ` Â· ${event.venue}` : ""}` : "Your registration is confirmed."}</p><span className="student-reference">Pass {row.id}</span>
+                                <div className="student-card-actions"><button className="student-secondary-button" onClick={() => { setEvaluation({ id: event?.id, name: row.event }); setRating(5); setComment(""); }} disabled={!event || row.attendance !== "Present" || busy === row.id}>{row.attendance === "Present" ? "Give feedback" : "Feedback after check-in"}</button>{canCancel && <button className="student-text-button" onClick={() => cancel(row)} disabled={busy === row.id}>{busy === row.id ? "Cancellingâ€¦" : "Cancel registration"}</button>}</div>
                             </div>
-                            {row.qrCode && <div className="student-pass"><QrCode value={row.qrCode} /><span>Show this pass at check-in</span></div>}
+                            {row.qrCode && <div className="student-pass"><QrCode value={`${STUDENT_PASS_QR_PREFIX}${row.qrCode}`} alt={`Student pass QR code for ${row.event}`} /><span>Show this pass at check-in</span></div>}
                         </article>;
                     })}</div> : <div className="student-empty"><h2>No registrations yet</h2><p>Browse events and register to get your event pass.</p><Link className="student-primary-link" to="/events">Explore events <IconArrowRight size={17} /></Link></div>}
                 </>}
@@ -160,15 +204,31 @@ function StudentPortal({ view = "home" }) {
                     <label>Student ID<input value={user.student_id || ""} disabled /></label>
                     <label>Course / program<select required value={profile.course} onChange={(e) => setProfile({ ...profile, course: e.target.value })}><option value="">Select your program</option>{academic.courses.map((course) => <option key={course} value={course}>{course}</option>)}</select></label>
                     <div className="student-profile-row"><label>Year level<select required value={profile.year} onChange={(e) => setProfile({ ...profile, year: e.target.value })}><option value="">Select year</option>{academic.years.map((year) => <option key={year} value={year}>{year}</option>)}</select></label><label>Block<input value={profile.block_no} onChange={(e) => setProfile({ ...profile, block_no: e.target.value })} /></label></div>
-                    <button className="student-primary-link" type="submit" disabled={busy === "profile"}>{busy === "profile" ? "Saving…" : "Save profile"}</button>
+                    <button className="student-primary-link" type="submit" disabled={busy === "profile"}>{busy === "profile" ? "Savingâ€¦" : "Save profile"}</button>
                 </form>}
             </div>
 
+            {selectedEvent && <div className="student-modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setSelectedEvent(null); }}><section className="student-event-detail-modal" role="dialog" aria-modal="true" aria-labelledby="student-event-detail-title">
+                <button className="student-modal-close" type="button" onClick={() => setSelectedEvent(null)} aria-label="Close event details">Ã—</button>
+                {selectedEvent.bannerUrl ? <img className="student-detail-banner" src={selectedEvent.bannerUrl} alt="" /> : <div className="student-detail-banner student-event-banner-placeholder"><IconCalendar size={32} /></div>}
+                <div className="student-detail-content">
+                    <span className="student-announcement-tag">{selectedEvent.category || "Campus event"}</span>
+                    <h2 id="student-event-detail-title">{selectedEvent.name}</h2>
+                    <div className="student-event-meta"><span>{formatDate(selectedEvent.date)}</span>{selectedEvent.startTime && <span>{selectedEvent.startTime}</span>}{selectedEvent.venue && <span>{selectedEvent.venue}</span>}</div>
+                    <p>{selectedEvent.description || "Join the TMC community for this campus event."}</p>
+                    {selectedEvent.registrationDeadline && <p className="student-detail-deadline">Registration closes {formatDate(selectedEvent.registrationDeadline)}.</p>}
+                    <div className="student-detail-actions">
+                        <button className="student-secondary-button" type="button" onClick={() => setSelectedEvent(null)}>Close details</button>
+                        <button className="student-primary-link" type="button" onClick={() => register(selectedEvent)} disabled={busy === selectedEvent.id}>{busy === selectedEvent.id ? "Registeringâ€¦" : "Register for event"}</button>
+                    </div>
+                </div>
+            </section></div>}
+
             {evaluation && <div className="student-modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setEvaluation(null); }}><form className="student-evaluation-modal" onSubmit={submitEvaluation}>
-                <button className="student-modal-close" type="button" onClick={() => setEvaluation(null)} aria-label="Close">×</button><span className="student-eyebrow">EVENT FEEDBACK</span><h2>{evaluation.name}</h2><p>Your attendance must be checked in before feedback can be submitted.</p>
+                <button className="student-modal-close" type="button" onClick={() => setEvaluation(null)} aria-label="Close">Ã—</button><span className="student-eyebrow">EVENT FEEDBACK</span><h2>{evaluation.name}</h2><p>Your attendance must be checked in before feedback can be submitted.</p>
                 <label>Rating<select value={rating} onChange={(e) => setRating(Number(e.target.value))}>{[5, 4, 3, 2, 1].map((number) => <option key={number} value={number}>{number} {number === 1 ? "star" : "stars"}</option>)}</select></label>
                 <label>Comment<textarea maxLength={5000} rows={4} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Share your feedback (optional)" /></label>
-                <button className="student-primary-link" disabled={busy === evaluation.id}>{busy === evaluation.id ? "Submitting…" : "Submit feedback"}</button>
+                <button className="student-primary-link" disabled={busy === evaluation.id}>{busy === evaluation.id ? "Submittingâ€¦" : "Submit feedback"}</button>
             </form></div>}
         </AppShell>
     );
@@ -176,7 +236,20 @@ function StudentPortal({ view = "home" }) {
 
 function SummaryCard({ icon, label, value }) { return <article className="student-summary-card"><span className="student-summary-icon">{icon}</span><div><span>{label}</span><strong>{value}</strong></div></article>; }
 function SectionHeading({ title, link, linkText }) { return <div className="student-section-heading"><h2>{title}</h2><Link to={link}>{linkText} <IconArrowRight size={15} /></Link></div>; }
-function EventCard({ event, onRegister, busy }) { return <article className="student-event-card">{event.bannerUrl ? <img className="student-event-banner" src={event.bannerUrl} alt="" /> : <div className="student-event-banner-placeholder"><IconCalendar size={28} /></div>}<div className="student-event-content"><span className="student-announcement-tag">{event.category || "Campus event"}</span><h3>{event.name}</h3><p>{event.description || "Join the TMC community for this campus event."}</p><div className="student-event-meta"><span>{formatDate(event.date)}</span>{event.startTime && <span>{event.startTime}</span>}{event.venue && <span>{event.venue}</span>}</div><button className="student-primary-link" onClick={() => onRegister(event)} disabled={busy === event.id}>{busy === event.id ? "Registering…" : "Register for event"}</button></div></article>; }
+function EventCard({ event, onViewDetails }) {
+    return <article className="student-event-card">
+        {event.bannerUrl ? <img className="student-event-banner" src={event.bannerUrl} alt="" /> : <div className="student-event-banner-placeholder"><IconCalendar size={28} /></div>}
+        <div className="student-event-content">
+            <span className="student-announcement-tag">{event.category || "Campus event"}</span>
+            <h3>{event.name}</h3>
+            <p>{event.description || "Join the TMC community for this campus event."}</p>
+            <div className="student-event-meta"><span>{formatDate(event.date)}</span>{event.startTime && <span>{event.startTime}</span>}{event.venue && <span>{event.venue}</span>}</div>
+            <div className="student-event-actions">
+                <button type="button" className="student-primary-link" onClick={() => onViewDetails(event)}>View details &amp; registration</button>
+            </div>
+        </div>
+    </article>;
+}
 function formatDate(value) { if (!value) return "Date to be announced"; const date = new Date(`${value}T00:00:00`); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date); }
 
 export default StudentPortal;

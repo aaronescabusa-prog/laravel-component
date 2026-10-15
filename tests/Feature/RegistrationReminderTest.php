@@ -179,7 +179,7 @@ test('a student cannot queue reminders', function () {
 
 test('a staff member may queue reminders', function () {
     Queue::fake();
-    Sanctum::actingAs(reminderAccount('Staff'));
+    Sanctum::actingAs(reminderAccount('Admin'));
 
     $event = reminderEvent();
     reminderRegistration('TMC-7601', $event);

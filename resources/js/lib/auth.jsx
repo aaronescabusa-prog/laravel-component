@@ -18,9 +18,8 @@ export function initialsOf(name = "") {
 export function roleLabel(role) {
     const labels = {
         Admin: "Administrator",
-        Staff: "Staff Member",
-        Organizer: "Event Organizer",
         Student: "Student",
+        Scanner: "Scanner",
     };
     return labels[role] || role;
 }

@@ -264,16 +264,16 @@ test('settings can be read and persisted by admins', function () {
 test('only admins can read or change settings', function () {
     $staff = UserAccount::create([
         'reference' => 'USR-STAFF',
-        'name' => 'Staff',
+        'name' => 'Student',
         'email' => 'staff-settings@tmc.edu.ph',
-        'role' => 'Staff',
+        'role' => 'Student',
         'status' => 'Active',
         'password' => 'password',
     ]);
 
     Sanctum::actingAs($staff);
 
-    // Step 1: settings are admin-only on the web back office. Staff reads and
+    // Settings are admin-only on the web back office. Student reads and
     // writes both 403; only Admin passes requireAdmin.
     $this->getJson('/api/settings')->assertForbidden();
 

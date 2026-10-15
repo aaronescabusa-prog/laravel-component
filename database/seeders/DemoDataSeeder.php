@@ -53,7 +53,7 @@ class DemoDataSeeder extends Seeder
             ['reference' => $mobileStudentReference, 'student_id' => 'TMC-DEMO-001', 'name' => 'Mobile Demo Student', 'email' => $mobileStudentEmail, 'role' => 'Student', 'status' => 'Active', 'course' => 'BS Information Technology', 'year' => '3', 'password' => Hash::make(env('DEMO_MOBILE_STUDENT_PASSWORD', 'password')), 'date' => '2026-09-20'],
             ['reference' => 'USR-2211', 'name' => 'Maria Santos', 'email' => 'maria.santos@student.tmc.edu.ph', 'role' => 'Student', 'status' => 'Active', 'course' => 'BS Information Technology', 'year' => '3', 'date' => '2026-08-05'],
             ['reference' => 'USR-2212', 'name' => 'John Dela Cruz', 'email' => 'john.delacruz@student.tmc.edu.ph', 'role' => 'Student', 'status' => 'Active', 'course' => 'BS Computer Science', 'year' => '2', 'date' => '2026-08-06'],
-            ['reference' => 'USR-2213', 'name' => 'Ana Cruz', 'email' => 'ana.cruz@student.tmc.edu.ph', 'role' => 'Staff', 'status' => 'Active', 'course' => 'BS Education', 'year' => '4', 'date' => '2026-08-09'],
+            ['reference' => 'USR-2213', 'name' => 'Ana Cruz', 'email' => 'ana.cruz@student.tmc.edu.ph', 'role' => 'Student', 'status' => 'Active', 'course' => 'BS Education', 'year' => '4', 'date' => '2026-08-09'],
             ['reference' => 'USR-2214', 'name' => 'Paolo Ramos', 'email' => 'paolo.ramos@student.tmc.edu.ph', 'role' => 'Student', 'status' => 'Pending', 'course' => 'BS Information Technology', 'year' => '1', 'date' => '2026-09-10'],
         ];
 

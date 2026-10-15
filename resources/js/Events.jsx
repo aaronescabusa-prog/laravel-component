@@ -80,6 +80,7 @@ function Events() {
     const [sortDir, setSortDir] = useState("asc");
     const [editingEvent, setEditingEvent] = useState(null);
     const [isNewEvent, setIsNewEvent] = useState(false);
+    const [isSavingEvent, setIsSavingEvent] = useState(false);
     const [formErrors, setFormErrors] = useState({});
     const [viewingEvent, setViewingEvent] = useState(null);
     const [courses, setCourses] = useState([]);
@@ -115,7 +116,7 @@ function Events() {
         if (!viewingEvent && !editingEvent) return undefined;
 
         function closeOnEscape(event) {
-            if (event.key === "Escape") {
+            if (event.key === "Escape" && !isSavingEvent) {
                 setViewingEvent(null);
                 setEditingEvent(null);
             }
@@ -123,7 +124,7 @@ function Events() {
 
         window.addEventListener("keydown", closeOnEscape);
         return () => window.removeEventListener("keydown", closeOnEscape);
-    }, [viewingEvent, editingEvent]);
+    }, [viewingEvent, editingEvent, isSavingEvent]);
 
     function audienceLabel(row) {
         const department = departments.find((item) => item.code === row.targetDepartment);
@@ -181,7 +182,11 @@ function Events() {
 
     function updateEventField(field, value) {
         setEditingEvent((current) => ({ ...current, [field]: value }));
-        setFormErrors((current) => ({ ...current, [field]: "" }));
+        setFormErrors((current) => ({
+            ...current,
+            [field]: "",
+            ...(["startTime", "endDate"].includes(field) ? { endTime: "" } : {}),
+        }));
     }
 
     function exportCSV() {
@@ -346,6 +351,49 @@ function Events() {
         setIsNewEvent(false);
     }
 
+    function handleEventSaveError(error) {
+        const fieldMap = {
+            title: "name",
+            event_date: "date",
+            start_time: "startTime",
+            end_date: "endDate",
+            end_time: "endTime",
+            registration_deadline: "registrationDeadline",
+        };
+        const fieldIds = {
+            name: "evName",
+            date: "evDate",
+            startTime: "evTime",
+            endDate: "evEndDate",
+            endTime: "evEndTime",
+            registrationDeadline: "evRegistrationDeadline",
+            capacity: "evCapacity",
+            budget: "evBudget",
+            penalty_amount: "evPenaltyAmount",
+            venue: "evVenue",
+        };
+        const mappedErrors = Object.fromEntries(
+            Object.entries(error.payload?.errors ?? {}).map(([field, messages]) => [
+                fieldMap[field] || field,
+                Array.isArray(messages) ? messages[0] : String(messages),
+            ]),
+        );
+
+        if (Object.keys(mappedErrors).length > 0) {
+            setFormErrors(mappedErrors);
+            const firstFocusable = Object.keys(mappedErrors).find((field) => fieldIds[field]);
+            if (firstFocusable) {
+                requestAnimationFrame(() => document.getElementById(fieldIds[firstFocusable])?.focus());
+                showToast("Please review the highlighted fields.", "danger");
+            } else {
+                showToast(error.message, "danger");
+            }
+            return;
+        }
+
+        showToast(error.message, "danger");
+    }
+
     function openCreate() {
         setFormErrors({});
         setEditingEvent({
@@ -381,6 +429,7 @@ function Events() {
 
     function saveEvent(event) {
         event?.preventDefault();
+        if (isSavingEvent) return;
         const item = { ...editingEvent };
         const errors = {};
         if (!item.name.trim()) errors.name = "Enter an event name.";
@@ -390,6 +439,10 @@ function Events() {
         if (!item.allDay && !item.endTime) errors.endTime = "Choose an end time, or mark the event as all-day.";
         if (item.date && item.endDate && item.endDate < item.date) {
             errors.endDate = "The end date cannot be before the start date.";
+        }
+        const lastDate = item.endDate || item.date;
+        if (!item.allDay && item.date && lastDate === item.date && item.startTime && item.endTime && item.endTime <= item.startTime) {
+            errors.endTime = "End time must be later than the start time.";
         }
         if (item.date && item.registrationDeadline && item.registrationDeadline > item.date) {
             errors.registrationDeadline = "The registration deadline cannot be after the event start date.";
@@ -406,13 +459,29 @@ function Events() {
         }
         if (Object.keys(errors).length > 0) {
             setFormErrors(errors);
+            const fieldIds = {
+                name: "evName", date: "evDate", startTime: "evTime", endDate: "evEndDate",
+                endTime: "evEndTime", registrationDeadline: "evRegistrationDeadline",
+                capacity: "evCapacity", budget: "evBudget", penalty_amount: "evPenaltyAmount", venue: "evVenue",
+            };
+            requestAnimationFrame(() => document.getElementById(fieldIds[Object.keys(errors)[0]])?.focus());
             return;
         }
 
         const payload = mapEventToApi(item);
-        const withUploadedBanner = async (saved) => item.bannerFile
-            ? { ...saved, ...(await eventsApi.uploadBanner(saved.reference, item.bannerFile)) }
-            : saved;
+        setIsSavingEvent(true);
+        let bannerUploadFailed = false;
+        const withUploadedBanner = async (saved) => {
+            if (!item.bannerFile) return saved;
+            try {
+                return { ...saved, ...(await eventsApi.uploadBanner(saved.reference, item.bannerFile)) };
+            } catch {
+                // The event itself has already been saved. Keep it in the list
+                // and close the form so a retry cannot create a second event.
+                bannerUploadFailed = true;
+                return saved;
+            }
+        };
 
         if (isNewEvent) {
             api.create("events", payload)
@@ -424,12 +493,14 @@ function Events() {
                         action: `Created event ${created.reference}`,
                         details: `${item.name} · ${item.date} · ${item.venue}`,
                     });
-                    showToast(
-                        `${item.name} was created.${audienceNote(created) ? ` ${audienceNote(created)}` : ""}`,
-                    );
+                    showToast(bannerUploadFailed
+                        ? `${item.name} was created, but the banner upload failed. Edit the event to try again.`
+                        : `${item.name} was created.${audienceNote(created) ? ` ${audienceNote(created)}` : ""}`,
+                        bannerUploadFailed ? "danger" : "success");
                     setEditingEvent(null);
                 })
-                .catch((err) => showToast(err.message, "danger"));
+                .catch(handleEventSaveError)
+                .finally(() => setIsSavingEvent(false));
         } else {
             api.update("events", item.id, payload)
                 .then(withUploadedBanner)
@@ -440,12 +511,14 @@ function Events() {
                         action: `Updated event ${item.id}`,
                         details: `${item.name} · ${item.status}`,
                     });
-                    showToast(
-                        `${item.name} was updated.${audienceNote(updated) ? ` ${audienceNote(updated)}` : ""}`,
-                    );
+                    showToast(bannerUploadFailed
+                        ? `${item.name} was updated, but the banner upload failed. Edit the event to try again.`
+                        : `${item.name} was updated.${audienceNote(updated) ? ` ${audienceNote(updated)}` : ""}`,
+                        bannerUploadFailed ? "danger" : "success");
                     setEditingEvent(null);
                 })
-                .catch((err) => showToast(err.message, "danger"));
+                .catch(handleEventSaveError)
+                .finally(() => setIsSavingEvent(false));
         }
     }
 
@@ -827,12 +900,15 @@ function Events() {
             )}
 
             {editingEvent && (
-                <div className="events-modal-overlay" onClick={() => setEditingEvent(null)}>
-                    <div className="events-modal-card" role="dialog" aria-modal="true" aria-labelledby="event-editor-title" onClick={(e) => e.stopPropagation()}>
+                <div className="events-modal-overlay" onClick={() => !isSavingEvent && setEditingEvent(null)}>
+                    <div className="events-modal-card events-editor-modal" role="dialog" aria-modal="true" aria-labelledby="event-editor-title" onClick={(e) => e.stopPropagation()}>
                         <form className="events-editor-form" onSubmit={saveEvent} noValidate>
                         <div className="events-modal-header">
-                            <h3 id="event-editor-title">{isNewEvent ? "Create Event" : "Edit Event"}</h3>
-                            <button type="button" className="events-modal-close" onClick={() => setEditingEvent(null)} aria-label="Close event form">×</button>
+                            <div className="events-editor-heading">
+                                <h3 id="event-editor-title">{isNewEvent ? "Create Event" : "Edit Event"}</h3>
+                                <p>{isNewEvent ? "Add the event details, schedule, and registration options." : "Update the event details and registration options."}</p>
+                            </div>
+                            <button type="button" className="events-modal-close" onClick={() => !isSavingEvent && setEditingEvent(null)} disabled={isSavingEvent} aria-label="Close event form">×</button>
                         </div>
                         <div className="events-modal-body">
                             <div className="events-form-group">
@@ -895,20 +971,8 @@ function Events() {
                                 </div>
                             </div>
 
-                            <div className="events-form-row-split">
-                                <div className="events-form-group">
-                                    <label htmlFor="evStatus">Status</label>
-                                    <select
-                                        id="evStatus"
-                                        value={editingEvent.status}
-                                        onChange={(e) => setEditingEvent({ ...editingEvent, status: e.target.value })}
-                                    >
-                                        {STATUSES.map((s) => <option key={s}>{s}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-
-                                <div className="events-form-row-split">
+                                <h4 className="events-form-section-title events-audience-heading">Audience eligibility</h4>
+                                <div className="events-form-row-split events-audience-grid">
                                     <div className="events-form-group">
                                         <label htmlFor="evTargetDepartment">Target department</label>
                                         <select
@@ -916,13 +980,12 @@ function Events() {
                                             value={editingEvent.targetDepartment ?? ""}
                                             onChange={(e) => {
                                                 const targetDepartment = e.target.value;
-                                                const department = departments.find((item) => item.code === targetDepartment);
-                                                const courseStillMatches = !editingEvent.targetCourse
-                                                    || department?.courses.includes(editingEvent.targetCourse);
                                                 setEditingEvent({
                                                     ...editingEvent,
                                                     targetDepartment,
-                                                    targetCourse: courseStillMatches ? editingEvent.targetCourse : PUBLIC_AUDIENCE,
+                                                    // A department choice should include every program there;
+                                                    // the user can narrow it afterward if needed.
+                                                    targetCourse: PUBLIC_AUDIENCE,
                                                 });
                                             }}
                                         >
@@ -960,21 +1023,9 @@ function Events() {
                                             ))}
                                         </select>
                                     </div>
-                                    <div className="events-form-group">
-                                        <label htmlFor="evTargetRole">Target role</label>
-                                        <select
-                                            id="evTargetRole"
-                                            value={editingEvent.targetRole ?? "All"}
-                                            onChange={(e) => setEditingEvent({ ...editingEvent, targetRole: e.target.value })}
-                                        >
-                                            {TARGET_ROLES.map((role) => (
-                                                <option key={role} value={role}>{role === "All" ? "All roles" : role}</option>
-                                            ))}
-                                        </select>
-                                    </div>
                                 </div>
                                 <small className="events-form-hint">
-                                    Role, department, program, and year filters are combined; registration is checked against each participant&apos;s active profile.
+                                    Department, program, and year filters are combined and checked against each active participant&apos;s profile.
                                 </small>
                                 <div className="events-form-group">
                                     <label htmlFor="evOrganizer">Organizer</label>
@@ -986,10 +1037,16 @@ function Events() {
                                     />
                                 </div>
 
-                            <div className="events-form-section">
-                                <h4 className="events-form-section-title">Date and time</h4>
+                            <div className="events-form-section events-schedule-section">
+                                <div className="events-schedule-heading">
+                                    <div>
+                                        <h4 className="events-form-section-title">Date and time</h4>
+                                        <p>Set the event schedule. Times use your local time zone.</p>
+                                    </div>
+                                    <span className="events-schedule-badge">Required schedule</span>
+                                </div>
 
-                                <label className="events-form-checkbox">
+                                <label className={`events-form-checkbox events-all-day-toggle${editingEvent.allDay ? " is-active" : ""}`}>
                                     <input
                                         type="checkbox"
                                         checked={Boolean(editingEvent.allDay)}
@@ -998,14 +1055,19 @@ function Events() {
                                             setEditingEvent({
                                                 ...editingEvent,
                                                 allDay,
-                                                // An all-day event spans whole days,
-                                                // so it carries no times.
-                                                startTime: allDay ? "" : editingEvent.startTime || "08:00",
-                                                endTime: allDay ? "" : editingEvent.endTime || "17:00",
+                                                // Keep the timed schedule around while all-day mode is on,
+                                                // so toggling it back off restores the user's values.
+                                                _savedStartTime: allDay ? editingEvent.startTime || editingEvent._savedStartTime : editingEvent._savedStartTime,
+                                                _savedEndTime: allDay ? editingEvent.endTime || editingEvent._savedEndTime : editingEvent._savedEndTime,
+                                                startTime: allDay ? "" : editingEvent._savedStartTime || editingEvent.startTime || "08:00",
+                                                endTime: allDay ? "" : editingEvent._savedEndTime || editingEvent.endTime || "17:00",
                                             });
                                         }}
                                     />
-                                    <span>All-day event</span>
+                                    <span className="events-all-day-copy">
+                                        <strong>All-day event</strong>
+                                        <small>Turn this on to schedule the event without specific times.</small>
+                                    </span>
                                 </label>
 
                                 <div className="events-form-row-split">
@@ -1031,7 +1093,7 @@ function Events() {
                                                             ? date
                                                             : editingEvent.endDate,
                                                 });
-                                                setFormErrors((current) => ({ ...current, date: "", endDate: "" }));
+                                                setFormErrors((current) => ({ ...current, date: "", endDate: "", endTime: "" }));
                                             }}
                                             aria-invalid={Boolean(formErrors.date)}
                                             aria-describedby={formErrors.date ? "evDate-error" : undefined}
@@ -1048,9 +1110,11 @@ function Events() {
                                             required={!editingEvent.allDay}
                                             value={editingEvent.startTime || ""}
                                             disabled={editingEvent.allDay}
+                                            aria-invalid={Boolean(formErrors.startTime)}
+                                            aria-describedby={formErrors.startTime ? "evTime-error" : undefined}
                                             onChange={(e) => updateEventField("startTime", e.target.value)}
                                         />
-                                        {formErrors.startTime && <small className="events-field-error">{formErrors.startTime}</small>}
+                                        {formErrors.startTime && <small className="events-field-error" id="evTime-error">{formErrors.startTime}</small>}
                                     </div>
                                 </div>
 
@@ -1069,10 +1133,11 @@ function Events() {
                                             aria-describedby={formErrors.endDate ? "evEndDate-error" : undefined}
                                         />
                                         {formErrors.endDate && <small className="events-field-error" id="evEndDate-error">{formErrors.endDate}</small>}
+                                        {!formErrors.endDate && <small className="events-form-hint">Optional for a one-day event.</small>}
                                     </div>
                                     <div className="events-form-group">
                                         <label htmlFor="evEndTime">
-                                            End time
+                                            End time {!editingEvent.allDay && <span className="events-required">*</span>}
                                         </label>
                                         <input
                                             id="evEndTime"
@@ -1080,9 +1145,12 @@ function Events() {
                                             required={!editingEvent.allDay}
                                             value={editingEvent.endTime || ""}
                                             disabled={editingEvent.allDay}
+                                            aria-invalid={Boolean(formErrors.endTime)}
+                                            aria-describedby={formErrors.endTime ? "evEndTime-error" : undefined}
                                             onChange={(e) => updateEventField("endTime", e.target.value)}
                                         />
-                                        {formErrors.endTime && <small className="events-field-error">{formErrors.endTime}</small>}
+                                        {formErrors.endTime && <small className="events-field-error" id="evEndTime-error">{formErrors.endTime}</small>}
+                                        {editingEvent.allDay && <small className="events-form-hint">Time fields are disabled for an all-day event.</small>}
                                     </div>
                                 </div>
                             </div>
@@ -1217,10 +1285,26 @@ function Events() {
                                 {formErrors.penalty_amount && <small className="events-field-error" id="evPenaltyAmount-error">{formErrors.penalty_amount}</small>}
                             </div>
                         </div>
+                        <div className="events-form-section events-status-section">
+                            <div>
+                                <h4 className="events-form-section-title">Event status</h4>
+                                <small className="events-form-hint">Set the event&apos;s current stage in the approval and publication workflow.</small>
+                            </div>
+                            <div className="events-form-group">
+                                <label htmlFor="evStatus">Status</label>
+                                <select
+                                    id="evStatus"
+                                    value={editingEvent.status}
+                                    onChange={(e) => setEditingEvent({ ...editingEvent, status: e.target.value })}
+                                >
+                                    {STATUSES.map((status) => <option key={status}>{status}</option>)}
+                                </select>
+                            </div>
+                        </div>
                         <div className="events-modal-footer">
-                            <button type="button" className="events-btn events-btn-secondary" onClick={() => setEditingEvent(null)}>Cancel</button>
-                            <button type="submit" className="events-btn events-btn-primary">
-                                {isNewEvent ? "Create Event" : "Save Changes"}
+                            <button type="button" className="events-btn events-btn-secondary" onClick={() => setEditingEvent(null)} disabled={isSavingEvent}>Cancel</button>
+                            <button type="submit" className="events-btn events-btn-primary" disabled={isSavingEvent}>
+                                {isSavingEvent ? "Saving..." : isNewEvent ? "Create Event" : "Save Changes"}
                             </button>
                         </div>
                         </form>

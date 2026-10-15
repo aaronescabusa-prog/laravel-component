@@ -14,17 +14,14 @@ class AnnouncementController extends Controller
      * Roles that manage announcements — the write side of the EnsureRole
      * matrix. Everyone else may only read what is addressed to them.
      */
-    private const MANAGERS = ['Admin', 'Staff'];
+    private const MANAGERS = ['Admin'];
 
     /**
      * The audience value each reader role is entitled to, alongside "All
-     * Users". Staff also manage announcements, so this only ever narrows
-     * Student and Organizer reads.
+     * Users".
      */
     private const AUDIENCE_FOR_ROLE = [
         'Student' => 'Students',
-        'Organizer' => 'Organizers',
-        'Staff' => 'Staff',
     ];
     /**
      * Display a listing of the resource.
@@ -71,7 +68,7 @@ class AnnouncementController extends Controller
             'reference' => ['required', 'string', 'max:50', Rule::unique('announcements', 'reference')->whereNull('deleted_at')],
             'title' => ['required', 'string', 'max:255'],
             'message' => ['required', 'string'],
-            'audience' => ['required', 'string', Rule::in(['All Users', 'Students', 'Organizers', 'Staff'])],
+            'audience' => ['required', 'string', Rule::in(['All Users', 'Students'])],
             'category' => ['required', 'string', Rule::in(['General', 'Event', 'Emergency', 'Maintenance'])],
             'status' => ['required', 'string', Rule::in(['Draft', 'Scheduled', 'Published'])],
             'publish_date' => ['nullable', 'date'],
@@ -103,7 +100,7 @@ class AnnouncementController extends Controller
             'reference' => ['sometimes', 'string', 'max:50', Rule::unique('announcements', 'reference')->ignore($announcement->id)],
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'message' => ['sometimes', 'required', 'string'],
-            'audience' => ['sometimes', 'required', 'string', Rule::in(['All Users', 'Students', 'Organizers', 'Staff'])],
+            'audience' => ['sometimes', 'required', 'string', Rule::in(['All Users', 'Students'])],
             'category' => ['sometimes', 'required', 'string', Rule::in(['General', 'Event', 'Emergency', 'Maintenance'])],
             'status' => ['sometimes', 'required', 'string', Rule::in(['Draft', 'Scheduled', 'Published'])],
             'publish_date' => ['nullable', 'date'],
@@ -128,7 +125,7 @@ class AnnouncementController extends Controller
     /**
      * Narrow a listing to the announcements a non-manager may see.
      *
-     * Managers (Admin, Staff) are left untouched: they author the notices and
+     * Admins are left untouched: they author the notices and
      * must be able to see drafts and every audience.
      */
     private function restrictToReader($query, ?UserAccount $user): void
