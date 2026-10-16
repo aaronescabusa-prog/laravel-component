@@ -206,10 +206,6 @@ function Login() {
 
                             </form>
 
-                            <p className="auth-switch">
-                                Don’t have an account? <Link to="/register" className="register-link">Register</Link>
-                            </p>
-
                         </div>
                     </div>
                 </main>

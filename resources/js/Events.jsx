@@ -105,6 +105,8 @@ function Events() {
     const [courses, setCourses] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [years, setYears] = useState([]);
+    const [attendanceRoster, setAttendanceRoster] = useState(null);
+    const [attendanceBusy, setAttendanceBusy] = useState(false);
 
     useEffect(() => {
         let active = true;
@@ -144,6 +146,49 @@ function Events() {
         window.addEventListener("keydown", closeOnEscape);
         return () => window.removeEventListener("keydown", closeOnEscape);
     }, [viewingEvent, editingEvent, isSavingEvent]);
+
+    useEffect(() => {
+        let active = true;
+        if (!viewingEvent?.attendanceCompulsory) {
+            setAttendanceRoster(null);
+            return undefined;
+        }
+        eventsApi.attendanceRoster(viewingEvent.id)
+            .then((data) => { if (active) setAttendanceRoster(data); })
+            .catch(() => { if (active) setAttendanceRoster(null); });
+        return () => { active = false; };
+    }, [viewingEvent?.id, viewingEvent?.attendanceCompulsory]);
+
+    async function runAttendanceAction(action) {
+        if (!viewingEvent) return;
+        setAttendanceBusy(true);
+        try {
+            const result = action === "finalize"
+                ? await eventsApi.finalizeAttendanceRoster(viewingEvent.id)
+                : await eventsApi.assessFines(viewingEvent.id);
+            const data = await eventsApi.attendanceRoster(viewingEvent.id);
+            setAttendanceRoster(data);
+            showToast(result.message || "Attendance policy updated.");
+        } catch (error) {
+            showToast(error.message, "danger");
+        } finally {
+            setAttendanceBusy(false);
+        }
+    }
+
+    async function reviewProposedFine(fineId, decision) {
+        setAttendanceBusy(true);
+        try {
+            await eventsApi.reviewFine(fineId, decision);
+            const data = await eventsApi.attendanceRoster(viewingEvent.id);
+            setAttendanceRoster(data);
+            showToast(`Fine ${decision}d.`);
+        } catch (error) {
+            showToast(error.message, "danger");
+        } finally {
+            setAttendanceBusy(false);
+        }
+    }
 
     function audienceLabel(row) {
         const department = departments.find((item) => item.code === row.targetDepartment);
@@ -223,10 +268,7 @@ function Events() {
         api.update("events", row.id, mapEventToApi(next))
             .then((updated) => {
                 setEvents((prev) => prev.map((e) => (e._id === row._id ? mapEventFromApi(updated) : e)));
-                // A status change re-runs the audience match, so it can enrol
-                // people just as a full save does.
-                const note = audienceNote(updated);
-                showToast(`${row.name} marked as ${status}.${note ? ` ${note}` : ""}`);
+                showToast(`${row.name} marked as ${status}.`);
                 logActivity({
                     category: "Event",
                     action: `${status} event ${row.id}`,
@@ -237,30 +279,6 @@ function Events() {
                 setEvents((prev) => prev.map((e) => (e._id === row._id ? row : e)));
                 showToast(`Could not update ${row.name}: ${err.message}`, "danger");
             });
-    }
-
-    /* ---------- Audience auto-enrolment ---------- */
-
-    // Saving an event enrols everyone in its selected audience, which would
-    // otherwise happen invisibly: the roster grows and nobody is told why.
-    // Returns the note to show, or null when the save enrolled nobody.
-    function audienceNote(result) {
-        const audience = result?.audience;
-        const added = audience?.added?.length ?? 0;
-        if (!(audience?.target_course || audience?.target_department || audience?.target_year || audience?.target_role) || !added) return null;
-
-        const department = departments.find((item) => item.code === audience.target_department);
-        const target = [
-            department ? `${department.code} — ${department.name}` : null,
-            audience.target_course,
-            audience.target_year ? audience.target_year : null,
-            audience.target_role,
-        ].filter(Boolean).join(" · ");
-        const capacityNote = audience.capacity_remaining === 0 && audience.matched > added
-            ? " Capacity was reached; remaining accounts were not registered."
-            : "";
-
-        return `${added} matching account${added === 1 ? "" : "s"}${target ? ` (${target})` : ""} automatically registered.${capacityNote}`;
     }
 
     /* ---------- Delete (behind a confirmation) ---------- */
@@ -446,6 +464,13 @@ function Events() {
             hasCertificate: true,
             targetDepartment: "",
             targetYear: "",
+            targetBlock: "",
+            attendanceCompulsory: false,
+            attendanceRequiresCheckout: true,
+            absenceFineAmount: "",
+            incompleteFineAmount: "",
+            attendanceCorrectionDeadline: "",
+            excuseDeadline: "",
             audienceType: "School-Wide",
         });
         setIsNewEvent(true);
@@ -519,7 +544,7 @@ function Events() {
                     });
                     showToast(bannerUploadFailed
                         ? `${item.name} was created, but the banner upload failed. Edit the event to try again.`
-                        : `${item.name} was created.${audienceNote(created) ? ` ${audienceNote(created)}` : ""}`,
+                        : `${item.name} was created. Students can register from the event page.`,
                         bannerUploadFailed ? "danger" : "success");
                     setEditingEvent(null);
                 })
@@ -537,7 +562,7 @@ function Events() {
                     });
                     showToast(bannerUploadFailed
                         ? `${item.name} was updated, but the banner upload failed. Edit the event to try again.`
-                        : `${item.name} was updated.${audienceNote(updated) ? ` ${audienceNote(updated)}` : ""}`,
+                        : `${item.name} was updated. Students must register themselves.`,
                         bannerUploadFailed ? "danger" : "success");
                     setEditingEvent(null);
                 })
@@ -547,9 +572,30 @@ function Events() {
     }
 
     const totalEvents = events.length;
-    const upcoming = events.filter((e) => e.status === "Approved" && new Date(e.date) >= new Date("2026-09-06")).length;
+    const today = localDateInputValue();
+    const currentMonth = today.slice(0, 7);
+    const upcoming = events.filter((e) => e.status === "Approved" && e.date && e.date >= today).length;
     const pendingApproval = events.filter((e) => e.status === "Pending").length;
-    const completedThisMonth = events.filter((e) => e.status === "Completed").length;
+    const completedThisMonth = events.filter((e) => e.status === "Completed" && e.date?.startsWith(currentMonth)).length;
+    const activeFilterCount = [
+        Boolean(search.trim()),
+        statusFilter !== "all",
+        categoryFilter !== "all",
+        departmentFilter !== "all",
+        courseFilter !== "all",
+        yearFilter !== "all",
+        roleFilter !== "all",
+    ].filter(Boolean).length;
+
+    function clearFilters() {
+        setSearch("");
+        setCategoryFilter("all");
+        setStatusFilter("all");
+        setDepartmentFilter("all");
+        setCourseFilter("all");
+        setYearFilter("all");
+        setRoleFilter("all");
+    }
 
     return (
         <AppShell
@@ -570,13 +616,8 @@ function Events() {
                         className="events-topbar-notifications"
                         aria-label={`Show ${pendingApproval} pending event approvals`}
                         onClick={() => {
-                            setSearch("");
-                            setCategoryFilter("all");
-                            setStatusFilter("pending");
-                            setDepartmentFilter("all");
-                            setCourseFilter("all");
-                            setYearFilter("all");
-                            setRoleFilter("all");
+                        clearFilters();
+                        setStatusFilter("pending");
                         }}
                     >
                         Pending approvals <span>{pendingApproval}</span>
@@ -603,7 +644,7 @@ function Events() {
                     <span className="events-kpi-value">{pendingApproval}</span>
                 </div>
                 <div className="events-kpi-item">
-                    <span className="events-kpi-label">Completed</span>
+                    <span className="events-kpi-label">Completed this month</span>
                     <span className="events-kpi-value">{completedThisMonth}</span>
                 </div>
             </div>
@@ -688,6 +729,19 @@ function Events() {
                     </select>
 
                     <button className="events-btn events-btn-secondary events-btn-toolbar" onClick={exportCSV}>Export CSV</button>
+                </div>
+
+                <div className="events-filter-summary" aria-live="polite">
+                    <span>
+                        {activeFilterCount > 0
+                            ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied · ${filteredRows.length} matching event${filteredRows.length === 1 ? "" : "s"}`
+                            : `Showing all ${filteredRows.length} event${filteredRows.length === 1 ? "" : "s"}`}
+                    </span>
+                    {activeFilterCount > 0 && (
+                        <button type="button" className="events-clear-filters" onClick={clearFilters}>
+                            Clear filters
+                        </button>
+                    )}
                 </div>
 
                 {selection.selectedCount > 0 && (
@@ -842,15 +896,7 @@ function Events() {
                                                     <button
                                                         type="button"
                                                         className="events-btn events-btn-secondary events-empty-action"
-                                                        onClick={() => {
-                                                            setSearch("");
-                                                            setCategoryFilter("all");
-                                                            setStatusFilter("all");
-                                                            setDepartmentFilter("all");
-                                                            setCourseFilter("all");
-                                                            setYearFilter("all");
-                                                            setRoleFilter("all");
-                                                        }}
+                                                        onClick={clearFilters}
                                                         aria-label="Clear all event filters"
                                                     >
                                                         Clear filters
@@ -912,6 +958,19 @@ function Events() {
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">S</span><div><small>Available slots</small><strong>{viewingEvent.hasCapacity ? `${Math.max(0, Number(viewingEvent.capacity) - Number(viewingEvent.participants || 0))} available out of ${viewingEvent.capacity} slots` : `${viewingEvent.participants || 0} registered · No capacity limit`}</strong></div></div>
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">D</span><div><small>Registration deadline</small><strong>{viewingEvent.registrationDeadline ? eventDateLabel(viewingEvent.registrationDeadline) : "Until the event date"}</strong></div></div>
                                 </section>
+                                {viewingEvent.attendanceCompulsory && <section className="events-detail-section events-detail-eligibility">
+                                    <h4>Compulsory attendance</h4>
+                                    <p>Required-student roster: {attendanceRoster?.event?.roster_finalized_at ? `${attendanceRoster?.obligations?.length ?? 0} students finalized` : "Not finalized"}. QR attendance is validated by the server; proposed fines require review.</p>
+                                    <div className="events-detail-actions">
+                                        <button type="button" className="events-btn events-btn-secondary" disabled={attendanceBusy || Boolean(attendanceRoster?.event?.roster_finalized_at) || !["Approved", "Completed"].includes(viewingEvent.status)} onClick={() => runAttendanceAction("finalize")}>{attendanceRoster?.event?.roster_finalized_at ? "Roster finalized" : ["Approved", "Completed"].includes(viewingEvent.status) ? "Finalize student roster" : "Approve event to finalize roster"}</button>
+                                        <button type="button" className="events-btn events-btn-primary" disabled={attendanceBusy || !attendanceRoster?.event?.roster_finalized_at} onClick={() => runAttendanceAction("assess")}>Assess proposed fines</button>
+                                    </div>
+                                    {attendanceRoster?.obligations?.filter((item) => item.fine?.assessment_status === "proposed").map((item) => <div className="events-detail-info-row" key={item.id}>
+                                        <span className="events-detail-info-icon" aria-hidden="true">₱</span><div><small>{item.student_name} · {item.fine.reason === "absence" ? "Absent" : "Incomplete attendance"}</small><strong>₱{Number(item.fine.amount).toFixed(2)} proposed</strong></div>
+                                        <button type="button" className="events-btn events-btn-secondary" disabled={attendanceBusy} onClick={() => reviewProposedFine(item.fine.id, "approve")}>Approve</button>
+                                        <button type="button" className="events-btn events-btn-secondary" disabled={attendanceBusy} onClick={() => reviewProposedFine(item.fine.id, "reject")}>Reject</button>
+                                    </div>)}
+                                </section>}
                                 <section className="events-detail-registration"><div><small>Registration</small><strong>{viewingEvent.registrationOpen === false ? "Registration closed" : "Registration open"}</strong></div><span className={`events-registration-indicator${viewingEvent.registrationOpen === false ? " is-closed" : ""}`} aria-hidden="true" /></section>
                             </div>
                         </div>
@@ -951,36 +1010,6 @@ function Events() {
                                     onChange={(e) => updateEventField("name", e.target.value)}
                                 />
                                 {formErrors.name && <small className="events-field-error" id="evName-error">{formErrors.name}</small>}
-                                </div>
-                            </div>
-
-                            <div className="events-form-section">
-                                <h4 className="events-form-section-title">Registration</h4>
-                                <label className="events-form-checkbox">
-                                    <input
-                                        type="checkbox"
-                                        checked={editingEvent.registrationOpen !== false}
-                                        onChange={(e) => updateEventField("registrationOpen", e.target.checked)}
-                                    />
-                                    <span>Accept registrations</span>
-                                </label>
-                                <div className="events-form-group">
-                                    <label htmlFor="evRegistrationDeadline">Registration deadline {isNewEvent && <span className="events-required"></span>}</label>
-                                    <input
-                                        id="evRegistrationDeadline"
-                                        type="date"
-                                        max={editingEvent.date || undefined}
-                                        value={editingEvent.registrationDeadline || ""}
-                                        onChange={(e) => updateEventField("registrationDeadline", e.target.value)}
-                                        aria-invalid={Boolean(formErrors.registrationDeadline)}
-                                        aria-describedby={formErrors.registrationDeadline ? "evRegistrationDeadline-error" : undefined}
-                                    />
-                                    {formErrors.registrationDeadline && (
-                                        <small className="events-field-error" id="evRegistrationDeadline-error">
-                                            {formErrors.registrationDeadline}
-                                        </small>
-                                    )}
-                        
                                 </div>
                             </div>
 
@@ -1064,7 +1093,34 @@ function Events() {
                                             ))}
                                         </select>
                                     </div>}
+                                    {editingEvent.audienceType === "Department-Specific" && <div className="events-form-group">
+                                        <label htmlFor="evTargetBlock">Target block</label>
+                                        <input id="evTargetBlock" type="text" maxLength="50" placeholder="All blocks" value={editingEvent.targetBlock ?? ""} onChange={(e) => updateEventField("targetBlock", e.target.value)} />
+                                    </div>}
                                 </div>
+                            </div>
+                            <div className="events-form-section">
+                                <h4 className="events-form-section-title">Attendance policy</h4>
+                                <label className="events-form-checkbox">
+                                    <input type="checkbox" checked={Boolean(editingEvent.attendanceCompulsory)} onChange={(e) => updateEventField("attendanceCompulsory", e.target.checked)} />
+                                    <span>Compulsory attendance</span>
+                                </label>
+                                <small className="events-form-hint">Required students are snapshotted when the event is approved. Registration is not required to be included.</small>
+                                {editingEvent.attendanceCompulsory && <>
+                                    <label className="events-form-checkbox">
+                                        <input type="checkbox" checked={editingEvent.attendanceRequiresCheckout !== false} onChange={(e) => updateEventField("attendanceRequiresCheckout", e.target.checked)} />
+                                        <span>Require check-in and check-out</span>
+                                    </label>
+                                    <div className="events-form-row-split">
+                                        <div className="events-form-group"><label htmlFor="evAbsenceFine">Proposed fine for absence (₱)</label><input id="evAbsenceFine" type="number" min="0" step="0.01" value={editingEvent.absenceFineAmount ?? ""} onChange={(e) => updateEventField("absenceFineAmount", e.target.value)} placeholder="No fine configured" /></div>
+                                        <div className="events-form-group"><label htmlFor="evIncompleteFine">Proposed fine for incomplete attendance (₱)</label><input id="evIncompleteFine" type="number" min="0" step="0.01" value={editingEvent.incompleteFineAmount ?? ""} onChange={(e) => updateEventField("incompleteFineAmount", e.target.value)} placeholder="No fine configured" /></div>
+                                    </div>
+                                    <div className="events-form-row-split">
+                                        <div className="events-form-group"><label htmlFor="evCorrectionDeadline">Attendance correction deadline</label><input id="evCorrectionDeadline" type="datetime-local" value={editingEvent.attendanceCorrectionDeadline?.slice(0, 16) ?? ""} onChange={(e) => updateEventField("attendanceCorrectionDeadline", e.target.value)} /></div>
+                                        <div className="events-form-group"><label htmlFor="evExcuseDeadline">Excuse submission deadline</label><input id="evExcuseDeadline" type="datetime-local" value={editingEvent.excuseDeadline?.slice(0, 16) ?? ""} onChange={(e) => updateEventField("excuseDeadline", e.target.value)} /></div>
+                                    </div>
+                                    <small className="events-form-hint">Fines stay proposed until administrator review. Configure only amounts approved by TMC policy.</small>
+                                </>}
                             </div>
                             <div className="events-form-section events-schedule-section">
                                 <div className="events-schedule-heading">
@@ -1240,6 +1296,35 @@ function Events() {
                                         />
                                         {formErrors.venue && <small className="events-field-error" id="evVenue-error">{formErrors.venue}</small>}
                                     </div>
+                                </div>
+                            </div>
+
+                            <div className="events-form-section">
+                                <h4 className="events-form-section-title">Registration</h4>
+                                <label className="events-form-checkbox">
+                                    <input
+                                        type="checkbox"
+                                        checked={editingEvent.registrationOpen !== false}
+                                        onChange={(e) => updateEventField("registrationOpen", e.target.checked)}
+                                    />
+                                    <span>Accept registrations</span>
+                                </label>
+                                <div className="events-form-group">
+                                    <label htmlFor="evRegistrationDeadline">Registration deadline {isNewEvent && <span className="events-required"></span>}</label>
+                                    <input
+                                        id="evRegistrationDeadline"
+                                        type="date"
+                                        max={editingEvent.date || undefined}
+                                        value={editingEvent.registrationDeadline || ""}
+                                        onChange={(e) => updateEventField("registrationDeadline", e.target.value)}
+                                        aria-invalid={Boolean(formErrors.registrationDeadline)}
+                                        aria-describedby={formErrors.registrationDeadline ? "evRegistrationDeadline-error" : undefined}
+                                    />
+                                    {formErrors.registrationDeadline && (
+                                        <small className="events-field-error" id="evRegistrationDeadline-error">
+                                            {formErrors.registrationDeadline}
+                                        </small>
+                                    )}
                                 </div>
                             </div>
 

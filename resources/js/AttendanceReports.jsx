@@ -289,6 +289,11 @@ export default function AttendanceReports({ embedded = false }) {
 
                 {selectedRef && report && (
                     <div className="attendance-report">
+                        {sessions.length === 0 && (
+                            <div className="attendance-state" role="status">
+                                No attendance sessions are configured for this event yet. The roster below shows registered participants only.
+                            </div>
+                        )}
                         <div className="events-kpi-strip">
                             <div className="events-kpi-item">
                                 <span className="events-kpi-value">{counts.registered ?? 0}</span>

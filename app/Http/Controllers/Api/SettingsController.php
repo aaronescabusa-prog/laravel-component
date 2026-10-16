@@ -25,6 +25,7 @@ class SettingsController extends Controller
             'notifications' => $all['notifications'] ?? null,
             'security' => $all['security'] ?? null,
             'roles_permissions' => $all['roles_permissions'] ?? null,
+            'fine_payment_options' => $all['fine_payment_options'] ?? [],
             'logo_url' => $all['logo_url'] ?? null,
         ]);
     }
@@ -46,9 +47,13 @@ class SettingsController extends Controller
             'security.session_timeout' => ['nullable', Rule::in(['15', '30', '60', 'never'])],
             'roles_permissions' => ['nullable', 'array'],
             'roles_permissions.*.role' => ['required_with:roles_permissions', Rule::in(['Admin', 'Student', 'Scanner'])],
+            'fine_payment_options' => ['nullable', 'array', 'max:10'],
+            'fine_payment_options.*.name' => ['required', 'string', 'max:100'],
+            'fine_payment_options.*.instructions' => ['nullable', 'string', 'max:500'],
+            'fine_payment_options.*.active' => ['sometimes', 'boolean'],
         ]);
 
-        $groups = ['general', 'notifications', 'security', 'roles_permissions'];
+        $groups = ['general', 'notifications', 'security', 'roles_permissions', 'fine_payment_options'];
 
         foreach ($groups as $group) {
             if (array_key_exists($group, $validated)) {

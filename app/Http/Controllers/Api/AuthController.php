@@ -228,12 +228,14 @@ class AuthController extends Controller
             'firstName' => ['required_without:name', 'string', 'max:255'],
             'lastName' => ['required_without:name', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('user_accounts', 'email')->whereNull('deleted_at')],
-            'student_id' => ['nullable', 'string', 'max:50', $studentIdUnique],
+            'student_id' => ['required', 'string', 'regex:/^\d{2}-\d{6}$/', 'max:9', $studentIdUnique],
             'course' => ['required', 'string', Rule::in(AcademicStructure::COURSES)],
             'year' => ['required', 'string', Rule::in(AcademicStructure::YEARS)],
             'block_no' => ['nullable', 'string', 'max:50'],
             'role' => ['sometimes', 'string', Rule::in(self::SELF_SERVICE_ROLES)],
             'password' => ['required', 'string', 'min:8', 'max:255'],
+        ], [
+            'student_id.regex' => 'Student ID must contain two digits, a dash, then six digits (for example, 12-345678).',
         ]);
 
         $name = isset($validated['firstName']) || isset($validated['lastName'])

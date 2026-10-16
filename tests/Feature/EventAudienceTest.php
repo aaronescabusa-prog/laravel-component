@@ -180,7 +180,7 @@ it('picks up an account that was cleared after the event was saved', function ()
         ->and(Registration::count())->toBe(3);
 });
 
-it('reports the enrolment back when an event is saved', function () {
+it('does not create registrations when a targeted event is saved', function () {
     $admin = audienceAccount('Admin', 'admin.it@tmc.edu.ph', 'BS Criminology', 'Active', 'Admin');
     $this->actingAs($admin, 'sanctum');
 
@@ -193,9 +193,10 @@ it('reports the enrolment back when an event is saved', function () {
     ]);
 
     $response->assertCreated()
-        ->assertJsonPath('audience.target_course', 'BS Information Technology')
-        ->assertJsonPath('audience.matched', 2)
-        ->assertJsonCount(2, 'audience.added');
+        ->assertJsonPath('target_course', 'BS Information Technology')
+        ->assertJsonMissingPath('audience');
+
+    expect(Registration::count())->toBe(0);
 });
 
 it('reports an empty audience for a public event', function () {
@@ -210,11 +211,12 @@ it('reports an empty audience for a public event', function () {
     ]);
 
     $response->assertCreated()
-        ->assertJsonPath('audience.matched', 0)
-        ->assertJsonPath('audience.added', []);
+        ->assertJsonMissingPath('audience');
+
+    expect(Registration::count())->toBe(0);
 });
 
-it('enrols when an existing event is retargeted', function () {
+it('does not create registrations when an existing event is retargeted', function () {
     $event = audienceEvent();
     $admin = audienceAccount('Admin', 'admin3.it@tmc.edu.ph', 'BS Criminology', 'Active', 'Admin');
     $this->actingAs($admin, 'sanctum');
@@ -224,5 +226,8 @@ it('enrols when an existing event is retargeted', function () {
     ]);
 
     $response->assertOk()
-        ->assertJsonPath('audience.added', ['REG-0001', 'REG-0002']);
+        ->assertJsonPath('target_course', 'BS Information Technology')
+        ->assertJsonMissingPath('audience');
+
+    expect(Registration::count())->toBe(0);
 });

@@ -57,7 +57,7 @@ test('the academic structure endpoint publishes all TMC departments, programs, a
         ->assertJsonPath('years', ['1st Year', '2nd Year', '3rd Year', '4th Year']);
 });
 
-test('department and year targeting auto-enrols only eligible accounts and enforces capacity', function () {
+test('department and year targeting restricts self-registration and enforces capacity', function () {
     Sanctum::actingAs(departmentTestAdmin());
 
     $eligibleOne = departmentTestStudent('USR-DEPT-1', 'one@tmc.edu.ph', 'BS Information Technology', '3rd Year');
@@ -77,13 +77,11 @@ test('department and year targeting auto-enrols only eligible accounts and enfor
         ->assertJson([
             'target_department' => 'CCS',
             'target_year' => '3rd Year',
-        ]);
+        ])
+        ->assertJsonMissingPath('audience');
 
-    expect($response->json('audience.matched'))->toBe(2)
-        ->and($response->json('audience.added'))->toHaveCount(1)
-        ->and($response->json('audience.capacity_remaining'))->toBe(0)
-        ->and(Registration::where('event', 'CCS Third-Year Forum')->count())->toBe(1)
-        ->and(Event::where('reference', 'EVE-DEPT-1')->value('participants'))->toBe(1);
+    expect(Registration::where('event', 'CCS Third-Year Forum')->count())->toBe(0)
+        ->and(Event::where('reference', 'EVE-DEPT-1')->value('participants'))->toBe(0);
 
     $this->postJson('/api/registrations', departmentTestRegistration('REG-DEPT-1', $wrongDepartment, 'CCS Third-Year Forum'))
         ->assertUnprocessable()
@@ -94,7 +92,10 @@ test('department and year targeting auto-enrols only eligible accounts and enfor
         ->assertUnprocessable()
         ->assertJsonPath('errors.event.0', 'This event is restricted to 3rd Year.');
 
-    $this->postJson('/api/registrations', departmentTestRegistration('REG-DEPT-3', $eligibleTwo, 'CCS Third-Year Forum'))
+    $this->postJson('/api/registrations', departmentTestRegistration('REG-DEPT-1', $eligibleOne, 'CCS Third-Year Forum'))
+        ->assertCreated();
+
+    $this->postJson('/api/registrations', departmentTestRegistration('REG-DEPT-2', $eligibleTwo, 'CCS Third-Year Forum'))
         ->assertUnprocessable()
         ->assertJsonPath('errors.event.0', 'This event has reached its registration capacity.');
 

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Attendance;
 use App\Models\AttendanceSession;
 use App\Models\Event;
+use App\Models\ObligationAttendance;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -124,7 +125,7 @@ class EventSchedule
      * that has already been signed off. Everyone still checked in is stamped
      * as having left, so a closed session can never be left half-recorded.
      */
-    public function close(AttendanceSession $session, ?string $actor = null): AttendanceSession
+    public function close(AttendanceSession $session, ?string $actor = null, ?int $actorUserId = null): AttendanceSession
     {
         if (! $session->isOpen()) {
             return $session;
@@ -132,7 +133,7 @@ class EventSchedule
 
         $now = now();
 
-        DB::transaction(function () use ($session, $now, $actor) {
+        DB::transaction(function () use ($session, $now, $actor, $actorUserId) {
             Attendance::where('attendance_session_id', $session->id)
                 ->whereNotNull('time_in')
                 ->whereNull('time_out')
@@ -148,6 +149,19 @@ class EventSchedule
                             : Attendance::PRESENT,
                         'recorded_at' => $now,
                         'recorded_by' => $actor,
+                    ])->save();
+                });
+
+            ObligationAttendance::where('attendance_session_id', $session->id)
+                ->whereNotNull('time_in')
+                ->whereNull('time_out')
+                ->get()
+                ->each(function (ObligationAttendance $attendance) use ($now, $actorUserId) {
+                    $attendance->forceFill([
+                        'time_out' => $now,
+                        'status' => $attendance->status === Attendance::LATE ? Attendance::LATE : Attendance::PRESENT,
+                        'recorded_at' => $now,
+                        'recorded_by_user_id' => $actorUserId,
                     ])->save();
                 });
 

@@ -448,6 +448,10 @@ export const eventsApi = {
       body: form,
     });
   },
+  attendanceRoster: (eventReference) => request(`/admin/events/${encodeURIComponent(eventReference)}/attendance-roster`),
+  finalizeAttendanceRoster: (eventReference) => request(`/admin/events/${encodeURIComponent(eventReference)}/attendance-roster/finalize`, { method: "POST" }),
+  assessFines: (eventReference) => request(`/admin/events/${encodeURIComponent(eventReference)}/assess-fines`, { method: "POST" }),
+  reviewFine: (fineId, decision) => request(`/admin/fines/${fineId}/review`, { method: "PATCH", body: JSON.stringify({ decision }) }),
 };
 
 export const registrationsApi = {
@@ -541,6 +545,13 @@ export function mapEventFromApi(row) {
     targetCourse: row.target_course ?? row.targetCourse ?? null,
     targetDepartment: row.target_department ?? row.targetDepartment ?? null,
     targetYear: row.target_year ?? row.targetYear ?? null,
+    targetBlock: row.target_block ?? row.targetBlock ?? null,
+    attendanceCompulsory: row.attendance_compulsory ?? false,
+    attendanceRequiresCheckout: row.attendance_requires_checkout ?? true,
+    absenceFineAmount: row.absence_fine_amount ?? null,
+    incompleteFineAmount: row.incomplete_fine_amount ?? null,
+    attendanceCorrectionDeadline: row.attendance_correction_deadline ?? "",
+    excuseDeadline: row.excuse_deadline ?? "",
     hasCertificate: row.has_certificate ?? row.hasCertificate ?? true,
     checkinToken: row.checkin_token ?? row.checkinToken ?? null,
   };
@@ -571,6 +582,13 @@ export function mapEventToApi(row) {
     target_course: row.targetCourse || null,
     target_department: row.targetDepartment || null,
     target_year: row.targetYear || null,
+    target_block: row.targetBlock || null,
+    attendance_compulsory: Boolean(row.attendanceCompulsory),
+    attendance_requires_checkout: Boolean(row.attendanceRequiresCheckout),
+    absence_fine_amount: row.absenceFineAmount === "" ? null : row.absenceFineAmount,
+    incomplete_fine_amount: row.incompleteFineAmount === "" ? null : row.incompleteFineAmount,
+    attendance_correction_deadline: row.attendanceCorrectionDeadline || null,
+    excuse_deadline: row.excuseDeadline || null,
     has_certificate: row.hasCertificate ?? true,
   };
 }

@@ -9,6 +9,7 @@ use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\HasApiTokens;
@@ -40,6 +41,7 @@ class UserAccount extends Model implements AuthenticatableContract, CanResetPass
 
     protected $hidden = [
         'password',
+        'attendance_qr_token',
     ];
 
     protected $appends = [
@@ -64,6 +66,11 @@ class UserAccount extends Model implements AuthenticatableContract, CanResetPass
             ->withTimestamps();
     }
 
+    public function attendanceObligations(): HasMany
+    {
+        return $this->hasMany(EventObligation::class, 'user_account_id');
+    }
+
     public function getRouteKeyName(): string
     {
         return 'reference';
@@ -82,6 +89,12 @@ class UserAccount extends Model implements AuthenticatableContract, CanResetPass
      */
     protected static function booted(): void
     {
+        static::creating(function (self $account): void {
+            if (blank($account->attendance_qr_token)) {
+                $account->attendance_qr_token = bin2hex(random_bytes(24));
+            }
+        });
+
         static::saved(function (self $account): void {
             if ($account->wasChanged('status')) {
                 static::forgetCachedStatus($account->getKey());

@@ -528,6 +528,57 @@ tbody tr:hover {
     margin: 0 0 20px;
 }
 
+.dash-approval-notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 18px;
+    padding: 14px 18px;
+    border: 1px solid #f0d68b;
+    border-left: 4px solid #d9a600;
+    border-radius: 12px;
+    background: linear-gradient(110deg, #fff9e8, #fffdf7);
+    color: #28364a;
+}
+
+.dash-approval-notice > div {
+    display: grid;
+    gap: 3px;
+}
+
+.dash-approval-notice strong {
+    color: #17376d;
+    font-size: 14px;
+}
+
+.dash-approval-notice span {
+    color: #637083;
+    font-size: 12px;
+}
+
+.dash-approval-link {
+    flex: 0 0 auto;
+    padding: 8px 13px;
+    border-radius: 8px;
+    background: #17376d;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.dash-approval-link:hover {
+    background: #0f2a52;
+}
+
+@media (max-width: 520px) {
+    .dash-approval-notice {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
 .dash-action-link {
     display: inline-flex;
     align-items: center;

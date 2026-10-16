@@ -45,7 +45,7 @@ class UserAccountController extends Controller
             'reference' => ['required', 'string', 'max:50', $live('reference')],
             // Student IDs remain reserved by soft-deleted rows too, matching
             // the database's unique index and avoiding an insert-time conflict.
-            'student_id' => ['nullable', 'string', 'max:50', $studentIdUnique],
+            'student_id' => ['nullable', 'string', 'regex:/^\d{2}-\d{6}$/', 'max:9', $studentIdUnique],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', $live('email')],
             'role' => ['required', 'string', Rule::in(['Admin', 'Student', 'Scanner'])],
@@ -231,12 +231,22 @@ class UserAccountController extends Controller
             }
         }
 
+        $studentIdRules = [
+            'sometimes',
+            'nullable',
+            'string',
+            'max:50',
+            Rule::unique('user_accounts', 'student_id')->ignore($userAccount->id),
+        ];
+        if ($request->exists('student_id') && (string) $request->input('student_id') !== (string) $userAccount->student_id) {
+            $studentIdRules[] = 'regex:/^\d{2}-\d{6}$/';
+        }
+
         $validated = $request->validate([
             'reference' => ['sometimes', 'string', 'max:50', Rule::unique('user_accounts', 'reference')
                 ->whereNull('deleted_at')
                 ->ignore($userAccount->id)],
-            'student_id' => ['sometimes', 'nullable', 'string', 'max:50', Rule::unique('user_accounts', 'student_id')
-                ->ignore($userAccount->id)],
+            'student_id' => $studentIdRules,
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('user_accounts', 'email')
                 ->whereNull('deleted_at')
@@ -249,6 +259,8 @@ class UserAccountController extends Controller
             'date' => ['nullable', 'string', 'max:20'],
             'password' => ['sometimes', 'nullable', 'string', 'min:8', 'max:255'],
             'current_password' => ['sometimes', 'nullable', 'string'],
+        ], [
+            'student_id.regex' => 'Student ID must contain two digits, a dash, then six digits (for example, 12-345678).',
         ]);
 
         $requestedRole = $validated['role'] ?? null;

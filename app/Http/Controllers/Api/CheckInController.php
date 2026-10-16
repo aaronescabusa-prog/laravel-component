@@ -7,6 +7,9 @@ use App\Models\Attendance;
 use App\Models\AttendanceSession;
 use App\Models\Event;
 use App\Models\Registration;
+use App\Models\EventObligation;
+use App\Models\ObligationAttendance;
+use App\Models\UserAccount;
 use App\Services\AttendanceRecorder;
 use App\Services\EventScannerAccess;
 use App\Services\EventSchedule;
@@ -139,7 +142,52 @@ class CheckInController extends Controller
             ->get();
 
         if ($registrations->isEmpty()) {
-            abort(404, 'This student pass is not registered for this event.');
+            // A compulsory student is on the finalized audience snapshot even
+            // when they never registered for the event.
+            $student = UserAccount::query()
+                ->where('role', 'Student')
+                ->where('attendance_qr_token', $validated['qr_code'])
+                ->first();
+            $obligation = $student
+                ? EventObligation::where('event_id', $event->id)->where('user_account_id', $student->id)->first()
+                : null;
+            if (! $obligation) {
+                abort(404, 'This pass is not registered or required for this event.');
+            }
+
+            if (! $session->isOpen()) {
+                throw ValidationException::withMessages(['session_id' => 'This attendance session is closed.']);
+            }
+
+            $attendance = ObligationAttendance::firstOrNew([
+                'event_obligation_id' => $obligation->id,
+                'attendance_session_id' => $session->id,
+            ]);
+            $direction = $validated['direction'];
+            if ($direction === 'in' && $attendance->time_in) {
+                throw ValidationException::withMessages(['qr_code' => 'This student is already checked in for this session.']);
+            }
+            if ($direction === 'out' && ! $attendance->time_in) {
+                throw ValidationException::withMessages(['qr_code' => 'Record check-in before check-out.']);
+            }
+            if ($direction === 'out' && $attendance->time_out) {
+                throw ValidationException::withMessages(['qr_code' => 'This student is already checked out for this session.']);
+            }
+
+            $now = now();
+            $attendance->fill([
+                $direction === 'in' ? 'time_in' : 'time_out' => $now,
+                'status' => $direction === 'in' && $session->lateAfter() && $now->greaterThan($session->lateAfter()) ? Attendance::LATE : Attendance::PRESENT,
+                'recorded_by_user_id' => $request->user()->id,
+                'recorded_at' => $now,
+            ])->save();
+
+            return response()->json([
+                'message' => 'Checked '.$direction.' '.$obligation->student_name.'.',
+                'student' => ['reference' => $obligation->student_reference, 'participant' => $obligation->student_name],
+                'session' => $this->sessionPayload($session->refresh()),
+                'attendance' => ['status' => $attendance->status, 'time_in' => $attendance->time_in, 'time_out' => $attendance->time_out],
+            ]);
         }
 
         if ($registrations->count() > 1) {
@@ -293,7 +341,7 @@ class CheckInController extends Controller
 
     public function closeSession(Request $request, AttendanceSession $session)
     {
-        $this->schedule->close($session, $this->actor($request));
+        $this->schedule->close($session, $this->actor($request), $request->user()->getKey());
 
         // Everyone still checked in when the session closes must have their
         // roll-up brought up to date, or the roster would show them as absent.

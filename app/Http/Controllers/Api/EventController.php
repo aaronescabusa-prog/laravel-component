@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
-use App\Services\EventAudience;
 use App\Services\EventEligibility;
 use App\Services\EventSchedule;
+use App\Services\CompulsoryAttendance;
 use App\Support\AcademicStructure;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -90,14 +90,22 @@ class EventController extends Controller
             'target_course' => ['sometimes', 'nullable', 'string', Rule::in($this->courses())],
             'target_department' => ['sometimes', 'nullable', 'string', Rule::in(array_column(AcademicStructure::DEPARTMENTS, 'code'))],
             'target_year' => ['sometimes', 'nullable', 'string', Rule::in(AcademicStructure::YEARS)],
+            'target_block' => ['sometimes', 'nullable', 'string', 'max:50'],
             'has_certificate' => ['sometimes', 'boolean'],
             'penalty_type' => ['sometimes', 'string', 'max:50'],
             'penalty_amount' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'attendance_compulsory' => ['sometimes', 'boolean'],
+            'attendance_requires_checkout' => ['sometimes', 'boolean'],
+            'absence_fine_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'incomplete_fine_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'attendance_correction_deadline' => ['sometimes', 'nullable', 'date'],
+            'excuse_deadline' => ['sometimes', 'nullable', 'date'],
         ]);
 
         $this->validateAudience($request);
         $this->validateSchedule($request);
         $this->validateRegistrationWindow($request);
+        $this->validateCompulsoryAudience($request);
 
         $validated['reference'] ??= $this->nextEventReference();
         $validated['status'] ??= 'Draft';
@@ -122,16 +130,16 @@ class EventController extends Controller
         // the check-in desk has somewhere to record against. Idempotent, so an
         // event resaved later keeps whatever the registrar has since changed.
         app(EventSchedule::class)->ensureSessions($event);
+        if ($event->attendance_compulsory && $event->status === 'Approved') {
+            app(CompulsoryAttendance::class)->finalizeRoster($event);
+        }
 
         // Refresh so the response carries every column, not just the ones that
         // were submitted. Without it a field that was left unset (duration, for
         // example) is simply absent from the JSON rather than null, so a create
         // and the subsequent read would disagree on shape. update() does the
         // same.
-        return response()->json(
-            $this->withAudience($event->refresh(), app(EventAudience::class)->sync($event)),
-            201,
-        );
+        return response()->json($event->refresh(), 201);
     }
 
     /**
@@ -208,9 +216,16 @@ class EventController extends Controller
             'target_course' => ['sometimes', 'nullable', 'string', Rule::in($this->courses())],
             'target_department' => ['sometimes', 'nullable', 'string', Rule::in(array_column(AcademicStructure::DEPARTMENTS, 'code'))],
             'target_year' => ['sometimes', 'nullable', 'string', Rule::in(AcademicStructure::YEARS)],
+            'target_block' => ['sometimes', 'nullable', 'string', 'max:50'],
             'has_certificate' => ['sometimes', 'boolean'],
             'penalty_type' => ['sometimes', 'string', 'max:50'],
             'penalty_amount' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'attendance_compulsory' => ['sometimes', 'boolean'],
+            'attendance_requires_checkout' => ['sometimes', 'boolean'],
+            'absence_fine_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'incomplete_fine_amount' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'attendance_correction_deadline' => ['sometimes', 'nullable', 'date'],
+            'excuse_deadline' => ['sometimes', 'nullable', 'date'],
         ]);
 
         // Compared against the stored values as well, because a partial update
@@ -218,6 +233,8 @@ class EventController extends Controller
         $this->validateAudience($request, $event);
         $this->validateSchedule($request, $event);
         $this->validateRegistrationWindow($request, $event);
+        $this->validateCompulsoryAudience($request, $event);
+        $this->validateFinalizedPolicy($validated, $event);
 
         $event->fill($validated);
         $event->syncDuration();
@@ -227,29 +244,11 @@ class EventController extends Controller
         // neither does one just given its first date. Create them on save
         // rather than leaving the check-in desk with nothing to record against.
         app(EventSchedule::class)->ensureSessions($event);
+        if ($event->attendance_compulsory && $event->status === 'Approved') {
+            app(CompulsoryAttendance::class)->finalizeRoster($event);
+        }
 
-        // Re-run on every save, because the audience can change without the
-        // course itself changing - a Pending student in that course being
-        // cleared is just as much a new face as the course being picked.
-        return response()->json(
-            $this->withAudience($event->refresh(), app(EventAudience::class)->sync($event))
-        );
-    }
-
-    /**
-     * Attach the enrolment result to the saved event.
-     *
-     * The counts let the interface say who the event was just enrolled without
-     * a second request, which matters because the sync is otherwise invisible:
-     * a save that quietly adds thirty registrations looks identical to one that
-     * adds none.
-     */
-    protected function withAudience(Event $event, array $audience): array
-    {
-        return [
-            ...$event->toArray(),
-            'audience' => $audience,
-        ];
+        return response()->json($event->refresh());
     }
 
     /**
@@ -357,6 +356,50 @@ class EventController extends Controller
         if ($deadline && $eventDate && Carbon::parse($deadline)->gt(Carbon::parse($eventDate))) {
             throw ValidationException::withMessages([
                 'registration_deadline' => ['The registration deadline cannot be after the event start date.'],
+            ]);
+        }
+    }
+
+    /** Audience and policy edits after roster finalization would rewrite history. */
+    protected function validateFinalizedPolicy(array $validated, Event $event): void
+    {
+        if (! $event->attendance_roster_finalized_at && ! $event->attendanceObligations()->exists()) return;
+
+        foreach ([
+            'target_role', 'target_course', 'target_department', 'target_year', 'target_block',
+            'attendance_compulsory', 'attendance_requires_checkout', 'absence_fine_amount',
+            'incomplete_fine_amount', 'attendance_correction_deadline', 'excuse_deadline',
+        ] as $field) {
+            if (! array_key_exists($field, $validated)) continue;
+            $current = $event->getAttribute($field);
+            $incoming = $validated[$field];
+            if (in_array($field, ['attendance_correction_deadline', 'excuse_deadline'], true)) {
+                $current = $current ? Carbon::parse($current)->format('Y-m-d H:i:s') : null;
+                $incoming = $incoming ? Carbon::parse($incoming)->format('Y-m-d H:i:s') : null;
+            }
+            if (in_array($field, ['absence_fine_amount', 'incomplete_fine_amount'], true)) {
+                $current = $current === null ? null : (float) $current;
+                $incoming = $incoming === null ? null : (float) $incoming;
+            }
+            if (is_bool($current)) $incoming = (bool) $incoming;
+            if ((string) ($current ?? '') !== (string) ($incoming ?? '')) {
+                throw ValidationException::withMessages([$field => 'The attendance roster and policy are locked after finalization.']);
+            }
+        }
+    }
+
+    protected function validateCompulsoryAudience(Request $request, ?Event $event = null): void
+    {
+        $compulsory = $request->exists('attendance_compulsory')
+            ? $request->boolean('attendance_compulsory')
+            : (bool) $event?->attendance_compulsory;
+        $targetRole = $request->exists('target_role')
+            ? $request->input('target_role')
+            : ($event?->target_role ?? 'All');
+
+        if ($compulsory && $targetRole === 'Admin') {
+            throw ValidationException::withMessages([
+                'target_role' => ['Compulsory attendance rosters can only include students.'],
             ]);
         }
     }

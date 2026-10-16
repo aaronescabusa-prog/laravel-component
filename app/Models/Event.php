@@ -42,9 +42,17 @@ class Event extends Model
         'target_course',
         'target_department',
         'target_year',
+        'target_block',
         'has_certificate',
         'penalty_type',
         'penalty_amount',
+        'attendance_compulsory',
+        'attendance_requires_checkout',
+        'absence_fine_amount',
+        'incomplete_fine_amount',
+        'attendance_correction_deadline',
+        'excuse_deadline',
+        'attendance_roster_finalized_at',
     ];
 
     protected static function booted(): void
@@ -96,6 +104,13 @@ class Event extends Model
             'has_certificate' => 'boolean',
             'penalty_type' => 'string',
             'penalty_amount' => 'integer',
+            'attendance_compulsory' => 'boolean',
+            'attendance_requires_checkout' => 'boolean',
+            'absence_fine_amount' => 'decimal:2',
+            'incomplete_fine_amount' => 'decimal:2',
+            'attendance_correction_deadline' => 'datetime',
+            'excuse_deadline' => 'datetime',
+            'attendance_roster_finalized_at' => 'datetime',
         ];
     }
 
@@ -254,6 +269,11 @@ class Event extends Model
     public function certificates(): HasMany
     {
         return $this->hasMany(Certificate::class);
+    }
+
+    public function attendanceObligations(): HasMany
+    {
+        return $this->hasMany(EventObligation::class);
     }
 
     public function template(): HasOne

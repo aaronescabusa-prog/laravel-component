@@ -84,7 +84,7 @@ function Dashboard() {
     }
 
     // The summary endpoint reports pending event approvals as `events_pending`
-    // (ReportController::summary); the "Pending Requests" KPI reads that figure.
+    // (ReportController::summary).
     const pendingRequests = Number(summary?.events_pending ?? 0);
     const activeEvents = Number(summary?.events_active ?? 0);
     const issuedCerts = Number(summary?.certificates_issued ?? 0);
@@ -109,7 +109,7 @@ function Dashboard() {
           {[
             { label: "Total Registered Users", value: totalUsers.toLocaleString(), trend: "up", trendLabel: "From the User Accounts list" },
             { label: "Active Events", value: activeEvents, trend: "up", trendLabel: "from the Events list" },
-            { label: "Pending Requests", value: pendingRequests, trend: "", trendLabel: "Needs attention", alert: true },
+            { label: "Events awaiting approval", value: pendingRequests, trend: "", trendLabel: "Admin review required", alert: pendingRequests > 0 },
             { label: "Certificates Issued", value: issuedCerts, trend: "up", trendLabel: "from the Certificates list" },
           ].map((kpi, idx) => (
             <KpiCard
@@ -122,6 +122,15 @@ function Dashboard() {
             />
           ))}
         </div>
+        {pendingRequests > 0 && (
+            <div className="dash-approval-notice" role="status">
+                <div>
+                    <strong>{pendingRequests} event{pendingRequests === 1 ? "" : "s"} need{pendingRequests === 1 ? "s" : ""} review</strong>
+                    <span>Review pending submissions before they appear as active events.</span>
+                </div>
+                <NavLink to="/events" className="dash-approval-link">Review events</NavLink>
+            </div>
+        )}
             <div className="dash-refresh-bar">
                 <span className="dash-refresh-stamp">
                     Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}

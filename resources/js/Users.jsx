@@ -13,6 +13,7 @@ import { useRowSelection } from "./lib/useRowSelection";
 import Pagination from "./components/Pagination";
 import { ActionIcon, IconEdit, IconPower, IconTrash } from "./components/Icons";
 import { useUser } from "./lib/session";
+import { formatStudentId, isValidStudentId } from "./lib/studentId";
 
 const COURSES = [
     "BS Information Technology",
@@ -143,6 +144,26 @@ function Users() {
 
         return rows;
     }, [users, search, roleFilter, statusFilter, courseFilter, departmentFilter, blockFilter, yearFilter, sortKey, sortDir]);
+
+    const activeFilterCount = [
+        Boolean(search.trim()),
+        roleFilter !== "all",
+        statusFilter !== "all",
+        courseFilter !== "all",
+        departmentFilter !== "all",
+        blockFilter !== "all",
+        yearFilter !== "all",
+    ].filter(Boolean).length;
+
+    function clearFilters() {
+        setSearch("");
+        setRoleFilter("all");
+        setStatusFilter("all");
+        setCourseFilter("all");
+        setDepartmentFilter("all");
+        setBlockFilter("all");
+        setYearFilter("all");
+    }
 
     const pager = usePagination(filteredRows, {
         resetKey: [search, roleFilter, statusFilter, courseFilter, departmentFilter, blockFilter, yearFilter, sortKey, sortDir].join("|"),
@@ -305,6 +326,12 @@ function Users() {
 
                 const role = canonicalOption(cell(row, "role"), IMPORT_ROLES) ?? "Student";
                 const status = canonicalOption(cell(row, "status"), IMPORT_STATUSES) ?? "Pending";
+                const studentId = formatStudentId(cell(row, "studentId"));
+
+                if (cell(row, "studentId") && !isValidStudentId(studentId)) {
+                    skipped.push({ line, name, reason: "Student ID must use the format 12-345678." });
+                    continue;
+                }
 
                 // store() refuses an Admin row from a non-admin caller, so drop it
                 // here with a readable reason rather than provoke one 403 per row.
@@ -339,7 +366,7 @@ function Users() {
                     line,
                     ...mapUserToApi({
                         id: reference,
-                        studentId: cell(row, "studentId"),
+                        studentId,
                         name,
                         email,
                         role,
@@ -468,7 +495,7 @@ function Users() {
     }
 
     function openEdit(row) {
-        setEditingUser({ ...row, password: "" });
+        setEditingUser({ ...row, _originalStudentId: row.studentId || "", password: "" });
         setIsNewUser(false);
     }
 
@@ -500,6 +527,13 @@ function Users() {
             return;
         }
 
+        const studentIdChanged = isNewUser
+            || String(editingUser.studentId ?? "") !== String(editingUser._originalStudentId ?? "");
+        if (editingUser.role === "Student" && studentIdChanged && !isValidStudentId(editingUser.studentId)) {
+            showToast("Student ID must contain two digits, a dash, then six digits (for example, 12-345678).", "danger");
+            return;
+        }
+
         if (isNewUser && (!editingUser.password || editingUser.password.length < 8)) {
             showToast("New accounts need a password of at least 8 characters.", "danger");
             return;
@@ -512,6 +546,7 @@ function Users() {
 
         const clean = { ...editingUser };
         delete clean.password;
+        delete clean._originalStudentId;
 
         // Anything carrying a password is written straight to the API and the
         // list is re-read afterwards, rather than going through setUsers.
@@ -522,10 +557,13 @@ function Users() {
         // would re-send it on every later edit - which silently resets that
         // person's password and invalidates their sessions, or is refused
         // outright for anyone who is not an administrator.
-        if (isNewUser || editingUser.password) {
+        if (isNewUser || editingUser.password || studentIdChanged) {
             setSavingUser(true);
             try {
-                const payload = mapUserToApi({ ...clean, password: editingUser.password });
+                const payload = mapUserToApi({
+                    ...clean,
+                    ...(editingUser.password ? { password: editingUser.password } : {}),
+                });
 
                 if (isNewUser) {
                     await api.create("user-accounts", payload);
@@ -697,6 +735,19 @@ function Users() {
                     </div>
                 </div>
 
+                <div className="users-filter-summary" aria-live="polite">
+                    <span>
+                        {activeFilterCount > 0
+                            ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied · ${filteredRows.length} matching account${filteredRows.length === 1 ? "" : "s"}`
+                            : `Showing all ${filteredRows.length} account${filteredRows.length === 1 ? "" : "s"}`}
+                    </span>
+                    {activeFilterCount > 0 && (
+                        <button type="button" className="users-clear-filters" onClick={clearFilters}>
+                            Clear filters
+                        </button>
+                    )}
+                </div>
+
                 {selection.selectedCount > 0 && (
                     <div className="bulk-bar">
                         <span>{selection.selectedCount} selected</span>
@@ -831,15 +882,7 @@ function Users() {
         <button
             type="button"
             className="empty-row-action"
-            onClick={() => {
-                setSearch("");
-                setRoleFilter("all");
-                setStatusFilter("all");
-                setCourseFilter("all");
-                setDepartmentFilter("all");
-                setBlockFilter("all");
-                setYearFilter("all");
-            }}
+            onClick={clearFilters}
             aria-label="Clear all account filters"
         >
             Clear filters
@@ -898,12 +941,15 @@ function Users() {
                                         id="editStudentId"
                                         type="text"
                                         required
-                                        maxLength="50"
+                                        maxLength="9"
+                                        inputMode="numeric"
+                                        pattern="[0-9]{2}-[0-9]{6}"
                                         autoComplete="off"
                                         placeholder=""
                                         value={editingUser.studentId || ""}
-                                        onChange={(e) => setEditingUser({ ...editingUser, studentId: e.target.value })}
+                                        onChange={(e) => setEditingUser({ ...editingUser, studentId: formatStudentId(e.target.value) })}
                                     />
+                    
                                 </div>
                             )}
                             <div className="form-group">

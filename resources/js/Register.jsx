@@ -1,25 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "./Register.css";
 import logo from "./assets/Tmc_Logo.png";
 import campusPhoto from "./assets/campus.png";
-import { authApi } from "./lib/api";
-
-const DEPARTMENT_COURSES = {
-    "College of Computer Studies": ["BS Information Technology"],
-    "College of Education": ["Bachelor of Elementary Education", "BS Education Major in English"],
-    "College of Criminal Justice Education": ["BS Criminology"],
-    "College of Office Administration": ["BS Office Administration"],
-    "College of Arts and Sciences": ["BA Political Science", "BA Communications"],
-};
-
-const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
+import { api, authApi } from "./lib/api";
+import { formatStudentId, isValidStudentId } from "./lib/studentId";
 
 function Register() {
     const [fullName, setFullName] = useState("");
     const [studentId, setStudentId] = useState("");
     const [email, setEmail] = useState("");
     const [department, setDepartment] = useState("");
+    const [departments, setDepartments] = useState([]);
+    const [years, setYears] = useState([]);
     const [course, setCourse] = useState("");
     const [year, setYear] = useState("");
     const [blockNo, setBlockNo] = useState("");
@@ -30,6 +23,22 @@ function Register() {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        let active = true;
+        api.academicStructure()
+            .then((structure) => {
+                if (!active) return;
+                setDepartments(structure.departments);
+                setYears(structure.years);
+            })
+            .catch((err) => {
+                if (active) setError(`Could not load department and course options: ${err.message}`);
+            });
+        return () => { active = false; };
+    }, []);
+
+    const coursesForDepartment = departments.find((item) => item.name === department)?.courses || [];
 
     const passwordChecks = {
         length: password.length >= 8,
@@ -48,6 +57,12 @@ function Register() {
 
         if (!cleanFullName || !cleanStudentId || !cleanEmail || !department || !course || !year || !cleanBlockNo || !password || !confirmPassword) {
             setError("Please complete all required fields.");
+            setSuccess(false);
+            return;
+        }
+
+        if (!isValidStudentId(cleanStudentId)) {
+            setError("Student ID must contain two digits, a dash, then six digits (for example, 12-345678).");
             setSuccess(false);
             return;
         }
@@ -169,11 +184,9 @@ function Register() {
 
                             {!success && <form onSubmit={handleSubmit} aria-busy={isLoading}>
 
-                                <p className="section-label">Personal Information</p>
-
                                 <div className="form-group">
                                     <label htmlFor="fullName">
-                                        Full Name <span className="required"></span>
+                                        Full name <span className="required"></span>
                                     </label>
                                     <input
                                         id="fullName"
@@ -187,27 +200,9 @@ function Register() {
                                     />
                                 </div>
 
-                                <p className="section-label">Account Details</p>
-
-                                <div className="form-group">
-                                    <label htmlFor="studentId">
-                                        Student ID <span className="required"></span>
-                                    </label>
-                                    <input
-                                        id="studentId"
-                                        type="text"
-                                        placeholder=""
-                                        value={studentId}
-                                        onChange={(e) => { setStudentId(e.target.value); setError(""); }}
-                                        autoComplete="off"
-                                        maxLength={50}
-                                        required
-                                    />
-                                </div>
-
                                 <div className="form-group">
                                     <label htmlFor="email">
-                                        Email Address <span className="required"></span>
+                                        Email <span className="required"></span>
                                     </label>
                                     <input
                                         id="email"
@@ -221,7 +216,24 @@ function Register() {
                                     />
                                 </div>
 
-                                <p className="section-label">Academic Information</p>
+                                <div className="form-group">
+                                    <label htmlFor="studentId">
+                                        Student ID <span className="required"></span>
+                                    </label>
+                                    <input
+                                        id="studentId"
+                                        type="text"
+                                        value={studentId}
+                                        onChange={(e) => { setStudentId(formatStudentId(e.target.value)); setError(""); }}
+                                        autoComplete="off"
+                                        maxLength={9}
+                                        inputMode="numeric"
+                                        pattern="[0-9]{2}-[0-9]{6}"
+                                        title="Enter two digits, a dash, and six digits."
+                                        required
+                                    />
+                                    <small className="field-help">Format: 2 digits, a dash, then 6 digits.</small>
+                                </div>
 
                                 <div className="form-group">
                                     <label htmlFor="department">
@@ -233,15 +245,16 @@ function Register() {
                                         onChange={(e) => {
                                             const nextDepartment = e.target.value;
                                             setDepartment(nextDepartment);
-                                            setCourse(DEPARTMENT_COURSES[nextDepartment]?.[0] || "");
+                                            const next = departments.find((item) => item.name === nextDepartment);
+                                            setCourse(next?.courses?.[0] || "");
                                             setError("");
                                         }}
                                         className={department ? "has-value" : ""}
                                         required
                                     >
                                         <option value="">Select your department...</option>
-                                        {Object.keys(DEPARTMENT_COURSES).map((name) => (
-                                            <option key={name} value={name}>{name}</option>
+                                        {departments.map((item) => (
+                                            <option key={item.code} value={item.name}>{item.name}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -259,13 +272,13 @@ function Register() {
                                             required
                                         >
                                             <option value="">Select your course...</option>
-                                            {(DEPARTMENT_COURSES[department] || []).map((c) => <option key={c} value={c}>{c}</option>)}
+                                            {coursesForDepartment.map((c) => <option key={c} value={c}>{c}</option>)}
                                         </select>
                                     </div>
 
                                     <div className="form-group">
                                         <label htmlFor="year">
-                                            Year Level <span className="required"></span>
+                                            Year <span className="required"></span>
                                         </label>
                                         <select
                                             id="year"
@@ -275,14 +288,14 @@ function Register() {
                                             required
                                         >
                                             <option value="">Select year...</option>
-                                            {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                                            {years.map((y) => <option key={y} value={y}>{y}</option>)}
                                         </select>
                                     </div>
                                 </div>
 
                                 <div className="form-group">
                                     <label htmlFor="blockNo">
-                                        Block <span className="required"></span>
+                                        Block No. <span className="required"></span>
                                     </label>
                                     <input
                                         id="blockNo"

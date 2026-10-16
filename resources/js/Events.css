@@ -281,6 +281,34 @@ body {
     margin-left: auto;
 }
 
+.events-filter-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: -8px 0 12px;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.events-clear-filters {
+    padding: 4px 0;
+    border: 0;
+    background: transparent;
+    color: #244b8f;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.events-clear-filters:focus-visible {
+    outline: 2px solid #2c62b8;
+    outline-offset: 3px;
+    border-radius: 2px;
+}
+
 /* ---------- Buttons ---------- */
 
 .events-btn {

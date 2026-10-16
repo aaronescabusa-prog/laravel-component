@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\EventScannerController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\StudentAttendanceController;
 use App\Http\Controllers\Api\UserAccountController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +26,8 @@ Route::post('auth/admin-login', [AuthController::class, 'adminLogin'])->middlewa
 Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:register');
 Route::post('auth/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->middleware('throttle:password-reset');
 Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
+// Academic options are non-sensitive and needed by the public registration form.
+Route::get('events/courses', [EventController::class, 'coursesIndex']);
 
 // `active` re-checks the account status on every request, so an account that
 // was suspended or deactivated after its token was issued is locked out
@@ -34,6 +37,12 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
     Route::get('auth/me', [AuthController::class, 'me']);
     Route::put('auth/profile', [AuthController::class, 'updateProfile']);
 
+    Route::get('my/attendance-qr', [StudentAttendanceController::class, 'myQr']);
+    Route::get('my/attendance', [StudentAttendanceController::class, 'obligations']);
+    Route::get('my/fines', [StudentAttendanceController::class, 'fines']);
+    Route::get('my/fines/payment-options', [StudentAttendanceController::class, 'paymentOptions']);
+    Route::post('my/attendance/{event}/appeals', [StudentAttendanceController::class, 'submitAppeal']);
+
     Route::put('settings/password', [SettingsController::class, 'updatePassword']);
 
     // Admin-only web management surface, gated by `requireAdmin`
@@ -42,6 +51,12 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
     // certificate issuance. Desk workflows and end-user reads stay OUTSIDE
     // under the existing EnsureRole matrix, so mobile is unaffected.
     Route::middleware('requireAdmin')->group(function () {
+        Route::post('admin/events/{event}/attendance-roster/finalize', [StudentAttendanceController::class, 'finalizeRoster']);
+        Route::get('admin/events/{event}/attendance-roster', [StudentAttendanceController::class, 'adminObligations']);
+        Route::post('admin/events/{event}/assess-fines', [StudentAttendanceController::class, 'assess']);
+        Route::patch('admin/fines/{fine}/review', [StudentAttendanceController::class, 'reviewFine']);
+        Route::post('admin/fines/{fine}/payments', [StudentAttendanceController::class, 'recordPayment']);
+        Route::patch('admin/attendance-appeals/{appeal}/review', [StudentAttendanceController::class, 'reviewAppeal']);
         Route::get('settings', [SettingsController::class, 'index']);
         Route::put('settings', [SettingsController::class, 'update']);
         Route::post('settings/logo', [SettingsController::class, 'uploadLogo']);
@@ -133,7 +148,6 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
         Route::post('sessions/{session}/reopen', [CheckInController::class, 'reopenSession']);
     });
 
-    Route::get('events/courses', [EventController::class, 'coursesIndex']);
     Route::get('events/{event}/eligibility', [EventController::class, 'eligibility'])
         ->middleware('role:registrations');
    Route::get('events', [EventController::class, 'index']);
