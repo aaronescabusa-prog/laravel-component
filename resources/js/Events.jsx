@@ -62,6 +62,25 @@ function eventTimeLabel(row) {
     return start || end;
 }
 
+function eventDateLabel(value) {
+    if (!value) return "Date to be announced";
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+}
+
+function localDateInputValue(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function eventAudienceSummary(row, departments) {
+    const department = departments.find((item) => item.code === row.targetDepartment)
+        ?? departments.find((item) => row.targetCourse && item.courses?.includes(row.targetCourse));
+    return department ? `${department.code} Students Only` : "All TMC Students";
+}
+
 function Events() {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -346,7 +365,12 @@ function Events() {
     function openEdit(row) {
         // All-day is not stored as a flag: it is simply the absence of times,
         // so it is read back off the row rather than round-tripped.
-        setEditingEvent({ ...row, allDay: !row.startTime && !row.endTime, hasCapacity: row.hasCapacity });
+        setEditingEvent({
+            ...row,
+            allDay: !row.startTime && !row.endTime,
+            hasCapacity: row.hasCapacity,
+            audienceType: row.targetDepartment || row.targetCourse ? "Department-Specific" : "School-Wide",
+        });
         setFormErrors({});
         setIsNewEvent(false);
     }
@@ -417,12 +441,12 @@ function Events() {
             budget: 0,
             status: "Draft",
             participants: 0,
-            // Uncapped by default: an event nobody has put a limit on.
-            hasCapacity: false,
+            hasCapacity: true,
             capacity: null,
             hasCertificate: true,
             targetDepartment: "",
             targetYear: "",
+            audienceType: "School-Wide",
         });
         setIsNewEvent(true);
     }
@@ -433,8 +457,12 @@ function Events() {
         const item = { ...editingEvent };
         const errors = {};
         if (!item.name.trim()) errors.name = "Enter an event name.";
+        if (isNewEvent && !item.audienceType) errors.audienceType = "Choose who can join this event.";
+        if (isNewEvent && item.audienceType === "Department-Specific" && !item.targetDepartment) errors.targetDepartment = "Choose a department.";
         if (!item.date) errors.date = "Choose a start date.";
+        if (isNewEvent && item.date && item.date < localDateInputValue()) errors.date = "The event date cannot be in the past.";
         if (!item.venue.trim()) errors.venue = "Enter a venue.";
+        if (isNewEvent && String(item.description || "").trim().length < 20) errors.description = "Add an event description of at least 20 characters.";
         if (!item.allDay && !item.startTime) errors.startTime = "Choose a start time, or mark the event as all-day.";
         if (!item.allDay && !item.endTime) errors.endTime = "Choose an end time, or mark the event as all-day.";
         if (item.date && item.endDate && item.endDate < item.date) {
@@ -447,15 +475,10 @@ function Events() {
         if (item.date && item.registrationDeadline && item.registrationDeadline > item.date) {
             errors.registrationDeadline = "The registration deadline cannot be after the event start date.";
         }
+        if (isNewEvent && !item.registrationDeadline) errors.registrationDeadline = "Choose a registration deadline.";
+        if (isNewEvent && !item.hasCapacity) errors.capacity = "Set the total number of event slots.";
         if (item.hasCapacity && (!Number.isInteger(Number(item.capacity)) || Number(item.capacity) < 1)) {
             errors.capacity = "Enter a whole-number capacity of at least 1.";
-        }
-        if (!Number.isInteger(Number(item.budget)) || Number(item.budget) < 0) {
-            errors.budget = "Enter a whole-number budget of zero or more.";
-        }
-        if (item.penalty_amount !== null && item.penalty_amount !== "" && item.penalty_amount !== undefined
-            && (!Number.isInteger(Number(item.penalty_amount)) || Number(item.penalty_amount) < 0)) {
-            errors.penalty_amount = "Enter a whole-number penalty amount of zero or more.";
         }
         if (Object.keys(errors).length > 0) {
             setFormErrors(errors);
@@ -463,6 +486,7 @@ function Events() {
                 name: "evName", date: "evDate", startTime: "evTime", endDate: "evEndDate",
                 endTime: "evEndTime", registrationDeadline: "evRegistrationDeadline",
                 capacity: "evCapacity", budget: "evBudget", penalty_amount: "evPenaltyAmount", venue: "evVenue",
+                targetDepartment: "evTargetDepartment", targetCourse: "evAudience", audienceType: "evAudienceType", description: "evDescription",
             };
             requestAnimationFrame(() => document.getElementById(fieldIds[Object.keys(errors)[0]])?.focus());
             return;
@@ -856,40 +880,40 @@ function Events() {
 
             {viewingEvent && (
                 <div className="events-modal-overlay" onClick={() => setViewingEvent(null)}>
-                    <div className="events-modal-card" role="dialog" aria-modal="true" aria-labelledby="event-details-title" onClick={(e) => e.stopPropagation()}>
-                        <div className="events-modal-header">
-                            <h3 id="event-details-title">{viewingEvent.name}</h3>
+                    <div className="events-modal-card events-detail-modal" role="dialog" aria-modal="true" aria-labelledby="event-details-title" onClick={(e) => e.stopPropagation()}>
+                        <div className="events-detail-topbar">
+                            <button type="button" className="events-detail-back" onClick={() => setViewingEvent(null)} aria-label="Back to events">←</button>
+                            <span>Event Details</span>
                             <button type="button" className="events-modal-close" onClick={() => setViewingEvent(null)} aria-label="Close event details">×</button>
                         </div>
-                        <div className="events-modal-body">
-                            <dl className="events-detail-list">
-                                <dt>Event ID</dt><dd>{viewingEvent.id}</dd>
-                                <dt>Category</dt><dd>{viewingEvent.category || "—"}</dd>
-                                {viewingEvent.bannerUrl && <><dt>Banner</dt><dd><a href={viewingEvent.bannerUrl} target="_blank" rel="noreferrer">View event banner</a></dd></>}
-                                <dt>Audience &amp; eligibility</dt>
-                                <dd>{audienceLabel(viewingEvent)}</dd>
-                                <dt>Organizer</dt><dd>{viewingEvent.organizer}</dd>
-                                <dt>Date</dt><dd>{viewingEvent.date}</dd>
-                                <dt>Start time</dt>
-                                <dd>
-                                    {eventTimeLabel(viewingEvent)}
-                                </dd>
-                                <dt>End</dt>
-                                <dd>
-                                    {viewingEvent.endDate || viewingEvent.date || "—"}
-                                </dd>
-                                <dt>Registration</dt>
-                                <dd>{viewingEvent.registrationOpen === false ? "Closed" : "Accepting registrations"}</dd>
-                                {viewingEvent.registrationDeadline && (
-                                    <><dt>Registration deadline</dt><dd>{viewingEvent.registrationDeadline}</dd></>
-                                )}
-                                <dt>Duration</dt><dd>{durationLabel(viewingEvent)}</dd>
-                                <dt>Venue</dt><dd>{viewingEvent.venue}</dd>
-                                <dt>Budget</dt><dd>₱{Number(viewingEvent.budget || 0).toLocaleString()}</dd>
-                                <dt>Description</dt><dd>{viewingEvent.description || "—"}</dd>
-                                <dt>Status</dt><dd><span className={`events-status events-status-${viewingEvent.status.toLowerCase()}`}>{viewingEvent.status}</span></dd>
-                                <dt>Participants</dt><dd>{viewingEvent.participants}{viewingEvent.hasCapacity ? ` / ${viewingEvent.capacity}` : " (no capacity limit)"}</dd>
-                            </dl>
+                        <div className="events-detail-body">
+                            <div className={`events-detail-hero${viewingEvent.bannerUrl ? " has-banner" : ""}`} style={viewingEvent.bannerUrl ? { backgroundImage: `linear-gradient(90deg, rgba(8, 36, 74, .78), rgba(8, 36, 74, .15)), url("${viewingEvent.bannerUrl}")` } : undefined}>
+                                {!viewingEvent.bannerUrl && <span className="events-detail-hero-mark" aria-hidden="true">✓</span>}
+                                <span className="events-detail-category">{viewingEvent.category || "Campus event"}</span>
+                            </div>
+                            <div className="events-detail-content">
+                                <div className="events-detail-title-row">
+                                    <div><p className="events-detail-eyebrow">{viewingEvent.id} · {viewingEvent.organizer || "Event organizer"}</p><h3 id="event-details-title">{viewingEvent.name}</h3></div>
+                                    <span className={`events-status events-status-${viewingEvent.status.toLowerCase()}`}>{viewingEvent.status}</span>
+                                </div>
+                                <section className="events-detail-section" aria-label="Event information">
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">T</span><div><small>Event type</small><strong>{viewingEvent.targetDepartment || viewingEvent.targetCourse ? "Department-specific" : "School-wide"}</strong></div></div>
+                                    {viewingEvent.targetDepartment && <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">D</span><div><small>Department</small><strong>{departments.find((item) => item.code === viewingEvent.targetDepartment)?.name || viewingEvent.targetDepartment}</strong></div></div>}
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">▣</span><div><small>Date</small><strong>{eventDateLabel(viewingEvent.date)}{viewingEvent.endDate && viewingEvent.endDate !== viewingEvent.date ? ` – ${eventDateLabel(viewingEvent.endDate)}` : ""}</strong></div></div>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">◷</span><div><small>Time</small><strong>{eventTimeLabel(viewingEvent)}</strong></div></div>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">●</span><div><small>Venue</small><strong>{viewingEvent.venue || "To be announced"}</strong></div></div>
+                                </section>
+                                <section className="events-detail-section events-detail-prose"><h4>About the Event</h4><p>{viewingEvent.description || "No event description has been provided."}</p></section>
+                                <section className="events-detail-section events-detail-eligibility">
+                                    <h4>Who Can Join</h4>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">P</span><div><small>Eligible participants</small><strong>{eventAudienceSummary(viewingEvent, departments)}</strong></div></div>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">C</span><div><small>Allowed courses</small><strong>{viewingEvent.targetCourse || "All programs"}</strong></div></div>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">Y</span><div><small>Year level</small><strong>{viewingEvent.targetYear || "All year levels (1st–4th Year)"}</strong></div></div>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">S</span><div><small>Available slots</small><strong>{viewingEvent.hasCapacity ? `${Math.max(0, Number(viewingEvent.capacity) - Number(viewingEvent.participants || 0))} available out of ${viewingEvent.capacity} slots` : `${viewingEvent.participants || 0} registered · No capacity limit`}</strong></div></div>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">D</span><div><small>Registration deadline</small><strong>{viewingEvent.registrationDeadline ? eventDateLabel(viewingEvent.registrationDeadline) : "Until the event date"}</strong></div></div>
+                                </section>
+                                <section className="events-detail-registration"><div><small>Registration</small><strong>{viewingEvent.registrationOpen === false ? "Registration closed" : "Registration open"}</strong></div><span className={`events-registration-indicator${viewingEvent.registrationOpen === false ? " is-closed" : ""}`} aria-hidden="true" /></section>
+                            </div>
                         </div>
                         <div className="events-modal-footer">
                             <button className="events-btn events-btn-secondary" onClick={() => setViewingEvent(null)}>Close</button>
@@ -911,8 +935,10 @@ function Events() {
                             <button type="button" className="events-modal-close" onClick={() => !isSavingEvent && setEditingEvent(null)} disabled={isSavingEvent} aria-label="Close event form">×</button>
                         </div>
                         <div className="events-modal-body">
-                            <div className="events-form-group">
-                                <label htmlFor="evName">Event name <span className="events-required">*</span></label>
+                            <div className="events-form-section">
+                                <h4 className="events-form-section-title">Event information</h4>
+                                <div className="events-form-group">
+                                <label htmlFor="evName">Event name <span className="events-required"></span></label>
                                 <input
                                     id="evName"
                                     type="text"
@@ -925,18 +951,7 @@ function Events() {
                                     onChange={(e) => updateEventField("name", e.target.value)}
                                 />
                                 {formErrors.name && <small className="events-field-error" id="evName-error">{formErrors.name}</small>}
-                            </div>
-
-                            <div className="events-form-group">
-                                <label htmlFor="evCategory">Event category</label>
-                                <input
-                                    id="evCategory"
-                                    type="text"
-                                    maxLength="80"
-                                    placeholder="e.g. Seminar, Workshop, Sports"
-                                    value={editingEvent.category ?? ""}
-                                    onChange={(e) => updateEventField("category", e.target.value)}
-                                />
+                                </div>
                             </div>
 
                             <div className="events-form-section">
@@ -950,7 +965,7 @@ function Events() {
                                     <span>Accept registrations</span>
                                 </label>
                                 <div className="events-form-group">
-                                    <label htmlFor="evRegistrationDeadline">Registration deadline</label>
+                                    <label htmlFor="evRegistrationDeadline">Registration deadline {isNewEvent && <span className="events-required"></span>}</label>
                                     <input
                                         id="evRegistrationDeadline"
                                         type="date"
@@ -965,16 +980,37 @@ function Events() {
                                             {formErrors.registrationDeadline}
                                         </small>
                                     )}
-                                    <small className="events-form-hint">
-                                        Registration closes at the end of this date. Leave blank to accept registrations until the event date.
-                                    </small>
+                        
                                 </div>
                             </div>
 
+                            <div className="events-form-section events-audience-section">
                                 <h4 className="events-form-section-title events-audience-heading">Audience eligibility</h4>
                                 <div className="events-form-row-split events-audience-grid">
                                     <div className="events-form-group">
-                                        <label htmlFor="evTargetDepartment">Target department</label>
+                                        <label htmlFor="evAudienceType">Event type</label>
+                                        <select
+                                            id="evAudienceType"
+                                            value={editingEvent.audienceType || "School-Wide"}
+                                            onChange={(e) => {
+                                                const audienceType = e.target.value;
+                                                setEditingEvent((current) => ({
+                                                    ...current,
+                                                    audienceType,
+                                                    targetDepartment: audienceType === "School-Wide" ? "" : current.targetDepartment,
+                                                    targetCourse: audienceType === "School-Wide" ? PUBLIC_AUDIENCE : current.targetCourse,
+                                                    targetYear: audienceType === "School-Wide" ? "" : current.targetYear,
+                                                }));
+                                                setFormErrors((current) => ({ ...current, audienceType: "", targetDepartment: "", targetCourse: "" }));
+                                            }}
+                                        >
+                                            <option value="School-Wide">School-wide</option>
+                                            <option value="Department-Specific">Department-specific</option>
+                                        </select>
+                                        {formErrors.audienceType && <small className="events-field-error">{formErrors.audienceType}</small>}
+                                    </div>
+                                    {editingEvent.audienceType === "Department-Specific" && <div className="events-form-group">
+                                        <label htmlFor="evTargetDepartment">Target department <span className="events-required"></span></label>
                                         <select
                                             id="evTargetDepartment"
                                             value={editingEvent.targetDepartment ?? ""}
@@ -987,30 +1023,35 @@ function Events() {
                                                     // the user can narrow it afterward if needed.
                                                     targetCourse: PUBLIC_AUDIENCE,
                                                 });
+                                                setFormErrors((current) => ({ ...current, targetDepartment: "", targetCourse: "" }));
                                             }}
                                         >
-                                            <option value="">All departments</option>
+                                            <option value="">Choose a department</option>
                                             {departments.map((department) => (
                                                 <option key={department.code} value={department.code}>
                                                     {department.code} — {department.name}
                                                 </option>
                                             ))}
                                         </select>
-                                    </div>
-                                    <div className="events-form-group">
+                                        {formErrors.targetDepartment && <small className="events-field-error">{formErrors.targetDepartment}</small>}
+                                    </div>}
+                                    {editingEvent.audienceType === "Department-Specific" && <div className="events-form-group">
                                         <label htmlFor="evAudience">Target program</label>
                                         <select
                                             id="evAudience"
                                             value={editingEvent.targetCourse ?? PUBLIC_AUDIENCE}
-                                            onChange={(e) => setEditingEvent({ ...editingEvent, targetCourse: e.target.value })}
+                                            onChange={(e) => {
+                                                setEditingEvent({ ...editingEvent, targetCourse: e.target.value });
+                                                setFormErrors((current) => ({ ...current, targetCourse: "" }));
+                                            }}
                                         >
                                             <option value={PUBLIC_AUDIENCE}>All programs</option>
                                             {(departments.find((item) => item.code === editingEvent.targetDepartment)?.courses ?? courses).map((course) => (
                                                 <option key={course} value={course}>{course}</option>
                                             ))}
                                         </select>
-                                    </div>
-                                    <div className="events-form-group">
+                                    </div>}
+                                    {editingEvent.audienceType === "Department-Specific" && <div className="events-form-group">
                                         <label htmlFor="evTargetYear">Target year level</label>
                                         <select
                                             id="evTargetYear"
@@ -1022,26 +1063,13 @@ function Events() {
                                                 <option key={year} value={year}>{year}</option>
                                             ))}
                                         </select>
-                                    </div>
+                                    </div>}
                                 </div>
-                                <small className="events-form-hint">
-                                    Department, program, and year filters are combined and checked against each active participant&apos;s profile.
-                                </small>
-                                <div className="events-form-group">
-                                    <label htmlFor="evOrganizer">Organizer</label>
-                                    <input
-                                        id="evOrganizer"
-                                        type="text"
-                                        value={editingEvent.organizer}
-                                        onChange={(e) => setEditingEvent({ ...editingEvent, organizer: e.target.value })}
-                                    />
-                                </div>
-
+                            </div>
                             <div className="events-form-section events-schedule-section">
                                 <div className="events-schedule-heading">
                                     <div>
                                         <h4 className="events-form-section-title">Date and time</h4>
-                                        <p>Set the event schedule. Times use your local time zone.</p>
                                     </div>
                                     <span className="events-schedule-badge">Required schedule</span>
                                 </div>
@@ -1073,7 +1101,7 @@ function Events() {
                                 <div className="events-form-row-split">
                                     <div className="events-form-group">
                                         <label htmlFor="evDate">
-                                            Start date <span className="events-required">*</span>
+                                            Start date <span className="events-required"></span>
                                         </label>
                                         <input
                                             id="evDate"
@@ -1102,7 +1130,7 @@ function Events() {
                                     </div>
                                     <div className="events-form-group">
                                         <label htmlFor="evTime">
-                                            Start time {!editingEvent.allDay && <span className="events-required">*</span>}
+                                            Start time {!editingEvent.allDay && <span className="events-required"></span>}
                                         </label>
                                         <input
                                             id="evTime"
@@ -1133,11 +1161,11 @@ function Events() {
                                             aria-describedby={formErrors.endDate ? "evEndDate-error" : undefined}
                                         />
                                         {formErrors.endDate && <small className="events-field-error" id="evEndDate-error">{formErrors.endDate}</small>}
-                                        {!formErrors.endDate && <small className="events-form-hint">Optional for a one-day event.</small>}
+                                        {!formErrors.endDate && <small className="events-form-hint"></small>}
                                     </div>
                                     <div className="events-form-group">
                                         <label htmlFor="evEndTime">
-                                            End time {!editingEvent.allDay && <span className="events-required">*</span>}
+                                            End time {!editingEvent.allDay && <span className="events-required"></span>}
                                         </label>
                                         <input
                                             id="evEndTime"
@@ -1155,9 +1183,11 @@ function Events() {
                                 </div>
                             </div>
 
-                            <div className="events-form-row-split">
-                                <div className="events-form-group events-form-group-wide">
-                                    <label className="events-form-checkbox">
+                            <div className="events-form-section events-capacity-section">
+                                <h4 className="events-form-section-title">Capacity and venue</h4>
+                                <div className="events-form-row-split">
+                                    <div className="events-form-group events-form-group-wide">
+                                    {!isNewEvent && <label className="events-form-checkbox">
                                         <input
                                             type="checkbox"
                                             checked={Boolean(editingEvent.hasCapacity)}
@@ -1174,16 +1204,16 @@ function Events() {
                                             }}
                                         />
                                         <span>Limit capacity</span>
-                                    </label>
-                                    {editingEvent.hasCapacity && (
+                                    </label>}
+                                    {(editingEvent.hasCapacity || isNewEvent) && (
                                         <div className="events-form-subgroup">
-                                            <label htmlFor="evCapacity">Capacity <span className="events-required">*</span></label>
+                                            <label htmlFor="evCapacity">Total slots <span className="events-required"></span></label>
                                             <input
                                                 id="evCapacity"
                                                 type="number"
                                                 min="1"
                                                 step="1"
-                                                required
+                                                required={isNewEvent || Boolean(editingEvent.hasCapacity)}
                                                 value={editingEvent.capacity ?? ""}
                                                 onChange={(e) => updateEventField(
                                                     "capacity",
@@ -1193,113 +1223,43 @@ function Events() {
                                                 aria-describedby={formErrors.capacity ? "evCapacity-error" : undefined}
                                             />
                                             {formErrors.capacity && <small className="events-field-error" id="evCapacity-error">{formErrors.capacity}</small>}
-                                            <small className="events-form-hint">
-                                                New registrations and automatic audience enrolment stop when capacity is reached.
-                                            </small>
                                         </div>
                                     )}
+                                    </div>
+                                    <div className="events-form-group events-form-group-wide">
+                                        <label htmlFor="evVenue">Venue <span className="events-required"></span></label>
+                                        <input
+                                            id="evVenue"
+                                            type="text"
+                                            maxLength="255"
+                                            required
+                                            value={editingEvent.venue}
+                                            onChange={(e) => updateEventField("venue", e.target.value)}
+                                            aria-invalid={Boolean(formErrors.venue)}
+                                            aria-describedby={formErrors.venue ? "evVenue-error" : undefined}
+                                        />
+                                        {formErrors.venue && <small className="events-field-error" id="evVenue-error">{formErrors.venue}</small>}
+                                    </div>
                                 </div>
+                            </div>
+
+                            <div className="events-form-section events-description-section">
+                                <h4 className="events-form-section-title">About the event</h4>
                                 <div className="events-form-group">
-                                    <label htmlFor="evBudget">Budget (₱)</label>
-                                    <input
-                                        id="evBudget"
-                                        type="number"
-                                        min="0"
-                                        value={editingEvent.budget}
-                                        step="1"
-                                        aria-invalid={Boolean(formErrors.budget)}
-                                        aria-describedby={formErrors.budget ? "evBudget-error" : undefined}
-                                        onChange={(e) => updateEventField("budget", e.target.value === "" ? 0 : Number(e.target.value))}
-                                    />
-                                    {formErrors.budget && <small className="events-field-error" id="evBudget-error">{formErrors.budget}</small>}
-                                </div>
-                            </div>
-
-
-                            <div className="events-form-group">
-                                <label htmlFor="evVenue">Venue <span className="events-required">*</span></label>
-                                <input
-                                    id="evVenue"
-                                    type="text"
-                                    maxLength="255"
-                                    required
-                                    value={editingEvent.venue}
-                                    onChange={(e) => updateEventField("venue", e.target.value)}
-                                    aria-invalid={Boolean(formErrors.venue)}
-                                    aria-describedby={formErrors.venue ? "evVenue-error" : undefined}
-                                />
-                                {formErrors.venue && <small className="events-field-error" id="evVenue-error">{formErrors.venue}</small>}
-                            </div>
-
-                            <div className="events-form-group">
-                                <label htmlFor="evDescription">Description</label>
+                                <label htmlFor="evDescription">Description {isNewEvent && <span className="events-required"></span>}</label>
                                 <textarea
                                     id="evDescription"
                                     rows="3"
+                                    aria-invalid={Boolean(formErrors.description)}
+                                    aria-describedby={formErrors.description ? "evDescription-error" : undefined}
                                     value={editingEvent.description}
-                                    onChange={(e) => setEditingEvent({ ...editingEvent, description: e.target.value })}
+                                    onChange={(e) => updateEventField("description", e.target.value)}
                                 />
+                                {isNewEvent && <small className="events-form-hint">Add at least 20 characters describing the event.</small>}
+                                {formErrors.description && <small className="events-field-error" id="evDescription-error">{formErrors.description}</small>}
+                                </div>
                             </div>
 
-                            <div className="events-form-group">
-                                <label htmlFor="evBanner">Event banner</label>
-                                {editingEvent.bannerUrl && (
-                                    <img className="events-banner-preview" src={editingEvent.bannerUrl} alt="Current event banner" />
-                                )}
-                                <input
-                                    id="evBanner"
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp"
-                                    onChange={(e) => setEditingEvent({ ...editingEvent, bannerFile: e.target.files?.[0] ?? null })}
-                                />
-                                <small className="events-form-hint">Optional. JPG, PNG, or WebP, up to 5 MB.</small>
-                            </div>
-
-                            <div className="events-form-group">
-                                <label htmlFor="evPenaltyType">Penalty type</label>
-                                <select
-                                    id="evPenaltyType"
-                                    value={editingEvent.penalty_type ?? ''}
-                                    onChange={(e) => setEditingEvent({ ...editingEvent, penalty_type: e.target.value })}
-                                >
-                                    <option value="">Select penalty type</option>
-                                    <option value="No Certificate">No Certificate</option>
-                                    <option value="Late Fee">Late Fee</option>
-                                    <option value="No Show Fee">No Show Fee</option>
-                                    <option value="Administrative Fee">Administrative Fee</option>
-                                </select>
-                            </div>
-
-                            <div className="events-form-group">
-                                <label htmlFor="evPenaltyAmount">Penalty amount</label>
-                                <input
-                                    id="evPenaltyAmount"
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    value={editingEvent.penalty_amount ?? ''}
-                                    aria-invalid={Boolean(formErrors.penalty_amount)}
-                                    aria-describedby={formErrors.penalty_amount ? "evPenaltyAmount-error" : undefined}
-                                    onChange={(e) => updateEventField("penalty_amount", e.target.value ? Number(e.target.value) : null)}
-                                />
-                                {formErrors.penalty_amount && <small className="events-field-error" id="evPenaltyAmount-error">{formErrors.penalty_amount}</small>}
-                            </div>
-                        </div>
-                        <div className="events-form-section events-status-section">
-                            <div>
-                                <h4 className="events-form-section-title">Event status</h4>
-                                <small className="events-form-hint">Set the event&apos;s current stage in the approval and publication workflow.</small>
-                            </div>
-                            <div className="events-form-group">
-                                <label htmlFor="evStatus">Status</label>
-                                <select
-                                    id="evStatus"
-                                    value={editingEvent.status}
-                                    onChange={(e) => setEditingEvent({ ...editingEvent, status: e.target.value })}
-                                >
-                                    {STATUSES.map((status) => <option key={status}>{status}</option>)}
-                                </select>
-                            </div>
                         </div>
                         <div className="events-modal-footer">
                             <button type="button" className="events-btn events-btn-secondary" onClick={() => setEditingEvent(null)} disabled={isSavingEvent}>Cancel</button>

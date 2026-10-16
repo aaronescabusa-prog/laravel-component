@@ -38,9 +38,15 @@ class EventController extends Controller
             });
         }
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->string('status')->toString());
-        }
+        if (
+    $request->user()?->role !== 'Student' &&
+    $request->filled('status')
+) {
+    $query->where(
+        'status',
+        $request->string('status')->toString()
+    );
+}
 
         if ($request->filled('category')) {
             $query->where('category', $request->string('category')->toString());

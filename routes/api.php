@@ -136,8 +136,10 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
     Route::get('events/courses', [EventController::class, 'coursesIndex']);
     Route::get('events/{event}/eligibility', [EventController::class, 'eligibility'])
         ->middleware('role:registrations');
+   Route::get('events', [EventController::class, 'index']);
+    Route::get('events/{event}', [EventController::class, 'show']);
+
     Route::middleware('role:events')->group(function () {
-        Route::apiResource('events', EventController::class)->only(['index', 'show']);
         Route::post('events', [EventController::class, 'store']);
         Route::put('events/{event}', [EventController::class, 'update']);
         Route::patch('events/{event}', [EventController::class, 'update']);
