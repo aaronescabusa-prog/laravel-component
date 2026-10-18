@@ -103,6 +103,7 @@ test('register creates a pending student account', function () {
     $response = $this->postJson('/api/auth/register', [
         'firstName' => 'Ana',
         'lastName' => 'Cruz',
+        'student_id' => '10-000001',
         'email' => 'ana.cruz@student.tmc.edu.ph',
         'course' => 'BS Information Technology',
         'year' => '2',
@@ -124,6 +125,7 @@ test('register honours the requested self-service role', function () {
     $response = $this->postJson('/api/auth/register', [
         'firstName' => 'Liza',
         'lastName' => 'Fernandez',
+        'student_id' => '10-000002',
         'email' => 'liza.fernandez@tmc.edu.ph',
         'course' => 'BS Information Technology',
         'year' => '2',
@@ -173,6 +175,7 @@ test('register rejects duplicate emails', function () {
 test('register revives a deleted account instead of failing on the unique index', function () {
     $removed = makeAccount([
         'email' => 'ana.cruz@student.tmc.edu.ph',
+        'student_id' => '10-123456',
         'name' => 'Ana Cruz',
         'role' => 'Student',
         'status' => 'Active',
@@ -183,6 +186,7 @@ test('register revives a deleted account instead of failing on the unique index'
     $response = $this->postJson('/api/auth/register', [
         'firstName' => 'Ana',
         'lastName' => 'Cruz',
+        'student_id' => $removed->student_id,
         'email' => 'ana.cruz@student.tmc.edu.ph',
         'course' => 'BS Information Technology',
         'year' => '2',
@@ -209,6 +213,7 @@ test('register never reissues the reference of a deleted account', function () {
     $created = $this->postJson('/api/auth/register', [
         'firstName' => 'New',
         'lastName' => 'Signup',
+        'student_id' => '10-000001',
         'email' => 'fresh@tmc.edu.ph',
         'course' => 'BS Information Technology',
         'year' => '2',

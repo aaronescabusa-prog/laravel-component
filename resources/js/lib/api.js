@@ -545,7 +545,7 @@ export function mapEventFromApi(row) {
     // Derived here too, so the toggle always reflects the number instead of
     // trusting a second source of truth that could disagree with it.
     hasCapacity: row.capacity !== null && row.capacity !== undefined,
-    participants: row.participants ?? 0,
+    participants: row.registrations_count ?? row.participants ?? 0,
     status: row.status,
     targetRole: row.target_role ?? row.targetRole ?? "All",
     targetCourse: row.target_course ?? row.targetCourse ?? null,

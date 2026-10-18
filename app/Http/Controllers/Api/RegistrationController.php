@@ -66,6 +66,41 @@ class RegistrationController extends Controller
         ));
     }
 
+    /** Student-only registration history for the authenticated student. */
+    public function myRegistrations(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user && $user->role === 'Student', 403);
+
+        $page = Registration::query()
+            ->with('eventRelation')
+            ->where('user_account_id', $user->id)
+            ->orderByDesc('id')
+            ->paginate(15);
+
+        $page->getCollection()->transform(function (Registration $registration) {
+            $event = $registration->eventRelation;
+
+            return [
+                'id' => $registration->id,
+                'reference' => $registration->reference,
+                'event_id' => $event?->id ?? $registration->event_id,
+                'event_reference' => $event?->reference,
+                'event_title' => $event?->title ?? $registration->event,
+                'event_date' => $event?->event_date?->format('Y-m-d'),
+                'start_time' => $event?->start_time,
+                'venue' => $event?->venue,
+                'event_status' => $event?->status,
+                'registration_date' => $registration->reg_date,
+                'attendance' => $registration->attendance,
+                'payment_status' => $registration->payment_status,
+                'qr_code' => $registration->qr_code,
+            ];
+        });
+
+        return response()->json($page);
+    }
+
     /**
      * Store a newly created resource in storage.
      */

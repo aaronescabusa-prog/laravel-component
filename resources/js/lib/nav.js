@@ -29,7 +29,10 @@ export const NAV_ITEMS = [
     { to: "/events", label: "Events", icon: IconCalendar, roles: ["Admin", "Student"] },
     { to: "/my-events", label: "My Events", icon: IconClipboard, roles: ["Student"] },
     { to: "/scanner-permissions", label: "Scanner Permissions", icon: IconShield, roles: ["Admin"] },
-    { to: "/registrations", label: "Registrations", icon: IconClipboard, roles: ["Admin"] },
+    // Keep the admin-only route registered for access checks, but surface its
+    // tools through the attendee workflow inside Events rather than a second
+    // top-level sidebar item.
+    { to: "/registrations", label: "Registrations", icon: IconClipboard, roles: ["Admin"], showInSidebar: false },
     { to: "/attendance", label: "Attendance", icon: IconReport, roles: ["Admin", "Scanner"] },
     { to: "/certificates", label: "Certificates", icon: IconAward, roles: ["Admin", "Student"] },
     { to: "/evaluations", label: "Evaluations", icon: IconStar, roles: ["Admin"] },
@@ -54,6 +57,6 @@ export function rolesForPath(pathname) {
 /** Nav entries visible to a role. Admin sees everything. */
 export function visibleNavItems(role) {
     if (!role) return NAV_ITEMS;
-    return NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(role));
+    return NAV_ITEMS.filter((item) => item.showInSidebar !== false && (!item.roles || item.roles.includes(role)));
 }
 

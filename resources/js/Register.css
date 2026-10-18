@@ -542,3 +542,46 @@ body {
         gap: 0;
     }
 }
+
+/* Keep the public student sign-up form usable with mobile keyboards and short viewports. */
+.auth-register-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: auto;
+    overflow: auto;
+}
+
+.auth-register-page .auth-body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: auto;
+    overflow: visible;
+}
+
+.auth-register-page .register-link {
+    color: var(--ui-primary, #102e52);
+}
+
+.auth-register-page .register-link:hover {
+    color: var(--ui-accent, #9a7415);
+}
+
+.auth-register-page :is(input, select, textarea):focus-visible {
+    outline: none;
+    border-color: var(--ui-accent, #c49a27);
+    box-shadow: var(--ui-ring, 0 0 0 3px rgba(196, 154, 39, .2));
+}
+
+@media (max-width: 900px) {
+    .auth-register-page .auth-main {
+        align-items: flex-start;
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+
+    .auth-register-page .auth-form-card {
+        max-height: none;
+        overflow: visible;
+    }
+}

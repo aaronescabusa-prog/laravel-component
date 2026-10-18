@@ -8,8 +8,8 @@ function Toast({ message, tone = "success", onDismiss }) {
     return (
         <div
             className={`ui-toast${tone === "danger" ? " ui-toast-danger" : ""}`}
-            role="status"
-            aria-live="polite"
+            role={tone === "danger" ? "alert" : "status"}
+            aria-live={tone === "danger" ? "assertive" : "polite"}
         >
             <span className="ui-toast-icon" aria-hidden="true">{tone === "danger" ? "!" : "✓"}</span>
             <span className="ui-toast-message">{message}</span>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import logo from "../assets/Tmc_Logo.png";
 import { initialsOf, roleLabel, useAuth } from "../lib/auth";
@@ -19,19 +19,48 @@ import { NAV_ITEMS, visibleNavItems } from "../lib/nav";
 function AppShell({ title, subtitle = null, prefix = "", headerActions = null, children }) {
     const { user, logout } = useAuth();
     const [navOpen, setNavOpen] = useState(false);
+    const menuToggleRef = useRef(null);
     const closeNav = () => setNavOpen(false);
     const items = visibleNavItems(user?.role);
+    const isStudent = user?.role === "Student";
 
     useEffect(() => {
         if (!navOpen) return undefined;
 
-        const closeOnEscape = (event) => {
-            if (event.key === "Escape") closeNav();
+        const container = document.getElementById(isStudent ? "student-navigation" : "primary-navigation");
+        const focusableSelector = 'a[href], button:not(:disabled), [tabindex]:not([tabindex="-1"])';
+        const getFocusable = () => [...(container?.querySelectorAll(focusableSelector) ?? [])]
+            .filter((element) => element.getClientRects().length > 0 && getComputedStyle(element).visibility !== "hidden");
+        const focusFrame = requestAnimationFrame(() => getFocusable()[0]?.focus());
+
+        const onNavigationKeyDown = (event) => {
+            if (event.key === "Escape") {
+                setNavOpen(false);
+                return;
+            }
+
+            if (event.key !== "Tab") return;
+            const focusable = getFocusable();
+            if (!focusable.length) return;
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
         };
 
-        document.addEventListener("keydown", closeOnEscape);
-        return () => document.removeEventListener("keydown", closeOnEscape);
-    }, [navOpen]);
+        document.addEventListener("keydown", onNavigationKeyDown);
+        return () => {
+            cancelAnimationFrame(focusFrame);
+            document.removeEventListener("keydown", onNavigationKeyDown);
+            if (menuToggleRef.current?.isConnected) menuToggleRef.current.focus();
+        };
+    }, [navOpen, isStudent]);
 
     const shellClass = prefix ? `${prefix}shell` : "app-shell";
     const sidebarClass = prefix ? `${prefix}sidebar` : "sidebar";
@@ -42,7 +71,7 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
     const nameClass = prefix ? `${prefix}topbar-name` : "user-name";
     const roleClass = prefix ? `${prefix}topbar-role` : "user-role";
 
-    if (user?.role === "Student") {
+    if (isStudent) {
         const studentNavigation = (className) => (
             <nav className={className} aria-label="Student navigation">
                 {items.map((item) => (
@@ -78,6 +107,7 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
                             <button
                                 type="button"
                                 className="student-menu-toggle"
+                                ref={menuToggleRef}
                                 onClick={() => setNavOpen((open) => !open)}
                                 aria-label={navOpen ? "Close navigation menu" : "Open navigation menu"}
                                 aria-controls="student-navigation"
@@ -159,6 +189,7 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
                         <button
                             type="button"
                             className="nav-toggle"
+                            ref={menuToggleRef}
                             onClick={() => setNavOpen((open) => !open)}
                             aria-label={navOpen ? "Close navigation menu" : "Open navigation menu"}
                             aria-controls="primary-navigation"

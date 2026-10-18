@@ -542,6 +542,29 @@ tbody tr:hover {
     color: #28364a;
 }
 
+.dash-load-errors {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    margin: 0 0 16px;
+    padding: 11px 14px;
+    border: 1px solid var(--ui-danger-border, #f0c4c4);
+    border-left: 4px solid var(--ui-danger, #b42318);
+    border-radius: var(--ui-radius, 10px);
+    background: var(--ui-danger-bg, #fff5f5);
+    color: var(--ui-danger, #8f1d16);
+    font-size: 13px;
+}
+
+.dash-load-errors strong {
+    font-weight: 700;
+}
+
+.dash-load-errors span {
+    color: var(--ui-text-muted, #526174);
+}
+
 .dash-approval-notice > div {
     display: grid;
     gap: 3px;

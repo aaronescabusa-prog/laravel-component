@@ -183,6 +183,7 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
     // Student routes are ownership-scoped in RegistrationController. This
     // static route must precede the resource's {registration} show route.
     Route::post('registrations/self', [RegistrationController::class, 'selfRegister']);
+    Route::get('registrations/my', [RegistrationController::class, 'myRegistrations']);
 
     Route::middleware('role:registrations')->apiResource('registrations', RegistrationController::class);
     Route::middleware('role:activity-logs')->apiResource('activity-logs', ActivityLogController::class)->only(['index', 'show']);

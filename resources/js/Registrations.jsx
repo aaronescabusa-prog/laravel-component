@@ -3,6 +3,7 @@ import "./Registrations.css";
 import AppShell from "./components/AppShell";
 import Toast from "./components/Toast";
 import ConfirmDialog from "./components/ConfirmDialog";
+import useDialogA11y from "./components/useDialogA11y";
 import QrCode from "./components/QrCode";
 import { useToast } from "./lib/useToast";
 import { useCollection, logActivity, nextId, dateKey } from "./lib/storage";
@@ -11,6 +12,7 @@ import { downloadCSV, dateStamp } from "./lib/csv";
 import { usePagination } from "./lib/usePagination";
 import { useRowSelection } from "./lib/useRowSelection";
 import Pagination from "./components/Pagination";
+import StatusBadge from "./components/StatusBadge";
 import { ActionIcon, IconView, IconEdit, IconCheck, IconTrash, IconCheckCircle, IconCheckSquare } from "./components/Icons";
 
 const EVENT_NAMES = [];
@@ -36,12 +38,7 @@ function Registrations() {
     const { toast, showToast, dismissToast } = useToast();
     const [registrations, setRegistrations] = useCollection("registrations", (msg) => showToast(msg, "danger"));
     const [search, setSearch] = useState("");
-    const [eventFilter, setEventFilter] = useState("all");
-    const [roleFilter, setRoleFilter] = useState("all");
-    const [blockFilter, setBlockFilter] = useState("all");
-    const [paymentFilter, setPaymentFilter] = useState("all");
-
-    const [attendanceFilter, setAttendanceFilter] = useState("all");
+    const [eventFilter, setEventFilter] = useState(() => new URLSearchParams(window.location.search).get("event") || "all");
     const [viewingItem, setViewingItem] = useState(null);
     const [duplicateWarning, setDuplicateWarning] = useState(null);
     const [editingReg, setEditingReg] = useState(null);
@@ -49,6 +46,8 @@ function Registrations() {
     const [pendingDelete, setPendingDelete] = useState(null);
     const [bulkBusy, setBulkBusy] = useState(false);
     const [reminderSkipped, setReminderSkipped] = useState(null);
+    const viewDialogRef = useDialogA11y(Boolean(viewingItem), () => setViewingItem(null));
+    const editDialogRef = useDialogA11y(Boolean(editingReg), () => setEditingReg(null));
 
     // Event choices follow the Events collection from the backend, so a newly
     // created event is immediately selectable here.
@@ -66,37 +65,19 @@ function Registrations() {
             const term = search.trim().toLowerCase();
             const matchesSearch = !term || row.participant.toLowerCase().includes(term) || row.email.toLowerCase().includes(term) || row.id.toLowerCase().includes(term);
             const matchesEvent = eventFilter === "all" || row.event === eventFilter;
-            const matchesPayment = paymentFilter === "all" || row.paymentStatus.toLowerCase() === paymentFilter;
-            const matchesRole = roleFilter === "all" || String(row.role ?? "").toLowerCase() === roleFilter;
-            const matchesBlock = blockFilter === "all" || String(row.blockNo ?? "").toLowerCase() === blockFilter;
-            const matchesAttendance = attendanceFilter === "all" || row.attendance.toLowerCase().replaceAll(" ", "-") === attendanceFilter;
-            return matchesSearch && matchesEvent && matchesRole && matchesBlock && matchesPayment && matchesAttendance;
+            return matchesSearch && matchesEvent;
         });
-    }, [registrations, search, eventFilter, roleFilter, blockFilter, paymentFilter, attendanceFilter]);
+    }, [registrations, search, eventFilter]);
 
     const pager = usePagination(filteredRows, {
-        resetKey: [search, eventFilter, roleFilter, blockFilter, paymentFilter, attendanceFilter].join("|"),
+        resetKey: [search, eventFilter].join("|"),
     });
 
     const selection = useRowSelection({
         pageRows: pager.pageRows,
         matchingRows: filteredRows,
-        resetKey: [search, eventFilter, roleFilter, blockFilter, paymentFilter, attendanceFilter].join("|"),
+        resetKey: [search, eventFilter].join("|"),
     });
-
-    /* Block numbers come from the registrations themselves, so the filter stays
-       in sync with whatever the registrar typed into the form. */
-    const blockOptions = useMemo(() => {
-        const seen = new Set();
-        return registrations
-            .map((row) => String(row.blockNo ?? "").trim())
-            .filter((block) => {
-                if (!block || seen.has(block.toLowerCase())) return false;
-                seen.add(block.toLowerCase());
-                return true;
-            })
-            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    }, [registrations]);
 
     function toggleAttendance(row) {
         const next = row.attendance === "Present" ? "Not Yet Recorded" : "Present";
@@ -118,6 +99,32 @@ function Registrations() {
             details: `${row.event} — ${row.payment}`,
         });
         showToast(`Payment for ${row.participant} verified.`);
+    }
+
+    /**
+     * Mark every ticked registration that is still Pending as Paid in one pass.
+     * Rows already Paid/Refunded/N-A are left untouched so the action is safe
+     * to run against a mixed selection.
+     */
+    function verifySelectedPayments() {
+        const rows = selection.selectedRows;
+        if (rows.length === 0) return;
+
+        const pendingIds = new Set(rows.filter((r) => r.paymentStatus === "Pending").map((r) => r.id));
+        if (pendingIds.size === 0) {
+            showToast("No pending payments in the current selection.", "danger");
+            return;
+        }
+
+        setRegistrations((prev) =>
+            prev.map((r) => (pendingIds.has(r.id) ? { ...r, paymentStatus: "Paid" } : r))
+        );
+        logActivity({
+            category: "Payment",
+            action: `Verified payment for ${pendingIds.size} registration${pendingIds.size === 1 ? "" : "s"}`,
+            details: rows.filter((r) => pendingIds.has(r.id)).map((r) => `${r.participant} (${r.id})`).join(", "),
+        });
+        showToast(`Verified ${pendingIds.size} pending payment${pendingIds.size === 1 ? "" : "s"}.`);
     }
 
     function exportCSV() {
@@ -326,7 +333,7 @@ function Registrations() {
 
             <section className="regs-panel">
                 <div className="regs-panel-header">
-                    <h2>All Registrations</h2>
+                    <h2>{eventFilter === "all" ? "All Registrations" : `Registrations · ${eventFilter}`}</h2>
                     <div className="regs-panel-actions">
                         <button className="regs-btn regs-btn-secondary" onClick={checkDuplicates}>Check Duplicates</button>
                         <button className="regs-btn regs-btn-primary" onClick={openCreateReg}>+ Add Registration</button>
@@ -359,60 +366,6 @@ function Registrations() {
                         aria-label="Search registrations"
                     />
 
-                    <select
-                        className="regs-input-select"
-                        value={eventFilter}
-                        onChange={(e) => setEventFilter(e.target.value)}
-                        aria-label="Filter by event"
-                    >
-                        <option value="all">All events</option>
-                        {eventOptions.map((e) => <option key={e} value={e}>{e}</option>)}
-                    </select>
-
-                    <select
-                        className="regs-input-select"
-                        value={roleFilter}
-                        onChange={(e) => setRoleFilter(e.target.value)}
-                        aria-label="Filter by role"
-                    >
-                        <option value="all">All roles</option>
-                        {REGISTRATION_ROLES.map((role) => <option key={role} value={role.toLowerCase()}>{role}</option>)}
-                    </select>
-                    <select
-                        className="regs-input-select"
-                        value={blockFilter}
-                        onChange={(e) => setBlockFilter(e.target.value)}
-                        aria-label="Filter by block number"
-                    >
-                        <option value="all">All blocks</option>
-                        {blockOptions.map((block) => <option key={block} value={block.toLowerCase()}>{block}</option>)}
-                    </select>
-
-                    <select
-                        className="regs-input-select"
-                        value={paymentFilter}
-                        onChange={(e) => setPaymentFilter(e.target.value)}
-                        aria-label="Filter by payment status"
-                    >
-                        <option value="all">All payment statuses</option>
-                        <option value="paid">Paid</option>
-                        <option value="pending">Pending</option>
-                        <option value="refunded">Refunded</option>
-                        <option value="n/a">N/A (Free)</option>
-                    </select>
-
-                    <select
-                        className="regs-input-select"
-                        value={attendanceFilter}
-                        onChange={(e) => setAttendanceFilter(e.target.value)}
-                        aria-label="Filter by attendance"
-                    >
-                        <option value="all">All attendance</option>
-                        <option value="present">Present</option>
-                        <option value="absent">Absent</option>
-                        <option value="not-yet-recorded">Not Yet Recorded</option>
-                    </select>
-
                     <button className="regs-btn regs-btn-secondary regs-btn-toolbar" onClick={exportCSV}>Export CSV</button>
                 </div>
 
@@ -436,6 +389,9 @@ function Registrations() {
                         )}
 
                         <div className="bulk-bar-actions">
+                            <button className="regs-btn regs-btn-secondary" onClick={verifySelectedPayments} disabled={bulkBusy}>
+                                Verify payment for selected
+                            </button>
                             <button className="regs-btn regs-btn-secondary" onClick={sendReminders} disabled={bulkBusy}>
                                 Send reminder to selected
                             </button>
@@ -506,15 +462,11 @@ function Registrations() {
                                     <td>
                                         <div className="regs-payment-cell">
                                             <span className="regs-payment-amount">{row.payment}</span>
-                                            <span className={`regs-payment-status regs-payment-${row.paymentStatus.toLowerCase().replace("/", "")}`}>
-                                                {row.paymentStatus}
-                                            </span>
+                                            <StatusBadge status={row.paymentStatus} className="regs-payment-status" />
                                         </div>
                                     </td>
                                     <td>
-                                        <span className={`regs-attendance ${row.attendance === "Present" ? "regs-attendance-in" : row.attendance === "Absent" ? "regs-attendance-absent" : "regs-attendance-out"}`}>
-                                            {row.attendance}
-                                        </span>
+                                        <StatusBadge status={row.attendance} className="regs-attendance" />
                                     </td>
                                     <td className="regs-cell-actions">
                                         <ActionIcon icon={IconView} label="View" onClick={() => openRegistrationDetails(row)} />
@@ -544,11 +496,11 @@ function Registrations() {
 
 
             {viewingItem && (
-                <div className="regs-modal-overlay" onClick={() => setViewingItem(null)}>
-                    <div className="regs-modal-card" onClick={(e) => e.stopPropagation()}>
+                <div className="regs-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setViewingItem(null); }}>
+                    <div ref={viewDialogRef} tabIndex={-1} className="regs-modal-card" role="dialog" aria-modal="true" aria-labelledby="registration-details-title" onClick={(e) => e.stopPropagation()}>
                         <div className="regs-modal-header">
-                            <h3>Registration Details</h3>
-                            <button className="regs-modal-close" onClick={() => setViewingItem(null)} aria-label="Close">×</button>
+                            <h3 id="registration-details-title">Registration Details</h3>
+                            <button type="button" className="regs-modal-close" onClick={() => setViewingItem(null)} aria-label="Close">×</button>
                         </div>
                         <div className="regs-modal-body">
                             <div className="regs-qr-block">
@@ -592,11 +544,11 @@ function Registrations() {
             )}
 
             {editingReg && (
-                <div className="regs-modal-overlay" onClick={() => setEditingReg(null)}>
-                    <div className="regs-modal-card" onClick={(e) => e.stopPropagation()}>
+                <div className="regs-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setEditingReg(null); }}>
+                    <div ref={editDialogRef} tabIndex={-1} className="regs-modal-card" role="dialog" aria-modal="true" aria-labelledby="registration-editor-title" onClick={(e) => e.stopPropagation()}>
                         <div className="regs-modal-header">
-                            <h3>{isNewReg ? "Add Registration" : "Edit Registration"}</h3>
-                            <button className="regs-modal-close" onClick={() => setEditingReg(null)} aria-label="Close">×</button>
+                            <h3 id="registration-editor-title">{isNewReg ? "Add Registration" : "Edit Registration"}</h3>
+                            <button type="button" className="regs-modal-close" onClick={() => setEditingReg(null)} aria-label="Close">×</button>
                         </div>
                         <div className="regs-modal-body">
                             <div className="form-group">

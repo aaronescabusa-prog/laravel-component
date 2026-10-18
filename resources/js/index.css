@@ -5,16 +5,22 @@
    ========================================================================== */
 
 :root {
-  /* Typography & Variable Scalable Fonts */
+  /* Typography */
   --ui-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --ui-font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --ui-line-height-body: 1.55;
+  --ui-line-height-heading: 1.2;
+  --ui-font-weight-regular: 400;
+  --ui-font-weight-medium: 500;
+  --ui-font-weight-semibold: 600;
+  --ui-font-weight-bold: 700;
 
   /* Fluid Variable Typography Scale (clamp-based) */
   --ui-font-size-display: clamp(1.75rem, 1.25rem + 1.8vw, 2.35rem);
   --ui-font-size-h1: clamp(1.25rem, 1.05rem + 0.9vw, 1.65rem);
   --ui-font-size-h2: clamp(1.05rem, 0.95rem + 0.4vw, 1.25rem);
   --ui-font-size-h3: clamp(0.925rem, 0.88rem + 0.2vw, 1.05rem);
-  --ui-font-size-body: clamp(0.85rem, 0.82rem + 0.12vw, 0.925rem);
+  --ui-font-size-body: 0.9375rem;
   --ui-font-size-small: clamp(0.75rem, 0.72rem + 0.1vw, 0.825rem);
   --ui-font-size-xs: clamp(0.68rem, 0.66rem + 0.08vw, 0.75rem);
 
@@ -28,13 +34,13 @@
   --ui-space-8: 32px;
   --ui-space-10: 40px;
 
-  /* Surfaces & Invisibility */
+  /* Surfaces */
   --ui-bg: #f4f7fb;
   --ui-bg-soft: #eaf1f8;
   --ui-surface: #ffffff;
   --ui-surface-muted: #f8fafc;
   --ui-surface-hover: #f8fafd;
-  --ui-surface-glass: rgba(255, 255, 255, 0.88);
+  --ui-surface-glass: rgba(255, 255, 255, 0.96);
 
   /* Lines & Borders */
   --ui-border: #e4eaf1;
@@ -51,9 +57,16 @@
   --ui-primary: #08294b;
   --ui-primary-strong: #041d38;
   --ui-primary-soft: #eaf1f8;
-  --ui-primary-gradient: linear-gradient(135deg, #08294b 0%, #16558a 100%);
   --ui-accent: #16558a;
   --ui-highlight: #ffca1b;
+
+  /* Gold accent scale — use for CTAs, active states, focus and thin rules only.
+     Never gold text on white (fails AA); navy-on-gold is the correct pairing. */
+  --ui-gold: #ffca1b;
+  --ui-gold-strong: #e3a900;
+  --ui-gold-hover: #f2b91f;
+  --ui-gold-soft: #fff8df;
+  --ui-gold-border: rgba(255, 202, 27, 0.45);
 
   /* Sidebar (Navy) */
   --ui-navy-900: #041d38;
@@ -82,9 +95,9 @@
   /* Radii */
   --ui-radius-xs: 6px;
   --ui-radius-sm: 8px;
-  --ui-radius: 12px;
-  --ui-radius-lg: 18px;
-  --ui-radius-xl: 22px;
+  --ui-radius: 10px;
+  --ui-radius-lg: 16px;
+  --ui-radius-xl: 18px;
   --ui-radius-pill: 9999px;
 
   /* Elevation */
@@ -112,7 +125,21 @@
   /* Layout */
   --ui-sidebar-width: 256px;
   --ui-topbar-height: 68px;
-  --ui-ring: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  --ui-admin-content-max: 1680px;
+  --ui-student-content-max: 1440px;
+  --ui-admin-page-padding: clamp(16px, 1.5vw + 10px, 32px) clamp(16px, 2vw + 8px, 36px) 36px;
+  --ui-topbar-padding: 12px 28px;
+  --ui-sidebar-z: 40;
+  --ui-drawer-z: 60;
+  --ui-backdrop-z: 35;
+  --ui-topbar-z: 30;
+  --ui-student-header-z: 50;
+  --ui-modal-z: 90;
+  --ui-toast-z: 120;
+  --ui-focus: #16558a;
+  /* Double ring: gold inner halo + navy outer edge stays visible on both white
+     surfaces and the navy sidebar (single-color rings fail on one side). */
+  --ui-ring: 0 0 0 3px rgba(255, 202, 27, 0.5), 0 0 0 5px rgba(4, 29, 56, 0.55);
 }
 
 /* ------------------------------ Base reset ------------------------------ */
@@ -133,8 +160,8 @@ body {
   background-color: var(--ui-bg);
   color: var(--ui-text);
   font-family: var(--ui-font);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--ui-font-size-body);
+  line-height: var(--ui-line-height-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -169,12 +196,12 @@ a {
 
 /* Consistent, accessible keyboard focus everywhere. */
 :focus-visible {
-  outline: 2px solid var(--ui-accent);
+  outline: 2px solid var(--ui-focus);
   outline-offset: 2px;
 }
 
 ::selection {
-  background-color: rgba(76, 110, 245, 0.22);
+  background-color: rgba(255, 202, 27, 0.32);
 }
 
 /* Slim modern scrollbars (progressive enhancement). */

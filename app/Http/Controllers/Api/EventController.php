@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Models\Registration;
 use App\Services\EventEligibility;
 use App\Services\EventSchedule;
 use App\Services\CompulsoryAttendance;
@@ -23,6 +24,20 @@ class EventController extends Controller
     public function index(Request $request)
     {
         $query = Event::query();
+
+        // Return a live count instead of trusting the denormalized participants
+        // column, which can lag behind registrations created from mobile.
+        $query->addSelect([
+            'registrations_count' => Registration::query()
+                ->selectRaw('COUNT(*)')
+                ->where(function ($registrations) {
+                    $registrations->whereColumn('registrations.event_id', 'events.id')
+                        ->orWhere(function ($legacy) {
+                            $legacy->whereNull('registrations.event_id')
+                                ->whereColumn('registrations.event', 'events.title');
+                        });
+                }),
+        ]);
 
         if ($request->user()?->role === 'Student') {
             $query->where('status', 'Approved');

@@ -46,6 +46,7 @@ test('registration is throttled after three attempts', function () {
         $this->postJson('/api/auth/register', [
             'firstName' => 'Ana',
             'lastName' => 'Cruz',
+            'student_id' => '10-00000'.$attempt,
             'email' => 'ana'.$attempt.'@student.tmc.edu.ph',
             'course' => 'BS Information Technology',
             'year' => '2',
@@ -56,6 +57,7 @@ test('registration is throttled after three attempts', function () {
     $this->postJson('/api/auth/register', [
         'firstName' => 'Ana',
         'lastName' => 'Cruz',
+        'student_id' => '10-000004',
         'email' => 'ana4@student.tmc.edu.ph',
         'course' => 'BS Information Technology',
         'year' => '2',

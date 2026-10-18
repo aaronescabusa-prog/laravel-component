@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import "./Dashboard.css";
 import AppShell from "./components/AppShell";
 import KpiCard from "./components/KpiCard";
+import StatusBadge from "./components/StatusBadge";
 import { api, mapEventFromApi, mapLogFromApi } from "./lib/api";
 import {
     IconCalendar,
@@ -20,6 +21,7 @@ const QUICK_ACTIONS = [
 
 
 function formatTime(ts) {
+    if (!ts || typeof ts !== "string") return "Time unavailable";
     const parts = ts.split(" ");
     const date = parts[0] ?? "";
     const [h, m] = (parts[1] ?? "").split(":");
@@ -35,6 +37,7 @@ function Dashboard() {
     const [recentActivity, setRecentActivity] = useState([]);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadErrors, setLoadErrors] = useState({ summary: "", events: "", activity: "" });
     const [autoRefresh, setAutoRefresh] = useState(false);
     const [refreshToken, setRefreshToken] = useState(0);
 
@@ -53,14 +56,21 @@ function Dashboard() {
             api.list("activity-logs", { per_page: 5 }),
         ]).then((results) => {
             if (!active) return;
-            const pick = (r) => (r.status === "fulfilled" ? r.value ?? null : null);
-            const [s, upcoming, activity] = results.map(pick);
+            const keys = ["summary", "events", "activity"];
+            const errors = {};
+            results.forEach((result, index) => {
+                errors[keys[index]] = result.status === "rejected"
+                    ? (result.reason?.message || "Could not load this data.")
+                    : "";
+            });
+            setLoadErrors(errors);
+            const [s, upcoming, activity] = results.map((r) => r.status === "fulfilled" ? r.value ?? null : null);
             if (s) setSummary(s);
             if (Array.isArray(upcoming)) setUpcomingEvents(upcoming.map(mapEventFromApi));
             else if (upcoming?.data) setUpcomingEvents(upcoming.data.map(mapEventFromApi));
             if (Array.isArray(activity)) setRecentActivity(activity.map(mapLogFromApi));
             else if (activity?.data) setRecentActivity(activity.data.map(mapLogFromApi));
-            setLastUpdated(new Date());
+            if (results.some((result) => result.status === "fulfilled")) setLastUpdated(new Date());
         }).finally(() => {
             if (active) setRefreshing(false);
         });
@@ -115,7 +125,7 @@ function Dashboard() {
             <KpiCard
               key={idx}
               label={kpi.label}
-              value={kpi.value}
+              value={summary ? kpi.value : "—"}
               trend={kpi.trend}
               trendLabel={kpi.trendLabel}
               alert={kpi.alert}
@@ -156,6 +166,13 @@ function Dashboard() {
                 </div>
             </div>
 
+            {(loadErrors.summary || loadErrors.events || loadErrors.activity) && (
+                <div className="dash-load-errors" role="alert">
+                    <strong>Some dashboard data could not be refreshed.</strong>
+                    <span>{[loadErrors.summary && "summary", loadErrors.events && "upcoming events", loadErrors.activity && "recent activity"].filter(Boolean).join(", ")}</span>
+                </div>
+            )}
+
             <nav className="dash-actions">
                 {QUICK_ACTIONS.map((action) => (
                     <NavLink key={action.to} to={action.to} className="dash-action-link">
@@ -187,10 +204,13 @@ function Dashboard() {
                             </thead>
                             <tbody>
                                 {upcomingEvents.length === 0 && (
-                                    <tr><td colSpan={5} className="cell-muted">No upcoming events yet.</td></tr>
+                                    <tr><td colSpan={5} className="cell-muted">{loadErrors.events ? "Upcoming events are unavailable. Try refreshing." : refreshing ? "Loading upcoming events…" : "No upcoming events yet."}</td></tr>
                                 )}
                                 {upcomingEvents.map((evt) => {
-                                    const pct = evt.capacity ? Math.round((evt.participants / evt.capacity) * 100) : 0;
+                                    const capacity = Number(evt.capacity);
+                                    const participants = Number(evt.participants) || 0;
+                                    const hasCapacity = Number.isFinite(capacity) && capacity > 0;
+                                    const pct = hasCapacity ? Math.min(100, Math.round((participants / capacity) * 100)) : 0;
                                     return (
                                         <tr key={evt.id}>
                                             <td>{evt.name}</td>
@@ -198,16 +218,14 @@ function Dashboard() {
                                             <td className="cell-muted">{evt.venue}</td>
                                             <td>
                                                 <div className="dash-slots">
-                                                    <span>{evt.participants} / {evt.capacity.toLocaleString()}</span>
-                                                    <span className="dash-progress">
+                                                    <span>{participants.toLocaleString()} {hasCapacity ? `/ ${capacity.toLocaleString()}` : "registered"}</span>
+                                                    {hasCapacity && <span className="dash-progress" role="progressbar" aria-label={`${evt.name} capacity`} aria-valuemin="0" aria-valuemax={capacity} aria-valuenow={Math.min(participants, capacity)}>
                                                         <span className="dash-progress-fill" style={{ width: `${pct}%` }} />
-                                                    </span>
+                                                    </span>}
                                                 </div>
                                             </td>
                                             <td>
-                                                <span className={`status status-${evt.status.toLowerCase()}`}>
-                                                    {evt.status}
-                                                </span>
+                                                <StatusBadge status={evt.status} />
                                             </td>
                                         </tr>
                                     );
@@ -225,12 +243,12 @@ function Dashboard() {
 
                     <div className="dash-feed">
                         {recentActivity.length === 0 && (
-                            <div className="dash-feed-item"><div className="dash-feed-main">No activity recorded yet.</div></div>
+                            <div className="dash-feed-item"><div className="dash-feed-main">{loadErrors.activity ? "Recent activity is unavailable. Try refreshing." : refreshing ? "Loading recent activity…" : "No activity recorded yet."}</div></div>
                         )}
                         {recentActivity.map((item, idx) => (
                             <div className="dash-feed-item" key={idx}>
-                                <span className={`dash-feed-cat dash-cat-${item.category.toLowerCase()}`}>
-                                    {item.category}
+                                <span className={`dash-feed-cat dash-cat-${(item.category || "other").toLowerCase()}`}>
+                                    {item.category || "Activity"}
                                 </span>
                                 <div className="dash-feed-main">
                                     <div className="dash-feed-action">{item.action}</div>
@@ -249,20 +267,20 @@ function Dashboard() {
                     </div>
                     <div className="dash-snapshot">
                         <div>
-                            <div className="dash-stat-value">{totalRegistrations.toLocaleString()}</div>
+                            <div className="dash-stat-value">{summary ? totalRegistrations.toLocaleString() : "—"}</div>
                             <div className="dash-stat-label">Total registrations</div>
                         </div>
                         <div className="dash-snapshot-grid">
                             <div className="dash-mini">
-                                <span className="dash-mini-value">{paidCount}</span>
+                                <span className="dash-mini-value">{summary ? paidCount : "—"}</span>
                                 <span className="dash-mini-label">Paid</span>
                             </div>
                             <div className="dash-mini">
-                                <span className="dash-mini-value">{pendingPayment}</span>
+                                <span className="dash-mini-value">{summary ? pendingPayment : "—"}</span>
                                 <span className="dash-mini-label">Pending payment</span>
                             </div>
                             <div className="dash-mini">
-                                <span className="dash-mini-value">{attendedCount}</span>
+                                <span className="dash-mini-value">{summary ? attendedCount : "—"}</span>
                                 <span className="dash-mini-label">Attended</span>
                             </div>
                         </div>
@@ -276,20 +294,20 @@ function Dashboard() {
                     </div>
                     <div className="dash-snapshot">
                         <div>
-                            <div className="dash-stat-value">{issuedCerts}</div>
+                            <div className="dash-stat-value">{summary ? issuedCerts : "—"}</div>
                             <div className="dash-stat-label">Issued</div>
                         </div>
                         <div className="dash-snapshot-grid">
                             <div className="dash-mini">
-                                <span className="dash-mini-value">{pendingCerts}</span>
+                                <span className="dash-mini-value">{summary ? pendingCerts : "—"}</span>
                                 <span className="dash-mini-label">Pending</span>
                             </div>
                             <div className="dash-mini">
-                                <span className="dash-mini-value">{totalCertificates}</span>
+                                <span className="dash-mini-value">{summary ? totalCertificates : "—"}</span>
                                 <span className="dash-mini-label">Total certificates</span>
                             </div>
                             <div className="dash-mini">
-                                <span className="dash-mini-value">{notEligibleCerts}</span>
+                                <span className="dash-mini-value">{summary ? notEligibleCerts : "—"}</span>
                                 <span className="dash-mini-label">Not eligible</span>
                             </div>
                         </div>
@@ -303,20 +321,20 @@ function Dashboard() {
                     </div>
                     <div className="dash-snapshot">
                         <div>
-                            <div className="dash-stat-value">{avgRating}<span className="dash-stat-suffix"> / 5</span></div>
+                            <div className="dash-stat-value">{summary ? avgRating : "—"}{summary && <span className="dash-stat-suffix"> / 5</span>}</div>
                             <div className="dash-stat-label">Avg. event rating</div>
                         </div>
                         <div className="dash-snapshot-grid">
                             <div className="dash-mini">
-                                <span className="dash-mini-value">{evaluationResponses}</span>
+                                <span className="dash-mini-value">{summary ? evaluationResponses : "—"}</span>
                                 <span className="dash-mini-label">Responses</span>
                             </div>
                             <div className="dash-mini">
-                                <span className="dash-mini-value">{eventsRated}</span>
+                                <span className="dash-mini-value">{summary ? eventsRated : "—"}</span>
                                 <span className="dash-mini-label">Events rated</span>
                             </div>
                             <div className="dash-mini">
-                                <span className="dash-mini-value">{eventCategories}</span>
+                                <span className="dash-mini-value">{summary ? eventCategories : "—"}</span>
                                 <span className="dash-mini-label">Event categories</span>
                             </div>
                         </div>

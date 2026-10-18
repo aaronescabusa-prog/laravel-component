@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./Events.css";
 import AppShell from "./components/AppShell";
 import Toast from "./components/Toast";
 import ConfirmDialog from "./components/ConfirmDialog";
 import { useToast } from "./lib/useToast";
 import { logActivity, nextId } from "./lib/storage";
-import { api, eventsApi, mapEventFromApi, mapEventToApi, EVENT_STATUSES, EVENT_TARGET_ROLES } from "./lib/api";
+import { api, eventsApi, mapEventFromApi, mapRegistrationFromApi, mapEventToApi, EVENT_STATUSES, EVENT_TARGET_ROLES } from "./lib/api";
 import { downloadCSV, dateStamp } from "./lib/csv";
 import { usePagination } from "./lib/usePagination";
 import { useRowSelection } from "./lib/useRowSelection";
 import Pagination from "./components/Pagination";
+import useDialogA11y from "./components/useDialogA11y";
 import { ActionIcon, IconView, IconEdit, IconCheck, IconX, IconTrash } from "./components/Icons";
 
 function initialsOf(text) {
@@ -82,6 +84,7 @@ function eventAudienceSummary(row, departments) {
 }
 
 function Events() {
+    const navigate = useNavigate();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
@@ -89,24 +92,26 @@ function Events() {
     const [bulkBusy, setBulkBusy] = useState(false);
     const { toast, showToast, dismissToast } = useToast();
     const [search, setSearch] = useState("");
-    const [categoryFilter, setCategoryFilter] = useState("all");
-    const [statusFilter, setStatusFilter] = useState("all");
-    const [departmentFilter, setDepartmentFilter] = useState("all");
-    const [courseFilter, setCourseFilter] = useState("all");
-    const [yearFilter, setYearFilter] = useState("all");
-    const [roleFilter, setRoleFilter] = useState("all");
-    const [sortKey, setSortKey] = useState("date");
+    const [sortKey, setSortKey] = useState("name");
     const [sortDir, setSortDir] = useState("asc");
     const [editingEvent, setEditingEvent] = useState(null);
     const [isNewEvent, setIsNewEvent] = useState(false);
     const [isSavingEvent, setIsSavingEvent] = useState(false);
     const [formErrors, setFormErrors] = useState({});
     const [viewingEvent, setViewingEvent] = useState(null);
+    const [eventRegistrations, setEventRegistrations] = useState([]);
+    const [registrationsLoading, setRegistrationsLoading] = useState(false);
+    const [registrationsError, setRegistrationsError] = useState("");
+    const [attendeeSearch, setAttendeeSearch] = useState("");
     const [courses, setCourses] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [years, setYears] = useState([]);
     const [attendanceRoster, setAttendanceRoster] = useState(null);
     const [attendanceBusy, setAttendanceBusy] = useState(false);
+    const eventDetailRef = useDialogA11y(Boolean(viewingEvent), () => setViewingEvent(null));
+    const eventEditorRef = useDialogA11y(Boolean(editingEvent), () => {
+        if (!isSavingEvent) setEditingEvent(null);
+    });
 
     useEffect(() => {
         let active = true;
@@ -134,20 +139,6 @@ function Events() {
     }, []);
 
     useEffect(() => {
-        if (!viewingEvent && !editingEvent) return undefined;
-
-        function closeOnEscape(event) {
-            if (event.key === "Escape" && !isSavingEvent) {
-                setViewingEvent(null);
-                setEditingEvent(null);
-            }
-        }
-
-        window.addEventListener("keydown", closeOnEscape);
-        return () => window.removeEventListener("keydown", closeOnEscape);
-    }, [viewingEvent, editingEvent, isSavingEvent]);
-
-    useEffect(() => {
         let active = true;
         if (!viewingEvent?.attendanceCompulsory) {
             setAttendanceRoster(null);
@@ -158,6 +149,57 @@ function Events() {
             .catch(() => { if (active) setAttendanceRoster(null); });
         return () => { active = false; };
     }, [viewingEvent?.id, viewingEvent?.attendanceCompulsory]);
+
+    useEffect(() => {
+        let active = true;
+        if (!viewingEvent) {
+            setEventRegistrations([]);
+            setRegistrationsError("");
+            setAttendeeSearch("");
+            return undefined;
+        }
+
+        setAttendeeSearch("");
+        setRegistrationsLoading(true);
+        setRegistrationsError("");
+        api.list("registrations", { event_reference: viewingEvent.id, per_page: "all" })
+            .then((rows) => {
+                if (active) setEventRegistrations((Array.isArray(rows) ? rows : []).map(mapRegistrationFromApi));
+            })
+            .catch((error) => {
+                if (active) setRegistrationsError(error.message || "Could not load event registrations.");
+            })
+            .finally(() => {
+                if (active) setRegistrationsLoading(false);
+            });
+
+        return () => { active = false; };
+    }, [viewingEvent?.id]);
+
+    const filteredEventRegistrations = useMemo(() => {
+        const term = attendeeSearch.trim().toLowerCase();
+        if (!term) return eventRegistrations;
+        return eventRegistrations.filter((registration) =>
+            [registration.participant, registration.email, registration.id, registration.role]
+                .some((value) => String(value ?? "").toLowerCase().includes(term))
+        );
+    }, [eventRegistrations, attendeeSearch]);
+
+    function exportEventRegistrations() {
+        const rows = [
+            ["Registration ID", "Participant", "Email", "Role", "Block No.", "Registration Date", "Payment Status", "Attendance"],
+            ...filteredEventRegistrations.map((registration) => [registration.id, registration.participant, registration.email, registration.role, registration.blockNo, registration.regDate, registration.paymentStatus, registration.attendance]),
+        ];
+        downloadCSV(`registrations-${viewingEvent.id}-${dateStamp()}.csv`, rows);
+        showToast(`Exported ${filteredEventRegistrations.length} attendee${filteredEventRegistrations.length === 1 ? "" : "s"}.`);
+    }
+
+    function manageEventRegistrations() {
+        if (!viewingEvent) return;
+        const destination = `/registrations?event=${encodeURIComponent(viewingEvent.name)}`;
+        setViewingEvent(null);
+        navigate(destination);
+    }
 
     async function runAttendanceAction(action) {
         if (!viewingEvent) return;
@@ -206,13 +248,7 @@ function Events() {
         let rows = events.filter((row) => {
             const term = search.trim().toLowerCase();
             const matchesSearch = !term || row.name.toLowerCase().includes(term) || row.organizer.toLowerCase().includes(term) || String(row.category ?? "").toLowerCase().includes(term);
-            const matchesStatus = statusFilter === "all" || row.status.toLowerCase() === statusFilter;
-            const matchesCategory = categoryFilter === "all" || row.category === categoryFilter;
-            const matchesDepartment = departmentFilter === "all" || row.targetDepartment === departmentFilter;
-            const matchesCourse = courseFilter === "all" || row.targetCourse === courseFilter;
-            const matchesYear = yearFilter === "all" || String(row.targetYear ?? "") === yearFilter;
-            const matchesRole = roleFilter === "all" || row.targetRole === roleFilter;
-            return matchesSearch && matchesStatus && matchesCategory && matchesDepartment && matchesCourse && matchesYear && matchesRole;
+            return matchesSearch;
         });
 
         rows = [...rows].sort((a, b) => {
@@ -223,16 +259,16 @@ function Events() {
         });
 
         return rows;
-    }, [events, search, statusFilter, categoryFilter, departmentFilter, courseFilter, yearFilter, roleFilter, sortKey, sortDir]);
+    }, [events, search, sortKey, sortDir]);
 
     const pager = usePagination(filteredRows, {
-        resetKey: [search, statusFilter, categoryFilter, departmentFilter, courseFilter, yearFilter, roleFilter, sortKey, sortDir].join("|"),
+        resetKey: [search, sortKey, sortDir].join("|"),
     });
 
     const selection = useRowSelection({
         pageRows: pager.pageRows,
         matchingRows: filteredRows,
-        resetKey: [search, statusFilter, categoryFilter, departmentFilter, courseFilter, yearFilter, roleFilter, sortKey, sortDir].join("|"),
+        resetKey: [search, sortKey, sortDir].join("|"),
     });
 
     function toggleSort(key) {
@@ -404,6 +440,7 @@ function Events() {
         };
         const fieldIds = {
             name: "evName",
+            status: "evStatus",
             date: "evDate",
             startTime: "evTime",
             endDate: "evEndDate",
@@ -577,53 +614,10 @@ function Events() {
     const upcoming = events.filter((e) => e.status === "Approved" && e.date && e.date >= today).length;
     const pendingApproval = events.filter((e) => e.status === "Pending").length;
     const completedThisMonth = events.filter((e) => e.status === "Completed" && e.date?.startsWith(currentMonth)).length;
-    const activeFilterCount = [
-        Boolean(search.trim()),
-        statusFilter !== "all",
-        categoryFilter !== "all",
-        departmentFilter !== "all",
-        courseFilter !== "all",
-        yearFilter !== "all",
-        roleFilter !== "all",
-    ].filter(Boolean).length;
-
-    function clearFilters() {
-        setSearch("");
-        setCategoryFilter("all");
-        setStatusFilter("all");
-        setDepartmentFilter("all");
-        setCourseFilter("all");
-        setYearFilter("all");
-        setRoleFilter("all");
-    }
-
     return (
         <AppShell
             title="Events"
             prefix="events-"
-            headerActions={
-                <div className="events-topbar-actions">
-                    <input
-                        type="search"
-                        className="events-topbar-search"
-                        placeholder="Search events or organizer"
-                        aria-label="Search events"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                    <button
-                        type="button"
-                        className="events-topbar-notifications"
-                        aria-label={`Show ${pendingApproval} pending event approvals`}
-                        onClick={() => {
-                        clearFilters();
-                        setStatusFilter("pending");
-                        }}
-                    >
-                        Pending approvals <span>{pendingApproval}</span>
-                    </button>
-                </div>
-            }
         >
 
             {loadError && (
@@ -656,92 +650,19 @@ function Events() {
                 </div>
 
                 <div className="events-toolbar">
-                    <select
-                        className="events-input-select"
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        aria-label="Filter by status"
-                    >
-                        <option value="all">All statuses</option>
-                        {STATUSES.map((s) => <option key={s} value={s.toLowerCase()}>{s}</option>)}
-                    </select>
-
-                    <select
-                        className="events-input-select"
-                        value={categoryFilter}
-                        onChange={(e) => setCategoryFilter(e.target.value)}
-                        aria-label="Filter by event category"
-                    >
-                        <option value="all">All categories</option>
-                        {[...new Set(events.map((event) => event.category).filter(Boolean))].sort().map((category) => (
-                            <option key={category} value={category}>{category}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        className="events-input-select"
-                        value={departmentFilter}
-                        onChange={(e) => setDepartmentFilter(e.target.value)}
-                        aria-label="Filter by target college"
-                    >
-                        <option value="all">All colleges</option>
-                        {departments.map((department) => (
-                            <option key={department.code} value={department.code}>
-                                {department.code} — {department.name}
-                            </option>
-                        ))}
-                    </select>
-
-                    <select
-                        className="events-input-select"
-                        value={courseFilter}
-                        onChange={(e) => setCourseFilter(e.target.value)}
-                        aria-label="Filter by target program"
-                    >
-                        <option value="all">All programs</option>
-                        {courses.map((course) => (
-                            <option key={course} value={course}>{course}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        className="events-input-select"
-                        value={yearFilter}
-                        onChange={(e) => setYearFilter(e.target.value)}
-                        aria-label="Filter by target year"
-                    >
-                        <option value="all">All target years</option>
-                        {years.map((year) => (
-                            <option key={year} value={year}>{year}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        className="events-input-select"
-                        value={roleFilter}
-                        onChange={(e) => setRoleFilter(e.target.value)}
-                        aria-label="Filter by target role"
-                    >
-                        <option value="all">All target roles</option>
-                        {TARGET_ROLES.map((role) => (
-                            <option key={role} value={role}>{role === "All" ? "All roles" : role}</option>
-                        ))}
-                    </select>
-
+                    <input
+                        type="search"
+                        className="events-input-search"
+                        placeholder="Search events or organizer"
+                        aria-label="Search events"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
                     <button className="events-btn events-btn-secondary events-btn-toolbar" onClick={exportCSV}>Export CSV</button>
                 </div>
 
                 <div className="events-filter-summary" aria-live="polite">
-                    <span>
-                        {activeFilterCount > 0
-                            ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied · ${filteredRows.length} matching event${filteredRows.length === 1 ? "" : "s"}`
-                            : `Showing all ${filteredRows.length} event${filteredRows.length === 1 ? "" : "s"}`}
-                    </span>
-                    {activeFilterCount > 0 && (
-                        <button type="button" className="events-clear-filters" onClick={clearFilters}>
-                            Clear filters
-                        </button>
-                    )}
+                    <span>{search.trim() ? `Showing ${filteredRows.length} matching event${filteredRows.length === 1 ? "" : "s"}` : `Showing all ${filteredRows.length} event${filteredRows.length === 1 ? "" : "s"}`}</span>
                 </div>
 
                 {selection.selectedCount > 0 && (
@@ -803,19 +724,7 @@ function Events() {
                                         Event Name <SortIcon active={sortKey === "name"} dir={sortDir} />
                                     </button>
                                 </th>
-                                <th>Audience &amp; eligibility</th>
-                                <th>Category</th>
-                                <th>Organizer</th>
-                                <th className="events-th-sortable" aria-sort={sortKey === "date" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
-                                    <button type="button" onClick={() => toggleSort("date")} aria-label={`Sort by date${sortKey === "date" ? `, ${sortDir === "asc" ? "ascending" : "descending"}` : ""}`}>
-                                        Date <SortIcon active={sortKey === "date"} dir={sortDir} />
-                                    </button>
-                                </th>
-                                <th>Time</th>
-                                <th>Duration</th>
-                                <th>Venue</th>
-                                <th>Status</th>
-                                <th>Participants</th>
+                                <th>About the Event</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -839,22 +748,7 @@ function Events() {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="events-cell-muted">{audienceLabel(row)}</td>
-                                    <td className="events-cell-muted">{row.category || "—"}</td>
-                                    <td className="events-cell-muted">{row.organizer}</td>
-                                    <td className="events-cell-muted">{row.date}</td>
-                                    <td className="events-cell-muted">{eventTimeLabel(row)}</td>
-                                    <td className="events-cell-muted">{durationLabel(row)}</td>
-                                    <td className="events-cell-muted">{row.venue}</td>
-                                    <td>
-                                        <span className={`events-status events-status-${row.status.toLowerCase()}`}>
-                                            {row.status}
-                                        </span>
-                                    </td>
-                                    <td className="events-cell-muted">
-                                        {row.participants}
-                                        {row.hasCapacity ? `/${row.capacity}` : ""}
-                                    </td>
+                                    <td className="events-cell-description">{row.description || "No event description has been provided."}</td>
                                     <td className="events-cell-actions">
                                         <ActionIcon icon={IconView} label="View" onClick={() => setViewingEvent(row)} />
                                         <ActionIcon icon={IconEdit} label="Edit" onClick={() => openEdit(row)} />
@@ -870,12 +764,12 @@ function Events() {
                             ))}
                             {loading && filteredRows.length === 0 && (
                                 <tr>
-                                    <td colSpan="12" className="events-empty-row" role="status">Loading events…</td>
+                                    <td colSpan="4" className="events-empty-row" role="status">Loading events…</td>
                                 </tr>
                             )}
                             {!loading && !loadError && filteredRows.length === 0 && (
                                 <tr>
-                                    <td colSpan="12" className="events-empty-row">
+                                    <td colSpan="4" className="events-empty-row">
                                         {events.length === 0 ? (
                                             <>
                                                 <strong className="events-empty-title">No events have been created yet.</strong>
@@ -891,15 +785,15 @@ function Events() {
                                             </>
                                         ) : (
                                             <>
-                                                <strong className="events-empty-title">No events match your filters.</strong>
+                                                <strong className="events-empty-title">No events match your search.</strong>
                                                 <div className="events-empty-actions">
                                                     <button
                                                         type="button"
                                                         className="events-btn events-btn-secondary events-empty-action"
-                                                        onClick={clearFilters}
-                                                        aria-label="Clear all event filters"
+                                                        onClick={() => setSearch("")}
+                                                        aria-label="Clear event search"
                                                     >
-                                                        Clear filters
+                                                        Clear search
                                                     </button>
                                                 </div>
                                             </>
@@ -909,7 +803,7 @@ function Events() {
                             )}
                             {!loading && loadError && events.length === 0 && (
                                 <tr>
-                                    <td colSpan="12" className="events-empty-row">Events could not be displayed.</td>
+                                    <td colSpan="4" className="events-empty-row">Events could not be displayed.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -925,10 +819,10 @@ function Events() {
 
 
             {viewingEvent && (
-                <div className="events-modal-overlay" onClick={() => setViewingEvent(null)}>
-                    <div className="events-modal-card events-detail-modal" role="dialog" aria-modal="true" aria-labelledby="event-details-title" onClick={(e) => e.stopPropagation()}>
+                <div className="events-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setViewingEvent(null); }}>
+                    <div ref={eventDetailRef} tabIndex={-1} className="events-modal-card events-detail-modal" role="dialog" aria-modal="true" aria-labelledby="event-details-title" onClick={(e) => e.stopPropagation()}>
                         <div className="events-detail-topbar">
-                            <button type="button" className="events-detail-back" onClick={() => setViewingEvent(null)} aria-label="Back to events">←</button>
+                            <button type="button" className="events-detail-back" onClick={() => setViewingEvent(null)} aria-label="Back to events"><span aria-hidden="true">←</span> Back to Events</button>
                             <span>Event Details</span>
                             <button type="button" className="events-modal-close" onClick={() => setViewingEvent(null)} aria-label="Close event details">×</button>
                         </div>
@@ -955,8 +849,34 @@ function Events() {
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">P</span><div><small>Eligible participants</small><strong>{eventAudienceSummary(viewingEvent, departments)}</strong></div></div>
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">C</span><div><small>Allowed courses</small><strong>{viewingEvent.targetCourse || "All programs"}</strong></div></div>
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">Y</span><div><small>Year level</small><strong>{viewingEvent.targetYear || "All year levels (1st–4th Year)"}</strong></div></div>
-                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">S</span><div><small>Available slots</small><strong>{viewingEvent.hasCapacity ? `${Math.max(0, Number(viewingEvent.capacity) - Number(viewingEvent.participants || 0))} available out of ${viewingEvent.capacity} slots` : `${viewingEvent.participants || 0} registered · No capacity limit`}</strong></div></div>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">P</span><div><small>Registered users</small><strong>{Number(viewingEvent.participants || 0)} {Number(viewingEvent.participants || 0) === 1 ? "user" : "users"} registered</strong></div></div>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">S</span><div><small>Available slots</small><strong>{viewingEvent.hasCapacity ? `${Math.max(0, Number(viewingEvent.capacity) - Number(viewingEvent.participants || 0))} available out of ${viewingEvent.capacity} slots` : "No capacity limit"}</strong></div></div>
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">D</span><div><small>Registration deadline</small><strong>{viewingEvent.registrationDeadline ? eventDateLabel(viewingEvent.registrationDeadline) : "Until the event date"}</strong></div></div>
+                                </section>
+                                <section className="events-detail-section events-detail-attendees" aria-labelledby="event-attendees-title">
+                                    <div className="events-detail-attendees-heading">
+                                        <div><h4 id="event-attendees-title">Registered attendees</h4><p>{eventRegistrations.length} {eventRegistrations.length === 1 ? "person" : "people"} registered for this event</p></div>
+                                        <span className="events-detail-attendees-count">{eventRegistrations.length}</span>
+                                    </div>
+                                    <div className="events-detail-attendee-toolbar">
+                                        <input type="search" value={attendeeSearch} onChange={(event) => setAttendeeSearch(event.target.value)} placeholder="Search attendees…" aria-label="Search this event’s attendees" />
+                                        <button type="button" className="events-btn events-btn-secondary" onClick={exportEventRegistrations} disabled={registrationsLoading || filteredEventRegistrations.length === 0}>Export CSV</button>
+                                    </div>
+                                    {registrationsLoading ? <p className="events-detail-attendees-state" role="status">Loading attendees…</p>
+                                        : registrationsError ? <p className="events-detail-attendees-state is-error" role="alert">{registrationsError}</p>
+                                            : eventRegistrations.length === 0 ? <p className="events-detail-attendees-state">No registrations yet.</p>
+                                                : <div className="events-detail-attendee-list">
+                                                    {filteredEventRegistrations.map((registration) => <div className="events-detail-attendee" key={registration.id}>
+                                                        <span className="events-detail-attendee-avatar" aria-hidden="true">{initialsOf(registration.participant)}</span>
+                                                        <div className="events-detail-attendee-person"><strong>{registration.participant}</strong><span>{registration.email}</span></div>
+                                                        <div className="events-detail-attendee-meta"><span>{registration.role || "Student"} · {registration.blockNo || "No block"}</span><span>{registration.regDate || "Date unavailable"}</span><span>{registration.attendance || "Attendance not recorded"}</span></div>
+                                                    </div>)}
+                                                    {filteredEventRegistrations.length === 0 && <p className="events-detail-attendees-state">No attendees match that search.</p>}
+                                                </div>}
+                                    <div className="events-detail-attendees-footer">
+                                        <span>Use registration management for payment verification, check-in, edits, and bulk actions.</span>
+                                        <button type="button" className="events-btn events-btn-primary" onClick={manageEventRegistrations}>Manage registrations</button>
+                                    </div>
                                 </section>
                                 {viewingEvent.attendanceCompulsory && <section className="events-detail-section events-detail-eligibility">
                                     <h4>Compulsory attendance</h4>
@@ -983,8 +903,8 @@ function Events() {
             )}
 
             {editingEvent && (
-                <div className="events-modal-overlay" onClick={() => !isSavingEvent && setEditingEvent(null)}>
-                    <div className="events-modal-card events-editor-modal" role="dialog" aria-modal="true" aria-labelledby="event-editor-title" onClick={(e) => e.stopPropagation()}>
+                <div className="events-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget && !isSavingEvent) setEditingEvent(null); }}>
+                    <div ref={eventEditorRef} tabIndex={-1} className="events-modal-card events-editor-modal" role="dialog" aria-modal="true" aria-labelledby="event-editor-title" onClick={(e) => e.stopPropagation()}>
                         <form className="events-editor-form" onSubmit={saveEvent} noValidate>
                         <div className="events-modal-header">
                             <div className="events-editor-heading">
@@ -1342,6 +1262,25 @@ function Events() {
                                 />
                                 {isNewEvent && <small className="events-form-hint">Add at least 20 characters describing the event.</small>}
                                 {formErrors.description && <small className="events-field-error" id="evDescription-error">{formErrors.description}</small>}
+                                </div>
+                            </div>
+
+                            <div className="events-form-section">
+                                <h4 className="events-form-section-title">Status</h4>
+                                <div className="events-form-group">
+                                    <label htmlFor="evStatus">Event status</label>
+                                    <select
+                                        id="evStatus"
+                                        value={editingEvent.status || "Draft"}
+                                        onChange={(e) => updateEventField("status", e.target.value)}
+                                        aria-invalid={Boolean(formErrors.status)}
+                                        aria-describedby={formErrors.status ? "evStatus-error" : "evStatus-hint"}
+                                    >
+                                        {STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+                                    </select>
+                                    {formErrors.status
+                                        ? <small className="events-field-error" id="evStatus-error">{formErrors.status}</small>
+                                        : <small className="events-form-hint" id="evStatus-hint">Draft events stay hidden from students. Approved events appear in the student app.</small>}
                                 </div>
                             </div>
 

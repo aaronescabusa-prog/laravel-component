@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "./components/AppShell";
 import QrCode from "./components/QrCode";
+import useDialogA11y from "./components/useDialogA11y";
 import { IconCalendar, IconMegaphone, IconClipboard, IconArrowRight } from "./components/Icons";
 import { api, authApi, mapEventFromApi, mapRegistrationFromApi, registrationsApi, studentEvaluationsApi, getSessionUser, setSession } from "./lib/api";
 import { useAuth } from "./lib/auth";
@@ -23,6 +24,7 @@ function StudentPortal({ view = "home" }) {
     const [announcements, setAnnouncements] = useState([]);
     const [academic, setAcademic] = useState({ courses: [], years: [] });
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
     const [busy, setBusy] = useState("");
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
@@ -32,10 +34,13 @@ function StudentPortal({ view = "home" }) {
     const [eventSearch, setEventSearch] = useState("");
     const [eventCategory, setEventCategory] = useState("all");
     const [selectedEvent, setSelectedEvent] = useState(null);
+    const eventDialogRef = useDialogA11y(Boolean(selectedEvent), () => setSelectedEvent(null));
+    const evaluationDialogRef = useDialogA11y(Boolean(evaluation), () => setEvaluation(null));
     const [profile, setProfile] = useState({ name: user.name ?? "", course: user.course ?? "", year: user.year ?? "", block_no: user.block_no ?? "" });
 
     const load = async () => {
         setLoading(true);
+        setLoadError("");
         setError("");
         try {
             const [eventRows, registrationRows, announcementRows, structure] = await Promise.all([
@@ -45,8 +50,8 @@ function StudentPortal({ view = "home" }) {
             setRegistrations(registrationRows.map(mapRegistrationFromApi));
             setAnnouncements(announcementRows);
             setAcademic(structure);
-        } catch (loadError) {
-            setError(loadError.message || "Could not load your EventEase data.");
+        } catch (requestError) {
+            setLoadError(requestError.message || "Could not load your EventEase data.");
         } finally {
             setLoading(false);
         }
@@ -86,15 +91,6 @@ function StudentPortal({ view = "home" }) {
             setError(registerError.message || "Registration could not be completed.");
         } finally { setBusy(""); }
     }
-
-    useEffect(() => {
-        if (!selectedEvent) return undefined;
-        const closeOnEscape = (event) => {
-            if (event.key === "Escape") setSelectedEvent(null);
-        };
-        document.addEventListener("keydown", closeOnEscape);
-        return () => document.removeEventListener("keydown", closeOnEscape);
-    }, [selectedEvent]);
 
     async function cancel(registration) {
         setBusy(registration.id); setMessage(""); setError("");
@@ -140,6 +136,8 @@ function StudentPortal({ view = "home" }) {
                 {error && <div className="student-notice error" role="alert">{error}<button onClick={() => setError("")} aria-label="Dismiss">Ã—</button></div>}
                 {loading ? <div className="student-empty">Loading your EventEase dataâ€¦</div> : null}
 
+                {loadError && <div className="student-notice error student-load-error" role="alert"><span>{loadError}</span><button type="button" className="student-secondary-button" onClick={load}>Try again</button></div>}
+
                 {!loading && view === "home" && <>
                     <section className="student-welcome">
                         <div><span className="student-eyebrow">STUDENT PORTAL</span><h2>Hello, {user.name?.split(" ")[0] || "there"}!</h2><p>See whatâ€™s happening on campus and stay up to date with your registrations.</p></div>
@@ -151,9 +149,9 @@ function StudentPortal({ view = "home" }) {
                         <SummaryCard icon={<IconMegaphone />} label="Announcements" value={announcements.length} />
                     </section>
                     <SectionHeading title="Recommended events" link="/events" linkText="View all" />
-                    <div className="student-card-grid">{upcomingEvents.slice(0, 3).map((event) => <EventCard key={event.id} event={event} onViewDetails={setSelectedEvent} />)}</div>
+                    {!loadError && (upcomingEvents.length ? <div className="student-card-grid">{upcomingEvents.slice(0, 3).map((event) => <EventCard key={event.id} event={event} onViewDetails={setSelectedEvent} />)}</div> : <div className="student-empty student-inline-empty"><h3>No events to recommend yet</h3><p>New approved events will appear here when registration opens.</p></div>)}
                     <SectionHeading title="Latest announcements" link="/announcements" linkText="View all" />
-                    <div className="student-announcement-list">{announcements.slice(0, 3).map((item) => <article key={item.id} className="student-announcement"><span className="student-announcement-tag">{item.category || "Announcement"}</span><h3>{item.title}</h3><p>{item.message}</p></article>)}</div>
+                    {!loadError && (announcements.length ? <div className="student-announcement-list">{announcements.slice(0, 3).map((item) => <article key={item.id} className="student-announcement"><span className="student-announcement-tag">{item.category || "Announcement"}</span><h3>{item.title}</h3><p>{item.message}</p></article>)}</div> : <div className="student-empty student-inline-empty"><h3>No announcements yet</h3><p>Campus updates will appear here.</p></div>)}
                 </>}
 
                 {!loading && view === "events" && <>
@@ -171,7 +169,7 @@ function StudentPortal({ view = "home" }) {
                             {eventCategories.map((category) => <option key={category} value={category}>{category}</option>)}
                         </select>
                     </div>
-                    {filteredEvents.length ? (
+                    {!loadError && (filteredEvents.length ? (
                         <div className="student-card-grid">
                             {filteredEvents.map((event) => <EventCard key={event.id} event={event} onViewDetails={setSelectedEvent} />)}
                         </div>
@@ -181,7 +179,7 @@ function StudentPortal({ view = "home" }) {
                             <p>{upcomingEvents.length ? "Try another title, venue, or category." : "Check back when new campus events are published."}</p>
                             {(eventSearch || eventCategory !== "all") && <button className="student-secondary-button" onClick={() => { setEventSearch(""); setEventCategory("all"); }}>Clear filters</button>}
                         </div>
-                    )}
+                    ))}
                 </>}
 
                 {!loading && view === "my-events" && <>
@@ -208,7 +206,7 @@ function StudentPortal({ view = "home" }) {
                 </form>}
             </div>
 
-            {selectedEvent && <div className="student-modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setSelectedEvent(null); }}><section className="student-event-detail-modal" role="dialog" aria-modal="true" aria-labelledby="student-event-detail-title">
+            {selectedEvent && <div className="student-modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setSelectedEvent(null); }}><section ref={eventDialogRef} tabIndex={-1} className="student-event-detail-modal" role="dialog" aria-modal="true" aria-labelledby="student-event-detail-title">
                 <button className="student-modal-close" type="button" onClick={() => setSelectedEvent(null)} aria-label="Close event details">Ã—</button>
                 {selectedEvent.bannerUrl ? <img className="student-detail-banner" src={selectedEvent.bannerUrl} alt="" /> : <div className="student-detail-banner student-event-banner-placeholder"><IconCalendar size={32} /></div>}
                 <div className="student-detail-content">
@@ -224,7 +222,7 @@ function StudentPortal({ view = "home" }) {
                 </div>
             </section></div>}
 
-            {evaluation && <div className="student-modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setEvaluation(null); }}><form className="student-evaluation-modal" onSubmit={submitEvaluation}>
+            {evaluation && <div className="student-modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setEvaluation(null); }}><form ref={evaluationDialogRef} tabIndex={-1} className="student-evaluation-modal" role="dialog" aria-modal="true" aria-label="Event feedback form" onSubmit={submitEvaluation}>
                 <button className="student-modal-close" type="button" onClick={() => setEvaluation(null)} aria-label="Close">Ã—</button><span className="student-eyebrow">EVENT FEEDBACK</span><h2>{evaluation.name}</h2><p>Your attendance must be checked in before feedback can be submitted.</p>
                 <label>Rating<select value={rating} onChange={(e) => setRating(Number(e.target.value))}>{[5, 4, 3, 2, 1].map((number) => <option key={number} value={number}>{number} {number === 1 ? "star" : "stars"}</option>)}</select></label>
                 <label>Comment<textarea maxLength={5000} rows={4} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Share your feedback (optional)" /></label>
