@@ -281,7 +281,13 @@ export const scannerEventsApi = {
 };
 
 export const authApi = {
-  login: (email, password) => request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  login: (identifier, password) => {
+    const value = identifier.trim();
+    const credentials = value.includes("@")
+      ? { email: value.toLowerCase(), password }
+      : { school_id: value, password };
+    return request("/auth/login", { method: "POST", body: JSON.stringify(credentials) });
+  },
   register: (data) => request("/auth/register", { method: "POST", body: JSON.stringify(data) }),
   sendPasswordResetLink: (email) => request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
   resetPassword: (data) => request("/auth/reset-password", { method: "POST", body: JSON.stringify(data) }),

@@ -39,6 +39,7 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
 
     Route::get('my/attendance-qr', [StudentAttendanceController::class, 'myQr']);
     Route::get('my/attendance', [StudentAttendanceController::class, 'obligations']);
+    Route::get('my/attendance-fines/general-assembly', [StudentAttendanceController::class, 'generalAssemblyDetails']);
     Route::get('my/fines', [StudentAttendanceController::class, 'fines']);
     Route::get('my/fines/payment-options', [StudentAttendanceController::class, 'paymentOptions']);
     Route::post('my/attendance/{event}/appeals', [StudentAttendanceController::class, 'submitAppeal']);

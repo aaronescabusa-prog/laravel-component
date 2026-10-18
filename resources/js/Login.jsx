@@ -3,14 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import "./Login.css";
 import logo from "./assets/Tmc_Logo.png";
 import campusPhoto from "./assets/campus.png";
-import { IconMail, IconLock } from "./components/Icons";
+import { IconUser, IconLock } from "./components/Icons";
 import { authApi, setSession } from "./lib/api";
 import { useAuth } from "./lib/auth";
 
 function Login() {
     const navigate = useNavigate();
     const { setUser } = useAuth();
-    const [email, setEmail] = useState("");
+    const [schoolId, setSchoolId] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
@@ -21,9 +21,18 @@ function Login() {
         e.preventDefault();
         if (isLoading) return;
 
-        const normalizedEmail = email.trim().toLowerCase();
-        if (!normalizedEmail || !password) {
-            setError("Please enter both your email and password.");
+        const normalizedIdentifier = schoolId.trim();
+        const isAdminEmail = normalizedIdentifier.includes("@");
+        if (!normalizedIdentifier || !password) {
+            setError("Enter your School ID or Admin email and password.");
+            return;
+        }
+        if (isAdminEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedIdentifier)) {
+            setError("Enter a valid Admin email address.");
+            return;
+        }
+        if (!isAdminEmail && !/^\d{2}-\d{6}$/.test(normalizedIdentifier)) {
+            setError("Enter a valid School ID in the format 00-000000.");
             return;
         }
 
@@ -31,7 +40,7 @@ function Login() {
         setIsLoading(true);
 
         try {
-            const response = await authApi.login(normalizedEmail, password);
+            const response = await authApi.login(normalizedIdentifier, password);
             if (!response?.user || !response?.token) {
                 setError("Sign-in could not be completed. Please try again.");
                 return;
@@ -61,7 +70,7 @@ function Login() {
                 setError("");
             } else {
                 setSuspendedPopup(null);
-                setError(message || "Email or password is incorrect.");
+                setError(message || "School ID or email and password are incorrect.");
             }
         } finally {
             setIsLoading(false);
@@ -136,22 +145,35 @@ function Login() {
                             <form id="login-form" onSubmit={handleSubmit} aria-busy={isLoading}>
 
                                 <div className="form-group">
-                                    <label htmlFor="email">
-                                        Email address <span className="required" aria-hidden="true"></span>
+                                    <label htmlFor="school-id">
+                                        Email Address <span className="required" aria-hidden="true"></span>
                                     </label>
                                     <div className="auth-input-wrap">
-                                        <IconMail size={18} />
+                                        <IconUser size={18} />
                                         <input
-                                            id="email"
-                                            type="email"
-                                            value={email}
-                                            onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                                            autoComplete="email"
+                                            id="school-id"
+                                            type="text"
+                                            inputMode={schoolId.includes("@") ? "email" : "numeric"}
+                                            maxLength={254}
+                                            value={schoolId}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                if (/[^\d-]/.test(value) || value.includes("@")) {
+                                                    setSchoolId(value);
+                                                } else {
+                                                    const digits = value.replace(/\D/g, "").slice(0, 8);
+                                                    setSchoolId(digits.length > 2
+                                                        ? `${digits.slice(0, 2)}-${digits.slice(2)}`
+                                                        : digits);
+                                                }
+                                                setError("");
+                                            }}
+                                            placeholder=""
+                                            autoComplete="username"
                                             required
                                             disabled={isLoading}
                                         />
                                     </div>
-                                    <span className="field-help"></span>
                                 </div>
 
                                 <div className="form-group">

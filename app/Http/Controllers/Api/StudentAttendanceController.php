@@ -32,6 +32,58 @@ class StudentAttendanceController extends Controller
             ->orderByDesc('finalized_at')->get()->map(fn ($item) => $this->obligationPayload($item)));
     }
 
+    /** Return the authenticated student's General Assembly attendance and fine details. */
+    public function generalAssemblyDetails(Request $request)
+    {
+        abort_unless($request->user()->role === 'Student', 403);
+
+        $obligation = EventObligation::with(['event.attendanceSessions', 'attendances.session', 'fine.payments', 'excuseRequests'])
+            ->where('user_account_id', $request->user()->id)
+            ->whereHas('event', fn ($query) => $query->whereRaw('LOWER(title) LIKE ?', ['%general assembly%']))
+            ->orderByDesc('finalized_at')
+            ->first();
+
+        if (! $obligation || ! $obligation->event) {
+            return response()->json(['message' => 'No General Assembly attendance record is available.'], 404);
+        }
+
+        $event = $obligation->event;
+        $payload = $this->obligationPayload($obligation);
+        $session = collect($payload['attendance'])->first() ?? [];
+        $fine = $payload['fine'] ?? [];
+
+        return response()->json([
+            'event' => [
+                'id' => $event->id,
+                'reference' => $event->reference,
+                'title' => $event->title,
+                'date' => $event->event_date?->format('F j, Y'),
+                'time' => trim(($event->start_time ?? '').' - '.($event->end_time ?? '')),
+                'venue' => $event->venue,
+                'required_participants' => $event->target_department
+                    ? ($event->target_department.' students')
+                    : 'All TMC students',
+            ],
+            'attendance' => [
+                'status' => $payload['attendance_status'],
+                'time_in' => $session['time_in'] ?? null,
+                'time_out' => $session['time_out'] ?? null,
+                'scans_recorded' => $payload['scans_recorded'],
+                'required_scans' => $payload['required_scans'],
+                'appeal_status' => $payload['appeal_status'],
+            ],
+            'fine' => [
+                'amount' => $fine['amount'] ?? null,
+                'paid_amount' => $fine['amount_paid'] ?? null,
+                'adjustment_amount' => 0,
+                'balance' => $fine['outstanding_balance'] ?? null,
+                'assessment_status' => $fine['assessment_status'] ?? 'not_assessed',
+                'payment_status' => $fine['payment_status'] ?? 'not_assessed',
+                'reason' => $fine['reason'] ?? null,
+            ],
+        ]);
+    }
+
     public function fines(Request $request)
     {
         abort_unless($request->user()->role === 'Student', 403);

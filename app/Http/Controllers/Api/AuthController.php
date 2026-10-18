@@ -86,11 +86,17 @@ class AuthController extends Controller
     private function authenticate(Request $request, ?string $requiredRole = null)
     {
         $validated = $request->validate([
-            'email' => ['required', 'email', 'max:255'],
+            // The mobile client signs in with its School ID; the web admin
+            // client continues to use email. Supporting both keeps a single
+            // token endpoint compatible with both clients.
+            'email' => ['required_without:school_id', 'nullable', 'email', 'max:255'],
+            'school_id' => ['required_without:email', 'nullable', 'string', 'max:50'],
             'password' => ['required', 'string', 'max:255'],
         ]);
 
-        $account = UserAccount::where('email', $validated['email'])->first();
+        $account = filled($validated['school_id'] ?? null)
+            ? UserAccount::where('student_id', trim($validated['school_id']))->first()
+            : UserAccount::where('email', $validated['email'])->first();
 
         if (! $account || ! Hash::check($validated['password'], $account->password)) {
             return response()->json(['message' => 'Invalid email or password.'], $requiredRole ? 422 : 401);
@@ -199,6 +205,12 @@ class AuthController extends Controller
     /** Register a mobile-facing student, organizer, or staff account. */
     public function register(Request $request)
     {
+        // The current mobile registration form calls this identifier
+        // `school_id`; the web/API account model stores it as `student_id`.
+        if (! $request->filled('student_id') && $request->filled('school_id')) {
+            $request->merge(['student_id' => $request->input('school_id')]);
+        }
+
         $course = $request->input('course');
         if (is_string($course)) {
             $request->merge(['course' => AcademicStructure::normalizeCourse($course) ?? $course]);
