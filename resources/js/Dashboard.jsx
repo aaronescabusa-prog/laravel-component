@@ -13,7 +13,6 @@ import {
 } from "./components/Icons";
 
 const QUICK_ACTIONS = [
-    { to: "/events", label: "Create Event", icon: IconCalendar },
     { to: "/registrations", label: "Verify Registrations", icon: IconCheckSquare },
     { to: "/certificates", label: "Generate Certificate", icon: IconAward },
     { to: "/reports", label: "View Reports", icon: IconReport },
@@ -88,11 +87,6 @@ function Dashboard() {
         return () => clearInterval(id);
     }, [autoRefresh]);
 
-    function lastUpdatedLabel() {
-        if (!lastUpdated) return "Loading…";
-        return `Last updated ${lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
-    }
-
     // The summary endpoint reports pending event approvals as `events_pending`
     // (ReportController::summary).
     const pendingRequests = Number(summary?.events_pending ?? 0);
@@ -111,27 +105,44 @@ function Dashboard() {
     const eventCategories = Number(summary?.event_categories ?? 0);
     const avgRating = summary?.avg_rating ?? "0.0";
 
-    return (
-        <AppShell title="Dashboard">
-
-        {/* KPI Strip - using KpiCard components */}
-        <div className="kpi-strip">
-          {[
-            { label: "Total Registered Users", value: totalUsers.toLocaleString(), trend: "up", trendLabel: "From the User Accounts list" },
-            { label: "Active Events", value: activeEvents, trend: "up", trendLabel: "from the Events list" },
-            { label: "Events awaiting approval", value: pendingRequests, trend: "", trendLabel: "Admin review required", alert: pendingRequests > 0 },
-            { label: "Certificates Issued", value: issuedCerts, trend: "up", trendLabel: "from the Certificates list" },
-          ].map((kpi, idx) => (
-            <KpiCard
-              key={idx}
-              label={kpi.label}
-              value={summary ? kpi.value : "—"}
-              trend={kpi.trend}
-              trendLabel={kpi.trendLabel}
-              alert={kpi.alert}
-            />
-          ))}
+    const headerActions = (
+        <div className="dash-header-actions">
+            <span className="dash-refresh-stamp" role="status" aria-live="polite">
+                {refreshing ? "Updating…" : lastUpdated
+                    ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                    : "Waiting for data"}
+            </span>
+            <label className="dash-refresh-auto">
+                <input
+                    type="checkbox"
+                    checked={autoRefresh}
+                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                />
+                <span>Auto-refresh</span>
+            </label>
+            <button
+                type="button"
+                className="dash-refresh-btn"
+                onClick={() => setRefreshToken((n) => n + 1)}
+                disabled={refreshing}
+                aria-label="Refresh dashboard data"
+            >
+                {refreshing ? "Refreshing…" : "Refresh"}
+            </button>
+            <NavLink to="/events" className="btn btn-primary dash-create-link">
+                <IconCalendar size={16} />
+                Create event
+            </NavLink>
         </div>
+    );
+
+    return (
+        <AppShell
+            title="Dashboard"
+            subtitle="Monitor events, registrations, and campus activity."
+            headerActions={headerActions}
+        >
+
         {pendingRequests > 0 && (
             <div className="dash-approval-notice" role="status">
                 <div>
@@ -141,30 +152,22 @@ function Dashboard() {
                 <NavLink to="/events" className="dash-approval-link">Review events</NavLink>
             </div>
         )}
-            <div className="dash-refresh-bar">
-                <span className="dash-refresh-stamp">
-                    Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}
-                </span>
-                <div className="dash-refresh-actions">
-                    <label className="dash-refresh-auto">
-                        <input
-                            type="checkbox"
-                            checked={autoRefresh}
-                            onChange={(e) => setAutoRefresh(e.target.checked)}
-                        />
-                        <span>Auto-refresh every 60s</span>
-                    </label>
-                    <button
-                        type="button"
-                        className="dash-refresh-btn"
-                        onClick={() => setRefreshToken((n) => n + 1)}
-                        disabled={refreshing}
-                        aria-label="Refresh dashboard data"
-                    >
-                        ⟳ {refreshing ? "Refreshing…" : "Refresh"}
-                    </button>
-                </div>
-            </div>
+
+        <div className="kpi-strip">
+          {[
+            { label: "Registered users", value: totalUsers.toLocaleString() },
+            { label: "Active events", value: activeEvents },
+            { label: "Pending approvals", value: pendingRequests, alert: pendingRequests > 0 },
+            { label: "Certificates issued", value: issuedCerts },
+          ].map((kpi) => (
+            <KpiCard
+              key={kpi.label}
+              label={kpi.label}
+              value={summary ? kpi.value : "—"}
+              alert={kpi.alert}
+            />
+          ))}
+        </div>
 
             {(loadErrors.summary || loadErrors.events || loadErrors.activity) && (
                 <div className="dash-load-errors" role="alert">
@@ -173,7 +176,7 @@ function Dashboard() {
                 </div>
             )}
 
-            <nav className="dash-actions">
+            <nav className="dash-actions" aria-label="Dashboard shortcuts">
                 {QUICK_ACTIONS.map((action) => (
                     <NavLink key={action.to} to={action.to} className="dash-action-link">
                         {action.icon && <action.icon className="dash-action-icon" size={16} />}

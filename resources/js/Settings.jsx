@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import "./Settings.css";
 import logo from "./assets/Tmc_Logo.png";
 import AppShell from "./components/AppShell";
@@ -54,6 +54,9 @@ function Settings() {
     const [saved, setSaved] = useState(false);
     const [saving, setSaving] = useState(false);
     const [settingsError, setSettingsError] = useState("");
+    const [settingsLoadError, setSettingsLoadError] = useState("");
+    const [settingsLoading, setSettingsLoading] = useState(true);
+    const [settingsReload, setSettingsReload] = useState(0);
 
     const [general, setGeneral] = useState(DEFAULT_GENERAL);
     const [notifications, setNotifications] = useState(DEFAULT_NOTIFICATIONS);
@@ -68,10 +71,20 @@ function Settings() {
     const [permissions, setPermissions] = useState(ROLE_PERMISSIONS);
     const [passwordError, setPasswordError] = useState("");
     const [logoUrl, setLogoUrl] = useState(logo);
+    const [darkTheme, setDarkTheme] = useState(
+        () => localStorage.getItem("eventease-theme") === "dark"
+    );
     const fileInputRef = useRef(null);
+
+    useLayoutEffect(() => {
+        document.documentElement.dataset.theme = darkTheme ? "dark" : "light";
+        localStorage.setItem("eventease-theme", darkTheme ? "dark" : "light");
+    }, [darkTheme]);
 
     useEffect(() => {
         let active = true;
+        setSettingsLoading(true);
+        setSettingsLoadError("");
         settingsApi.get()
             .then((cfg) => {
                 if (!active || !cfg) return;
@@ -108,10 +121,12 @@ function Settings() {
 
                 if (cfg.logo_url) setLogoUrl(cfg.logo_url);
             })
-            .catch(() => {})
-            .finally(() => { if (active) setSettingsError(""); });
+            .catch((err) => {
+                if (active) setSettingsLoadError(err.message || "Settings could not be loaded.");
+            })
+            .finally(() => { if (active) setSettingsLoading(false); });
         return () => { active = false; };
-    }, []);
+    }, [settingsReload]);
 
     function showSaved() {
         setSaved(true);
@@ -223,7 +238,13 @@ function Settings() {
         <AppShell title="Settings" prefix="settings-" logoSrc={logoUrl}>
 
             {saved && !settingsError && <div className="settings-toast">Changes saved successfully.</div>}
-            {settingsError && <div className="settings-error">{settingsError}</div>}
+            {settingsError && <div className="settings-error" role="alert">{settingsError}</div>}
+            {settingsLoadError && <div className="settings-error settings-load-error" role="alert">
+                <span>Could not load saved settings{settingsLoading ? "…" : `: ${settingsLoadError}`}. Default values are shown until settings load successfully.</span>
+                <button type="button" className="settings-btn settings-btn-secondary" onClick={() => setSettingsReload((value) => value + 1)} disabled={settingsLoading}>
+                    {settingsLoading ? "Retrying…" : "Retry"}
+                </button>
+            </div>}
 
             <div className="settings-layout">
 
@@ -290,6 +311,26 @@ function Settings() {
                                             <option>Asia/Singapore (GMT+8)</option>
                                             <option>UTC</option>
                                         </select>
+                                    </div>
+                                </div>
+
+                                <div className="settings-form-group settings-form-row-split">
+                                    <div className="settings-form-group">
+                                        <label htmlFor="themeToggle">Appearance</label>
+                                        <button
+                                            id="themeToggle"
+                                            type="button"
+                                            className={`settings-toggle-switch ${darkTheme ? "on" : ""}`}
+                                            onClick={() => setDarkTheme((current) => !current)}
+                                            role="switch"
+                                            aria-checked={darkTheme}
+                                            aria-label={`Switch to ${darkTheme ? "light" : "dark"} theme`}
+                                        >
+                                            <span className="settings-toggle-knob" />
+                                            <span className="settings-toggle-label">
+                                                {darkTheme ? "Dark mode" : "Light mode"}
+                                            </span>
+                                        </button>
                                     </div>
                                 </div>
 

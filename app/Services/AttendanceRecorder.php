@@ -254,10 +254,26 @@ class AttendanceRecorder
      */
     private function rowFor(AttendanceSession $session, Registration $registration): Attendance
     {
-        return Attendance::firstOrCreate([
-            'attendance_session_id' => $session->id,
-            'registration_id' => $registration->id,
-        ]);
+        $attendance = Attendance::firstOrCreate(
+            [
+                'attendance_session_id' => $session->id,
+                'registration_id' => $registration->id,
+            ],
+            ['event_id' => $session->event_id]
+        );
+
+        if ($attendance->event_id !== $session->event_id) {
+            $attendance->forceFill(['event_id' => $session->event_id])->save();
+        }
+        $studentId = $registration->userAccount?->student_id;
+        if ($studentId !== null && $attendance->student_id !== $studentId) {
+            $attendance->forceFill(['student_id' => $studentId])->save();
+        }
+        if ($attendance->full_name !== $registration->participant) {
+            $attendance->forceFill(['full_name' => $registration->participant])->save();
+        }
+
+        return $attendance;
     }
 
     private function guardSession(AttendanceSession $session): void

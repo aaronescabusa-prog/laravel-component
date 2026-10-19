@@ -1141,6 +1141,8 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                                 <th className="checkin-th-sortable" onClick={() => toggleRosterSort("participant")}>
                                     Participant <SortIcon active={rosterSortKey === "participant"} dir={rosterSortDir} />
                                 </th>
+                                <th>Student ID</th>
+                                <th>Event ID</th>
                                 <th>Department</th>
                                 <th>Course</th>
                                 <th>Year</th>
@@ -1170,10 +1172,10 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                         </thead>
                         <tbody>
                             {loading && (
-                                <tr><td className="regs-empty-row" colSpan={viewingAllSessions ? 8 + sessions.length : 11}>Loading roster…</td></tr>
+                                <tr><td className="regs-empty-row" colSpan={viewingAllSessions ? 10 + sessions.length : 13}>Loading roster…</td></tr>
                             )}
                             {!loading && filtered.length === 0 && (
-                                <tr><td className="regs-empty-row" colSpan={viewingAllSessions ? 8 + sessions.length : 11}>No participants match those filters.</td></tr>
+                                <tr><td className="regs-empty-row" colSpan={viewingAllSessions ? 10 + sessions.length : 13}>No participants match those filters.</td></tr>
                             )}
                             {rosterPager.pageRows.map((row) => {
                                 const state = activeSession ? row.sessions?.[String(activeSession.id)] : null;
@@ -1200,6 +1202,8 @@ function CheckInDesk({ token, user, handleLogout, navOpen, setNavOpen, showToast
                                                 </div>
                                             </div>
                                         </td>
+                                        <td className="regs-cell-muted">{row.student_id ?? "—"}</td>
+                                        <td className="regs-cell-muted">{row.event_reference ?? eventInfo?.reference ?? "—"}</td>
                                         <td className="regs-cell-muted">{row.department_name ?? row.department ?? "—"}</td>
                                         <td className="regs-cell-muted">{row.course ?? "—"}</td>
                                         <td className="regs-cell-muted">{row.year ?? "—"}</td>

@@ -50,7 +50,21 @@ class RegistrationController extends Controller
         }
 
         if ($request->filled('event_reference')) {
-            $query->whereHas('eventRelation', fn ($event) => $event->where('reference', $request->string('event_reference')->toString()));
+            $event = Event::query()
+                ->where('reference', $request->string('event_reference')->toString())
+                ->first();
+
+            if ($event) {
+                $query->where(function ($registrations) use ($event) {
+                    $registrations->where('event_id', $event->id)
+                        ->orWhere(function ($legacy) use ($event) {
+                            $legacy->whereNull('event_id')
+                                ->where('event', $event->title);
+                        });
+                });
+            } else {
+                $query->whereRaw('1 = 0');
+            }
         }
 
         if ($request->filled('payment_status')) {

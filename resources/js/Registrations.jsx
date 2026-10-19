@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import "./Registrations.css";
 import AppShell from "./components/AppShell";
 import Toast from "./components/Toast";
@@ -34,6 +35,16 @@ function initialsOf(text) {
         .toUpperCase();
 }
 
+function formatEventSchedule(event) {
+    const formatDate = (value) => {
+        if (!value) return "Date to be announced";
+        const date = new Date(`${value}T00:00:00`);
+        return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+    };
+    const start = formatDate(event.date);
+    return event.endDate && event.endDate !== event.date ? `${start} – ${formatDate(event.endDate)}` : start;
+}
+
 function Registrations() {
     const { toast, showToast, dismissToast } = useToast();
     const [registrations, setRegistrations] = useCollection("registrations", (msg) => showToast(msg, "danger"));
@@ -55,7 +66,7 @@ function Registrations() {
     useEffect(() => {
         let active = true;
         api.list("events")
-            .then((rows) => { if (active) setEventOptions(rows.map((e) => mapEventFromApi(e).name)); })
+            .then((rows) => { if (active) setEventOptions(rows.map(mapEventFromApi)); })
             .catch(() => {});
         return () => { active = false; };
     }, []);
@@ -78,6 +89,7 @@ function Registrations() {
         matchingRows: filteredRows,
         resetKey: [search, eventFilter].join("|"),
     });
+    const viewingEvent = eventOptions.find((event) => event.name === viewingItem?.event);
 
     function toggleAttendance(row) {
         const next = row.attendance === "Present" ? "Not Yet Recorded" : "Present";
@@ -208,7 +220,7 @@ function Registrations() {
             email: "",
             role: "Student",
             blockNo: "",
-            event: eventOptions[0] ?? "",
+            event: eventOptions[0]?.name ?? "",
             regDate: dateKey(),
             payment: "Free",
             paymentStatus: "N/A",
@@ -335,6 +347,7 @@ function Registrations() {
                 <div className="regs-panel-header">
                     <h2>{eventFilter === "all" ? "All Registrations" : `Registrations · ${eventFilter}`}</h2>
                     <div className="regs-panel-actions">
+                        <Link className="regs-btn regs-btn-secondary regs-return-link" to="/events"><span aria-hidden="true">←</span> Back to Events</Link>
                         <button className="regs-btn regs-btn-secondary" onClick={checkDuplicates}>Check Duplicates</button>
                         <button className="regs-btn regs-btn-primary" onClick={openCreateReg}>+ Add Registration</button>
                     </div>
@@ -449,6 +462,7 @@ function Registrations() {
                                             <span className="regs-row-avatar">{initialsOf(row.participant)}</span>
                                             <div className="regs-cell-text">
                                                 <span className="regs-cell-name">{row.participant}</span>
+                                                <span className="regs-cell-email">{row.email || "No email on file"}</span>
                                                 <span className="regs-cell-id">{row.id}</span>
                                             </div>
                                         </div>
@@ -519,6 +533,11 @@ function Registrations() {
                                 <dt>Role</dt><dd>{viewingItem.role || "Student"}</dd>
                                 <dt>Block No.</dt><dd>{viewingItem.blockNo || "—"}</dd>
                                 <dt>Event</dt><dd>{viewingItem.event}</dd>
+                                {viewingEvent && <>
+                                    <dt>Event Schedule</dt><dd>{formatEventSchedule(viewingEvent)}{viewingEvent.startTime ? ` · ${viewingEvent.startTime}` : ""}{viewingEvent.endTime ? `–${viewingEvent.endTime}` : ""}</dd>
+                                    <dt>Venue</dt><dd>{viewingEvent.venue || "—"}</dd>
+                                    <dt>Organizer</dt><dd>{viewingEvent.organizer || "—"}</dd>
+                                </>}
                                 <dt>Registration Date</dt><dd>{viewingItem.regDate}</dd>
                                 <dt>Payment</dt><dd>{viewingItem.payment} — {viewingItem.paymentStatus}</dd>
                                 <dt>Attendance</dt><dd>{viewingItem.attendance}</dd>
@@ -601,7 +620,7 @@ function Registrations() {
                                     value={editingReg.event}
                                     onChange={(e) => setEditingReg({ ...editingReg, event: e.target.value })}
                                 >
-                                    {eventOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+                                    {eventOptions.map((event) => <option key={event.id} value={event.name}>{event.name}</option>)}
                                 </select>
                             </div>
 

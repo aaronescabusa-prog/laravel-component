@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import logo from "../assets/Tmc_Logo.png";
 import { initialsOf, roleLabel, useAuth } from "../lib/auth";
-import { NAV_ITEMS, visibleNavItems } from "../lib/nav";
+import { IconPower } from "./Icons";
+import { visibleNavItems } from "../lib/nav";
 
 /**
  * Shared admin shell: sidebar + topbar + mobile backdrop.
@@ -19,10 +20,25 @@ import { NAV_ITEMS, visibleNavItems } from "../lib/nav";
 function AppShell({ title, subtitle = null, prefix = "", headerActions = null, children }) {
     const { user, logout } = useAuth();
     const [navOpen, setNavOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(
+        () => localStorage.getItem("eventease-sidebar-collapsed") === "true"
+    );
+    const [darkTheme, setDarkTheme] = useState(
+        () => localStorage.getItem("eventease-theme") === "dark"
+    );
     const menuToggleRef = useRef(null);
     const closeNav = () => setNavOpen(false);
     const items = visibleNavItems(user?.role);
     const isStudent = user?.role === "Student";
+
+    useEffect(() => {
+        localStorage.setItem("eventease-sidebar-collapsed", String(sidebarCollapsed));
+    }, [sidebarCollapsed]);
+
+    useLayoutEffect(() => {
+        document.documentElement.dataset.theme = darkTheme ? "dark" : "light";
+        localStorage.setItem("eventease-theme", darkTheme ? "dark" : "light");
+    }, [darkTheme]);
 
     useEffect(() => {
         if (!navOpen) return undefined;
@@ -89,6 +105,7 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
 
         return (
             <div className={`student-app-shell${navOpen ? " nav-open" : ""}`}>
+                <a className="skip-link" href="#main-content">Skip to main content</a>
                 <header className="student-app-header">
                     <div className="student-app-header-inner">
                         <NavLink to="/dashboard" className="student-app-brand" onClick={closeNav}>
@@ -124,7 +141,7 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
                             </button>
                     </div>
                 </header>
-                <main className="student-app-main">
+                <main className="student-app-main" id="main-content" tabIndex={-1}>
                     {title !== "Welcome to EventEase" && title !== "Explore Events" && (
                         <div className="student-page-heading">
                             <span>STUDENT PORTAL</span>
@@ -139,7 +156,8 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
     }
 
     return (
-        <div className={`${shellClass}${navOpen ? " nav-open" : ""}`}>
+        <div className={`${shellClass}${navOpen ? " nav-open" : ""}${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+            <a className="skip-link" href="#main-content">Skip to main content</a>
             <aside className={sidebarClass} id="primary-navigation" aria-label="Primary navigation">
                 <div className={`${sidebarClass}-brand`}>
                     <img src={logo} alt="TMC Logo" className={`${sidebarClass}-logo`} />
@@ -147,6 +165,19 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
                         <span className={`${sidebarClass}-title`}>TMC EventEase</span>
                         <span className={`${sidebarClass}-subtitle`}>{roleLabel(user?.role)}</span>
                     </div>
+                    <button
+                        type="button"
+                        className="sidebar-collapse-toggle"
+                        onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+                        aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                        aria-expanded={!sidebarCollapsed}
+                        aria-controls="primary-navigation"
+                        title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    >
+                        <svg className="sidebar-collapse-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="m15 18-6-6 6-6" />
+                        </svg>
+                    </button>
                 </div>
 
                 <nav className={`${sidebarClass}-nav`}>
@@ -158,9 +189,11 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
                                 `${sidebarClass}-link${isActive ? " active" : ""}`
                             }
                             onClick={closeNav}
+                            aria-label={item.label}
+                            title={sidebarCollapsed ? item.label : undefined}
                         >
                             {item.icon ? <item.icon className="sidebar-link-icon" size={17} /> : null}
-                            {item.label}
+                            <span className="sidebar-link-label">{item.label}</span>
                         </NavLink>
                     ))}
                 </nav>
@@ -169,8 +202,11 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
                     <button
                         className={`${sidebarClass}-logout`}
                         onClick={logout}
+                        aria-label="Log out"
+                        title={sidebarCollapsed ? "Log out" : undefined}
                     >
-                        Log out
+                        <IconPower size={17} />
+                        <span className="sidebar-logout-label">Log out</span>
                     </button>
                 </div>
             </aside>
@@ -219,7 +255,7 @@ function AppShell({ title, subtitle = null, prefix = "", headerActions = null, c
                     </div>
                 </header>
 
-                <main className={prefix ? `${prefix}page-content` : "page-content"}>
+                <main className={prefix ? `${prefix}page-content` : "page-content"} id="main-content" tabIndex={-1}>
                     {children}
                 </main>
             </div>

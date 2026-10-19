@@ -149,6 +149,35 @@ test('the roster lists every participant with both sessions for the scanned even
         ->and($response->json('counts.fully_recorded'))->toBe(0);
 });
 
+test('student IDs are included in the check-in roster and copied to attendance records', function () {
+    $event = checkInEvent();
+    $sessions = checkInSessions($event);
+    $student = UserAccount::create([
+        'reference' => 'USR-STU-CHK-ID',
+        'name' => 'Ana Cruz',
+        'email' => 'ana.student-id@student.tmc.test',
+        'student_id' => '2026-0001',
+        'role' => 'Student',
+        'status' => 'Active',
+        'password' => 'password',
+    ]);
+    $attendee = checkInAttendee($event, 'Ana Cruz', 1);
+    $attendee->forceFill(['user_account_id' => $student->id])->save();
+
+    Sanctum::actingAs(checkInStaff('Admin'));
+
+    $this->getJson("/api/checkin/{$event->checkin_token}")
+        ->assertOk()
+        ->assertJsonPath('event.reference', 'EVE-CHK-1')
+        ->assertJsonPath('roster.0.student_id', '2026-0001');
+
+    punch($sessions['Morning'], $attendee)->assertOk();
+
+    expect($attendee->attendances()->first()->student_id)->toBe('2026-0001')
+        ->and($attendee->attendances()->first()->full_name)->toBe('Ana Cruz')
+        ->and($attendee->attendances()->first()->event_id)->toBe($event->id);
+});
+
 test('an unknown token is not found', function () {
     Sanctum::actingAs(checkInStaff('Admin'));
 

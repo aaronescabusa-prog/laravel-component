@@ -238,7 +238,16 @@ body {
 
 .regs-panel-actions {
     display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
+}
+
+.regs-return-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    text-decoration: none;
 }
 
 /* ---------- Duplicate check banner ---------- */
@@ -411,6 +420,12 @@ body {
 .regs-cell-name {
     font-weight: 500;
     color: #1a1f26;
+}
+
+.regs-cell-email {
+    overflow-wrap: anywhere;
+    font-size: 11px;
+    color: #6b7280;
 }
 
 .regs-cell-id {
@@ -698,5 +713,166 @@ body {
     }
     .regs-btn-toolbar {
         margin-left: 0;
+    }
+}
+
+/* ---------- Registrations phase 3 visual refinement ---------- */
+
+:root .regs-shell .regs-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+:root .regs-shell .regs-kpi-item {
+    min-width: 0;
+    min-height: 84px;
+    padding: 15px 17px;
+    border: 1px solid var(--ui-border, #e3e9f1);
+    border-radius: 10px;
+    background: var(--ui-surface, #fff);
+    box-shadow: none;
+}
+
+:root .regs-shell .regs-kpi-label {
+    color: var(--ui-text-muted, #596b81);
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+}
+
+:root .regs-shell .regs-kpi-value {
+    margin-top: 6px;
+    color: var(--ui-text, #15263d);
+    font-variant-numeric: tabular-nums;
+}
+
+:root .regs-shell .regs-kpi-alert {
+    border-left: 3px solid var(--ui-gold-strong, #e3a900);
+}
+
+:root .regs-shell .regs-panel {
+    border: 1px solid var(--ui-border, #e3e9f1);
+    border-radius: 10px;
+    background: var(--ui-surface, #fff);
+    box-shadow: none;
+}
+
+:root .regs-shell .regs-panel-header {
+    align-items: center;
+    gap: 14px;
+}
+
+:root .regs-shell .regs-panel-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+:root .regs-shell .regs-toolbar {
+    align-items: center;
+    gap: 9px;
+    margin: 14px 0 10px;
+}
+
+:root .regs-shell .regs-input-search {
+    min-height: 42px;
+    border-radius: 8px;
+}
+
+:root .regs-shell .regs-table-wrapper {
+    border: 1px solid var(--ui-border, #e3e9f1);
+    border-radius: 9px;
+    background: var(--ui-surface, #fff);
+}
+
+:root .regs-shell .regs-table-wrapper th {
+    background: var(--ui-surface-muted, #f8fafc);
+    color: var(--ui-text-muted, #596b81);
+    font-size: 10.5px;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+}
+
+:root .regs-shell .regs-table-wrapper td {
+    color: var(--ui-text, #15263d);
+}
+
+:root .regs-shell .regs-table-wrapper tbody tr:hover {
+    background: var(--ui-surface-hover, #f8fafd);
+}
+
+:root .regs-shell .regs-cell-email,
+:root .regs-shell .regs-cell-id {
+    color: var(--ui-text-muted, #596b81);
+}
+
+:root .regs-shell .regs-modal-card {
+    width: min(560px, 100%);
+    max-width: 560px;
+    border: 1px solid var(--ui-border, #e3e9f1);
+    border-radius: 12px;
+}
+
+:root .regs-shell .regs-modal-header,
+:root .regs-shell .regs-modal-footer {
+    position: sticky;
+    z-index: 1;
+    background: var(--ui-surface, #fff);
+}
+
+:root .regs-shell .regs-modal-header {
+    top: 0;
+}
+
+:root .regs-shell .regs-modal-footer {
+    bottom: 0;
+}
+
+:root .regs-shell .regs-qr-block {
+    border-radius: 10px;
+    background: var(--ui-surface-muted, #f8fafc);
+}
+
+:root .regs-shell :is(.regs-btn, .regs-input-search, .regs-input-select, .form-group input, .form-group select):focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--ui-accent, #1b5a83) 28%, transparent);
+    outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+    :root .regs-shell .regs-kpi-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    :root .regs-shell .regs-panel {
+        padding: 14px;
+    }
+
+    :root .regs-shell .regs-panel-actions {
+        justify-content: stretch;
+    }
+
+    :root .regs-shell .regs-panel-actions .regs-btn {
+        flex: 1 1 calc(50% - 8px);
+        justify-content: center;
+    }
+
+    :root .regs-shell .regs-modal-card {
+        max-height: calc(100dvh - 24px);
+    }
+
+    :root .regs-shell .regs-modal-footer {
+        flex-wrap: wrap;
+    }
+
+    :root .regs-shell .regs-modal-footer .regs-btn {
+        flex: 1 1 140px;
+        justify-content: center;
     }
 }

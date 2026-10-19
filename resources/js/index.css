@@ -142,6 +142,41 @@
   --ui-ring: 0 0 0 3px rgba(255, 202, 27, 0.5), 0 0 0 5px rgba(4, 29, 56, 0.55);
 }
 
+/* Keep the updated app palette scoped to authenticated layouts. */
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell, .student-app-shell) {
+  --ui-bg: #f5f7fb;
+  --ui-bg-soft: #edf2f8;
+  --ui-border: #e3e9f1;
+  --ui-border-subtle: rgba(227, 233, 241, 0.82);
+  --ui-text: #15263d;
+  --ui-text-muted: #596b81;
+  --ui-text-soft: #78889b;
+  --ui-primary: #0b3155;
+  --ui-primary-strong: #06233f;
+  --ui-primary-soft: #eaf1f7;
+  --ui-accent: #1b5a83;
+  --ui-navy-900: #06233f;
+  --ui-navy-800: #0b3155;
+  --ui-navy-700: #1b5a83;
+  --ui-sidebar-text: #dbe6f2;
+  --ui-sidebar-text-muted: #aebfd2;
+  --ui-gold: #ffca1b;
+  --ui-gold-strong: #e3a900;
+  --ui-gold-hover: #f2b91f;
+  --ui-gold-soft: #fff8df;
+  --ui-gold-border: rgba(255, 202, 27, 0.45);
+  --ui-sidebar-width: 264px;
+  --ui-topbar-height: 64px;
+  --ui-topbar-padding: 10px 28px;
+  --ui-admin-page-padding: clamp(16px, 1.5vw + 10px, 30px) clamp(16px, 2vw + 8px, 32px) 32px;
+  --ui-radius-lg: 12px;
+  --ui-radius-xl: 16px;
+  --ui-bento-radius: 12px;
+  --ui-bento-shadow: 0 1px 2px rgba(15, 35, 59, 0.025);
+  --ui-bento-shadow-hover: 0 8px 22px -16px rgba(15, 35, 59, 0.2);
+  --ui-ring: 0 0 0 3px rgba(27, 90, 131, 0.16);
+}
+
 /* ------------------------------ Base reset ------------------------------ */
 
 *,

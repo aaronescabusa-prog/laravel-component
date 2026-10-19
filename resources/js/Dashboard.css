@@ -950,3 +950,135 @@ tbody tr:hover {
         margin-left: 0;
     }
 }
+
+/* ---------- Dashboard phase 1 refinement ---------- */
+
+:root .app-shell .dash-bento-grid {
+    gap: 16px;
+}
+
+:root .app-shell .dash-bento-card {
+    padding: 20px;
+    background: var(--ui-surface, #fff);
+    border: 1px solid var(--ui-border, #e3e9f1);
+    border-radius: 12px;
+    box-shadow: none;
+    transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+:root .app-shell .dash-bento-card:hover {
+    transform: none;
+    border-color: var(--ui-border-strong, #cbd7e4);
+    box-shadow: none;
+}
+
+:root .app-shell .dash-panel-header {
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-color: var(--ui-border-subtle, #e8edf3);
+}
+
+:root .app-shell .dash-panel-header h2 {
+    color: var(--ui-text, #15263d);
+    font-size: 15px;
+    font-weight: 650;
+}
+
+:root .app-shell .dash-link,
+:root .app-shell .dash-approval-link,
+:root .app-shell .dash-action-link {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+}
+
+:root .app-shell .dash-action-link {
+    padding: 8px 12px;
+    border-color: var(--ui-border, #e3e9f1);
+    border-radius: 9px;
+    background: var(--ui-surface, #fff);
+    color: var(--ui-primary, #0b3155);
+    box-shadow: none;
+    transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+:root .app-shell .dash-action-link:hover {
+    transform: none;
+    border-color: var(--ui-border-strong, #cbd7e4);
+    background: var(--ui-surface-hover, #f8fafd);
+    box-shadow: none;
+}
+
+:root .app-shell .dash-approval-notice {
+    border-color: var(--ui-gold-border, rgba(255, 202, 27, 0.45));
+    border-left-color: var(--ui-gold-strong, #e3a900);
+    border-radius: 10px;
+    background: var(--ui-gold-soft, #fff8df);
+}
+
+:root .app-shell .dash-approval-notice strong {
+    color: var(--ui-text, #15263d);
+}
+
+:root .app-shell .dash-approval-link {
+    justify-content: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--ui-primary, #0b3155);
+}
+
+:root .app-shell .dash-approval-link:hover {
+    background: var(--ui-primary-strong, #06233f);
+}
+
+:root .app-shell .dash-bento-card .table-wrapper {
+    border: 0;
+    border-radius: 0;
+}
+
+:root .app-shell .dash-bento-card table th {
+    color: var(--ui-text-muted, #596b81);
+    font-size: 11px;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+}
+
+:root .app-shell .dash-bento-card table td {
+    color: var(--ui-text, #15263d);
+}
+
+:root .app-shell .dash-bento-card .dash-feed-item {
+    border-bottom-color: var(--ui-border-subtle, #e8edf3);
+    border-radius: 0;
+    transition: background-color 140ms ease;
+}
+
+:root .app-shell .dash-bento-card .dash-feed-item:hover {
+    padding-left: 6px;
+    background: var(--ui-surface-hover, #f8fafd);
+}
+
+:root .app-shell :is(.dash-link, .dash-action-link, .dash-approval-link, .dash-refresh-btn, .dash-create-link):focus-visible {
+    outline: 3px solid var(--ui-accent, #1b5a83);
+    outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+    :root .app-shell .dash-bento-card {
+        padding: 16px;
+    }
+
+    :root .app-shell .dash-header-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root .app-shell .dash-bento-card,
+    :root .app-shell .dash-action-link,
+    :root .app-shell .dash-feed-item {
+        transition: none;
+    }
+}

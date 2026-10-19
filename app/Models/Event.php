@@ -111,6 +111,7 @@ class Event extends Model
             'attendance_correction_deadline' => 'datetime',
             'excuse_deadline' => 'datetime',
             'attendance_roster_finalized_at' => 'datetime',
+            'archived_at' => 'datetime',
         ];
     }
 

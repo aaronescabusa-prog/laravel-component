@@ -303,3 +303,79 @@
     font-weight: 400;
     white-space: nowrap;
 }
+
+/* ---------- Check-in workspace phase 3 visual refinement ---------- */
+
+:root :is(.app-shell, .regs-shell) .checkin-session-tabs {
+    gap: 8px;
+    padding-bottom: 12px;
+}
+
+:root :is(.app-shell, .regs-shell) .checkin-session-tab {
+    min-height: 68px;
+    padding: 11px 14px;
+    border-radius: 9px;
+    box-shadow: none;
+}
+
+:root :is(.app-shell, .regs-shell) .checkin-session-tab.active {
+    border-color: var(--ui-primary, #0b3155);
+    box-shadow: inset 0 -2px 0 var(--ui-primary, #0b3155);
+}
+
+:root :is(.app-shell, .regs-shell) .checkin-session-state {
+    letter-spacing: 0.045em;
+}
+
+:root :is(.app-shell, .regs-shell) .checkin-session-bar,
+:root :is(.app-shell, .regs-shell) .checkin-bulk {
+    border-radius: 9px;
+    background: var(--ui-surface-muted, #f8fafc);
+}
+
+:root :is(.app-shell, .regs-shell) .checkin-window-form {
+    border-style: solid;
+    border-radius: 9px;
+}
+
+:root :is(.app-shell, .regs-shell) .checkin-results-count {
+    font-variant-numeric: tabular-nums;
+}
+
+:root :is(.app-shell, .regs-shell) .checkin-th-sortable:focus-visible,
+:root :is(.app-shell, .regs-shell) .checkin-session-tab:focus-visible,
+:root :is(.app-shell, .regs-shell) .checkin-window-form input:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--ui-accent, #1b5a83) 28%, transparent);
+    outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+    :root :is(.app-shell, .regs-shell) .checkin-session-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    :root :is(.app-shell, .regs-shell) .checkin-session-tab {
+        min-width: 0;
+    }
+
+    :root :is(.app-shell, .regs-shell) .checkin-session-bar {
+        align-items: stretch;
+    }
+
+    :root :is(.app-shell, .regs-shell) .checkin-session-actions,
+    :root :is(.app-shell, .regs-shell) .checkin-window-actions {
+        flex-wrap: wrap;
+    }
+
+    :root :is(.app-shell, .regs-shell) .checkin-window-form {
+        align-items: stretch;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root :is(.app-shell, .regs-shell) .checkin-session-tab,
+    :root :is(.app-shell, .regs-shell) .checkin-sort-icon {
+        transition: none;
+    }
+}

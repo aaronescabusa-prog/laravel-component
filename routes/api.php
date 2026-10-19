@@ -39,6 +39,9 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
 
     Route::get('my/attendance-qr', [StudentAttendanceController::class, 'myQr']);
     Route::get('my/attendance', [StudentAttendanceController::class, 'obligations']);
+    Route::get('my/announcements', [AnnouncementController::class, 'myAnnouncements']);
+    Route::get('my/evaluations', [EvaluationController::class, 'myEvaluations'])
+        ->middleware('role:evaluations');
     Route::get('my/attendance-fines/general-assembly', [StudentAttendanceController::class, 'generalAssemblyDetails']);
     Route::get('my/fines', [StudentAttendanceController::class, 'fines']);
     Route::get('my/fines/payment-options', [StudentAttendanceController::class, 'paymentOptions']);
@@ -74,6 +77,10 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
         Route::post('user-accounts', [UserAccountController::class, 'store']);
         Route::delete('user-accounts/{user_account}', [UserAccountController::class, 'destroy']);
 
+        Route::get('events/archived', [EventController::class, 'archivedIndex']);
+        Route::post('events/{event}/archive', [EventController::class, 'archive']);
+        Route::post('events/{event}/restore', [EventController::class, 'restore']);
+
         Route::apiResource('activity-logs', ActivityLogController::class)->except(['update']);
 
         Route::post('announcements', [AnnouncementController::class, 'store']);
@@ -83,6 +90,7 @@ Route::middleware(['auth:sanctum', 'active', 'throttle:api'])->group(function ()
 
         Route::get('events/{event}/scanners', [EventScannerController::class, 'index']);
         Route::put('events/{event}/scanners', [EventScannerController::class, 'update']);
+        Route::put('events/scanners/assign-all', [EventScannerController::class, 'assignToAllEvents']);
 
         Route::post('certificates/template', [CertificateController::class, 'uploadTemplate']);
         Route::get('certificates/templates', [CertificateController::class, 'templates']);

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Announcement;
 use App\Models\UserAccount;
+use App\Support\AcademicStructure;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -69,6 +70,11 @@ class AnnouncementController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'message' => ['required', 'string'],
             'audience' => ['required', 'string', Rule::in(['All Users', 'Students'])],
+            'target_role' => ['nullable', 'string', Rule::in(['All', 'Admin', 'Student'])],
+            'target_department' => ['nullable', 'string', Rule::in(array_column(AcademicStructure::DEPARTMENTS, 'code'))],
+            'target_course' => ['nullable', 'string', Rule::in(AcademicStructure::COURSES)],
+            'target_year' => ['nullable', 'string', Rule::in(AcademicStructure::YEARS)],
+            'target_block' => ['nullable', 'string', 'max:50'],
             'category' => ['required', 'string', Rule::in(['General', 'Event', 'Emergency', 'Maintenance'])],
             'status' => ['required', 'string', Rule::in(['Draft', 'Scheduled', 'Published'])],
             'publish_date' => ['nullable', 'date'],
@@ -101,6 +107,11 @@ class AnnouncementController extends Controller
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'message' => ['sometimes', 'required', 'string'],
             'audience' => ['sometimes', 'required', 'string', Rule::in(['All Users', 'Students'])],
+            'target_role' => ['sometimes', 'nullable', 'string', Rule::in(['All', 'Admin', 'Student'])],
+            'target_department' => ['sometimes', 'nullable', 'string', Rule::in(array_column(AcademicStructure::DEPARTMENTS, 'code'))],
+            'target_course' => ['sometimes', 'nullable', 'string', Rule::in(AcademicStructure::COURSES)],
+            'target_year' => ['sometimes', 'nullable', 'string', Rule::in(AcademicStructure::YEARS)],
+            'target_block' => ['sometimes', 'nullable', 'string', 'max:50'],
             'category' => ['sometimes', 'required', 'string', Rule::in(['General', 'Event', 'Emergency', 'Maintenance'])],
             'status' => ['sometimes', 'required', 'string', Rule::in(['Draft', 'Scheduled', 'Published'])],
             'publish_date' => ['nullable', 'date'],
@@ -135,7 +146,26 @@ class AnnouncementController extends Controller
         }
 
         $query->where('status', 'Published')
-            ->whereIn('audience', $this->audiencesFor($user));
+            ->where(function ($publish): void {
+                $publish->whereNull('publish_date')
+                    ->orWhereDate('publish_date', '<=', now()->toDateString());
+            })
+            ->whereIn('audience', $this->audiencesFor($user))
+            ->where(function ($target) use ($user): void {
+                $target->whereNull('target_role')->orWhere('target_role', 'All')->orWhere('target_role', $user?->role);
+            })
+            ->where(function ($target) use ($user): void {
+                $target->whereNull('target_department')->orWhere('target_department', $user?->department);
+            })
+            ->where(function ($target) use ($user): void {
+                $target->whereNull('target_course')->orWhereRaw('LOWER(TRIM(target_course)) = ?', [mb_strtolower(trim((string) $user?->course))]);
+            })
+            ->where(function ($target) use ($user): void {
+                $target->whereNull('target_year')->orWhereRaw('LOWER(TRIM(target_year)) = ?', [mb_strtolower(trim((string) $user?->year))]);
+            })
+            ->where(function ($target) use ($user): void {
+                $target->whereNull('target_block')->orWhereRaw('LOWER(TRIM(target_block)) = ?', [mb_strtolower(trim((string) $user?->block_no))]);
+            });
     }
 
     /** Whether a single announcement is visible to the given account. */
@@ -146,7 +176,13 @@ class AnnouncementController extends Controller
         }
 
         return $announcement->status === 'Published'
-            && in_array($announcement->audience, $this->audiencesFor($user), true);
+            && ($announcement->publish_date === null || $announcement->publish_date->toDateString() <= now()->toDateString())
+            && in_array($announcement->audience, $this->audiencesFor($user), true)
+            && (blank($announcement->target_role) || $announcement->target_role === 'All' || $announcement->target_role === $user?->role)
+            && (blank($announcement->target_department) || $announcement->target_department === $user?->department)
+            && (blank($announcement->target_course) || strcasecmp(trim($announcement->target_course), trim((string) $user?->course)) === 0)
+            && (blank($announcement->target_year) || strcasecmp(trim($announcement->target_year), trim((string) $user?->year)) === 0)
+            && (blank($announcement->target_block) || strcasecmp(trim($announcement->target_block), trim((string) $user?->block_no)) === 0);
     }
 
     private function isManager(?UserAccount $user): bool
@@ -169,5 +205,11 @@ class AnnouncementController extends Controller
         }
 
         return $audiences;
+    }
+    public function myAnnouncements(Request $request)
+    {
+        abort_unless($request->user()?->role === 'Student', 403);
+
+        return $this->index($request);
     }
 }

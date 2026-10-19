@@ -12,6 +12,7 @@ function Icon({ size = 16, children, ...rest }) {
             strokeWidth: 2,
             strokeLinecap: "round",
             strokeLinejoin: "round",
+            style: { display: "block", flexShrink: 0 },
             "aria-hidden": "true",
             ...rest,
         },
@@ -24,6 +25,10 @@ export const IconView = (p) => <Icon {...p}><path d="M1 12s4-8 11-8 11 8 11 8-4 
 export const IconEdit = (p) => <Icon {...p}><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" /></Icon>;
 
 export const IconTrash = (p) => <Icon {...p}><path d="M3 6h18" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></Icon>;
+
+export const IconArchive = (p) => <Icon {...p}><rect x="3" y="4" width="18" height="4" rx="1" /><path d="M5 8v12h14V8M10 12h4" /></Icon>;
+
+export const IconRestore = (p) => <Icon {...p}><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></Icon>;
 
 export const IconCheck = (p) => <Icon {...p}><polyline points="20 6 9 17 4 12" /></Icon>;
 
@@ -67,7 +72,7 @@ export const IconUser = (p) => <Icon {...p}><circle cx="12" cy="8" r="4" /><path
  * Icon-only table action button.
  * `tone` may be "danger" or "approve"; `label` is the accessibility/tooltip text.
  */
-export function ActionIcon({ icon, label, tone, onClick, size = 17 }) {
+export function ActionIcon({ icon, label, tone, onClick, size = 17, disabled = false }) {
     return (
         <button
             type="button"
@@ -75,6 +80,7 @@ export function ActionIcon({ icon, label, tone, onClick, size = 17 }) {
             title={label}
             aria-label={label}
             onClick={onClick}
+            disabled={disabled}
         >
             {createElement(icon, { size })}
         </button>

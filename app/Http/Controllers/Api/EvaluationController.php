@@ -11,6 +11,46 @@ use Illuminate\Validation\Rule;
 
 class EvaluationController extends Controller
 {
+    /** Return only evaluations owned through the student's registrations. */
+    public function myEvaluations(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user && $user->role === 'Student', 403, 'Only student accounts may view their evaluations.');
+
+        $registrations = Registration::query()
+            ->whereRaw('LOWER(email) = ?', [mb_strtolower(trim($user->email))])
+            ->with('eventRelation:id,reference,title')
+            ->get()
+            ->filter(fn (Registration $registration) => $registration->eventRelation !== null);
+
+        $registrationsByEvaluationReference = $registrations->mapWithKeys(function (Registration $registration) use ($user) {
+            $reference = 'EVL-'.strtoupper(substr(hash('sha256', $user->getKey().':'.$registration->getKey()), 0, 32));
+
+            return [$reference => $registration];
+        });
+
+        $evaluations = Evaluation::query()
+            ->whereIn('reference', $registrationsByEvaluationReference->keys())
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (Evaluation $evaluation) use ($registrationsByEvaluationReference): array {
+                $registration = $registrationsByEvaluationReference->get($evaluation->reference);
+
+                return [
+                    'reference' => $evaluation->reference,
+                    'event_reference' => $registration->eventRelation->reference,
+                    'event' => $evaluation->event,
+                    'rating' => $evaluation->rating,
+                    'comment' => $evaluation->comment,
+                    'date' => $evaluation->date,
+                ];
+            })
+            ->values();
+
+        return response()->json(['data' => $evaluations]);
+    }
+
     /** Accept feedback from a student for an event they registered for. */
     public function submitStudent(Request $request)
     {

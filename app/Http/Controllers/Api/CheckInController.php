@@ -94,6 +94,7 @@ class CheckInController extends Controller
         // of another by posting its ids.
         $registrations = $event->registrations()
             ->whereIn('id', $validated['registration_ids'])
+            ->with('userAccount:id,student_id')
             ->get();
 
         if ($registrations->count() !== count(array_unique($validated['registration_ids']))) {
@@ -242,7 +243,10 @@ class CheckInController extends Controller
         $session = $this->sessionFor($event, (int) $validated['session_id']);
 
         $requested = collect($validated['registration_ids'])->map(fn ($id) => (int) $id)->unique();
-        $registrations = $event->registrations()->whereIn('id', $requested)->get();
+        $registrations = $event->registrations()
+            ->whereIn('id', $requested)
+            ->with('userAccount:id,student_id')
+            ->get();
 
         // Reject rather than quietly marking a subset. A stale roster left open
         // in the browser must not mark some participants and silently skip the
@@ -376,7 +380,7 @@ class CheckInController extends Controller
         $sessionIds = $sessions->pluck('id');
 
         $registrations = $event->registrations()
-            ->with('userAccount:id,course,year,block_no')
+            ->with('userAccount:id,student_id,course,year,block_no')
             ->orderBy('participant')
             ->get();
 
@@ -386,7 +390,7 @@ class CheckInController extends Controller
             ->get(['attendance_session_id', 'registration_id', 'time_in', 'time_out', 'status'])
             ->keyBy(fn ($row) => $row->attendance_session_id.':'.$row->registration_id);
 
-        $roster = $registrations->map(function (Registration $registration) use ($sessions, $punches) {
+        $roster = $registrations->map(function (Registration $registration) use ($sessions, $punches, $event) {
             $perSession = [];
 
             foreach ($sessions as $session) {
@@ -405,7 +409,10 @@ class CheckInController extends Controller
             return [
                 'registration_id' => $registration->id,
                 'reference' => $registration->reference,
+                'event_id' => $event->id,
+                'event_reference' => $event->reference,
                 'participant' => $registration->participant,
+                'student_id' => $registration->userAccount?->student_id,
                 'email' => $registration->email,
                 'role' => $registration->role,
                 'department' => $registration->userAccount?->department,

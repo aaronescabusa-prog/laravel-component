@@ -449,6 +449,7 @@ body {
     display: flex;
     flex-direction: column;
     line-height: 1.3;
+    gap: 2px;
 }
 
 .events-cell-name {
@@ -457,9 +458,37 @@ body {
     white-space: normal;
 }
 
+.events-cell-organizer,
+.events-cell-registrations {
+    color: #718096;
+    font-size: 11px;
+    white-space: normal;
+}
+
 .events-cell-id {
     font-size: 11px;
     color: #8a919c;
+}
+
+.events-cell-schedule {
+    min-width: 170px;
+    white-space: normal !important;
+}
+
+.events-cell-schedule strong,
+.events-cell-schedule span {
+    display: block;
+    line-height: 1.45;
+}
+
+.events-cell-schedule strong {
+    color: #24334a;
+    font-weight: 700;
+}
+
+.events-cell-schedule span {
+    color: #718096;
+    font-size: 11.5px;
 }
 
 .events-cell-muted {
@@ -565,6 +594,28 @@ body {
     background-color: #feeceb;
     color: #b42318;
     border-color: #f8c9c5;
+}
+
+.events-status-rejected {
+    background-color: #fff0f0;
+    color: #a3271f;
+    border-color: #f5cecb;
+}
+
+.events-banner-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+}
+
+.events-banner-preview img {
+    display: block;
+    width: min(220px, 55%);
+    max-height: 110px;
+    object-fit: cover;
+    border: 1px solid var(--ui-border, #d8e0e9);
+    border-radius: 10px;
 }
 
 /* ---------- Pagination ---------- */
@@ -1574,6 +1625,16 @@ body {
     flex: 0 0 auto;
 }
 
+.events-panel-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+:root .events-panel-header .events-archive-toggle {
+    flex: 0 0 auto;
+}
+
 :root .events-toolbar {
     align-items: center;
     gap: 9px;
@@ -1602,5 +1663,126 @@ body {
 
     :root .events-panel-header .events-btn-primary {
         width: 100%;
+    }
+
+    .events-panel-header-actions {
+        width: 100%;
+    }
+
+    .events-panel-header-actions .events-btn {
+        flex: 1 1 0;
+    }
+}
+
+/* ---------- Events phase 2 visual refinement ---------- */
+
+:root .events-shell .events-kpi-strip {
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+:root .events-shell .events-kpi-item {
+    min-height: 84px;
+    padding: 15px 17px;
+    border-radius: 10px;
+    background: var(--ui-surface, #fff);
+    box-shadow: none;
+}
+
+:root .events-shell .events-kpi-label {
+    color: var(--ui-text-muted, #596b81);
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+}
+
+:root .events-shell .events-kpi-value {
+    margin-top: 6px;
+    color: var(--ui-text, #15263d);
+    font-variant-numeric: tabular-nums;
+}
+
+:root .events-shell .events-kpi-alert {
+    border-left: 3px solid var(--ui-gold-strong, #e3a900);
+}
+
+:root .events-shell .events-panel {
+    border: 1px solid var(--ui-border, #e3e9f1);
+    border-radius: 10px;
+    background: var(--ui-surface, #fff);
+    box-shadow: none;
+}
+
+:root .events-shell .events-panel-header {
+    padding-bottom: 14px;
+}
+
+:root .events-shell .events-toolbar {
+    margin: 14px 0 10px;
+}
+
+:root .events-shell .events-input-search {
+    min-height: 42px;
+    border-radius: 8px;
+}
+
+:root .events-shell .events-table-wrapper {
+    border: 1px solid var(--ui-border, #e3e9f1);
+    border-radius: 9px;
+    background: var(--ui-surface, #fff);
+}
+
+:root .events-shell .events-table-wrapper th {
+    background: var(--ui-surface-muted, #f8fafc);
+    color: var(--ui-text-muted, #596b81);
+    font-size: 10.5px;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+}
+
+:root .events-shell .events-table-wrapper td {
+    color: var(--ui-text, #15263d);
+}
+
+:root .events-shell .events-table-wrapper tbody tr:hover {
+    background: var(--ui-surface-hover, #f8fafd);
+}
+
+:root .events-shell .events-editor-modal {
+    border: 1px solid var(--ui-border, #e3e9f1);
+    border-radius: 12px;
+}
+
+:root .events-shell .events-editor-form .events-form-section {
+    border-radius: 10px;
+    background: var(--ui-surface-muted, #f8fafc);
+}
+
+:root .events-shell .events-editor-form .events-schedule-section,
+:root .events-shell .events-editor-form .events-status-section {
+    background: var(--ui-surface-muted, #f8fafc);
+}
+
+:root .events-shell .events-editor-form .events-modal-footer {
+    box-shadow: 0 -1px 0 var(--ui-border, #e3e9f1);
+}
+
+:root .events-shell :is(.events-btn, .events-input-search, .events-input-select, .events-form-group input, .events-form-group select, .events-form-group textarea):focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--ui-accent, #1b5a83) 28%, transparent);
+    outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+    :root .events-shell .events-panel {
+        padding: 14px;
+    }
+
+    :root .events-shell .events-panel-header-actions {
+        gap: 8px;
+    }
+
+    :root .events-shell .events-table-wrapper {
+        border-radius: 8px;
     }
 }

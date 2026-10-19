@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import "./Events.css";
 import AppShell from "./components/AppShell";
@@ -12,7 +13,7 @@ import { usePagination } from "./lib/usePagination";
 import { useRowSelection } from "./lib/useRowSelection";
 import Pagination from "./components/Pagination";
 import useDialogA11y from "./components/useDialogA11y";
-import { ActionIcon, IconView, IconEdit, IconCheck, IconX, IconTrash } from "./components/Icons";
+import { ActionIcon, IconView, IconEdit, IconCheck, IconX, IconTrash, IconArchive, IconRestore } from "./components/Icons";
 
 function initialsOf(text) {
     return String(text ?? "")
@@ -86,6 +87,10 @@ function eventAudienceSummary(row, departments) {
 function Events() {
     const navigate = useNavigate();
     const [events, setEvents] = useState([]);
+    const [archivedEvents, setArchivedEvents] = useState([]);
+    const [showArchived, setShowArchived] = useState(false);
+    const [archiveLoading, setArchiveLoading] = useState(false);
+    const [archiveError, setArchiveError] = useState("");
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [pendingDelete, setPendingDelete] = useState(null);
@@ -108,10 +113,26 @@ function Events() {
     const [years, setYears] = useState([]);
     const [attendanceRoster, setAttendanceRoster] = useState(null);
     const [attendanceBusy, setAttendanceBusy] = useState(false);
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
+    const [attendanceError, setAttendanceError] = useState("");
     const eventDetailRef = useDialogA11y(Boolean(viewingEvent), () => setViewingEvent(null));
     const eventEditorRef = useDialogA11y(Boolean(editingEvent), () => {
         if (!isSavingEvent) setEditingEvent(null);
     });
+
+    async function loadAttendanceRoster(eventReference, isCurrent = () => true) {
+        setAttendanceLoading(true);
+        setAttendanceError("");
+        setAttendanceRoster(null);
+        try {
+            const data = await eventsApi.attendanceRoster(eventReference);
+            if (isCurrent()) setAttendanceRoster(data);
+        } catch (error) {
+            if (isCurrent()) setAttendanceError(error.message || "Could not load the attendance roster.");
+        } finally {
+            if (isCurrent()) setAttendanceLoading(false);
+        }
+    }
 
     useEffect(() => {
         let active = true;
@@ -142,11 +163,11 @@ function Events() {
         let active = true;
         if (!viewingEvent?.attendanceCompulsory) {
             setAttendanceRoster(null);
+            setAttendanceError("");
+            setAttendanceLoading(false);
             return undefined;
         }
-        eventsApi.attendanceRoster(viewingEvent.id)
-            .then((data) => { if (active) setAttendanceRoster(data); })
-            .catch(() => { if (active) setAttendanceRoster(null); });
+        loadAttendanceRoster(viewingEvent.id, () => active);
         return () => { active = false; };
     }, [viewingEvent?.id, viewingEvent?.attendanceCompulsory]);
 
@@ -210,8 +231,10 @@ function Events() {
                 : await eventsApi.assessFines(viewingEvent.id);
             const data = await eventsApi.attendanceRoster(viewingEvent.id);
             setAttendanceRoster(data);
+            setAttendanceError("");
             showToast(result.message || "Attendance policy updated.");
         } catch (error) {
+            setAttendanceError(error.message || "Could not update attendance policy.");
             showToast(error.message, "danger");
         } finally {
             setAttendanceBusy(false);
@@ -224,11 +247,55 @@ function Events() {
             await eventsApi.reviewFine(fineId, decision);
             const data = await eventsApi.attendanceRoster(viewingEvent.id);
             setAttendanceRoster(data);
+            setAttendanceError("");
             showToast(`Fine ${decision}d.`);
         } catch (error) {
+            setAttendanceError(error.message || "Could not review the proposed fine.");
             showToast(error.message, "danger");
         } finally {
             setAttendanceBusy(false);
+        }
+    }
+
+    async function loadArchivedEvents() {
+        setShowArchived(true);
+        setSearch("");
+        setArchiveError("");
+        setArchiveLoading(true);
+        try {
+            const rows = await eventsApi.archived();
+            setArchivedEvents(rows.map(mapEventFromApi));
+        } catch (error) {
+            setArchivedEvents([]);
+            setArchiveError(error.message || "Could not load archived events.");
+        } finally {
+            setArchiveLoading(false);
+        }
+    }
+
+    async function archiveEvent(row) {
+        try {
+            const archived = mapEventFromApi(await eventsApi.archive(row.id));
+            setEvents((current) => current.filter((event) => event.id !== row.id));
+            setArchivedEvents((current) => [archived, ...current.filter((event) => event.id !== row.id)]);
+            selection.clear();
+            showToast(`${row.name} moved to the archive.`);
+            logActivity({ category: "Event", action: `Archived event ${row.id}`, details: row.name });
+        } catch (error) {
+            showToast(error.message || "Could not archive this event.", "danger");
+        }
+    }
+
+    async function restoreEvent(row) {
+        try {
+            const restored = mapEventFromApi(await eventsApi.restore(row.id));
+            setArchivedEvents((current) => current.filter((event) => event.id !== row.id));
+            setEvents((current) => [restored, ...current.filter((event) => event.id !== row.id)]);
+            selection.clear();
+            showToast(`${row.name} restored to active events.`);
+            logActivity({ category: "Event", action: `Restored event ${row.id}`, details: row.name });
+        } catch (error) {
+            showToast(error.message || "Could not restore this event.", "danger");
         }
     }
 
@@ -245,9 +312,15 @@ function Events() {
     }
 
     const filteredRows = useMemo(() => {
-        let rows = events.filter((row) => {
+        let rows = (showArchived ? archivedEvents : events).filter((row) => {
             const term = search.trim().toLowerCase();
-            const matchesSearch = !term || row.name.toLowerCase().includes(term) || row.organizer.toLowerCase().includes(term) || String(row.category ?? "").toLowerCase().includes(term);
+            const matchesSearch = !term || [
+                row.name,
+                row.id,
+                row.organizer,
+                row.description,
+                row.venue,
+            ].some((value) => String(value ?? "").toLowerCase().includes(term));
             return matchesSearch;
         });
 
@@ -259,16 +332,16 @@ function Events() {
         });
 
         return rows;
-    }, [events, search, sortKey, sortDir]);
+    }, [events, archivedEvents, showArchived, search, sortKey, sortDir]);
 
     const pager = usePagination(filteredRows, {
-        resetKey: [search, sortKey, sortDir].join("|"),
+        resetKey: [showArchived, search, sortKey, sortDir].join("|"),
     });
 
     const selection = useRowSelection({
         pageRows: pager.pageRows,
         matchingRows: filteredRows,
-        resetKey: [search, sortKey, sortDir].join("|"),
+        resetKey: [showArchived, search, sortKey, sortDir].join("|"),
     });
 
     function toggleSort(key) {
@@ -291,10 +364,10 @@ function Events() {
 
     function exportCSV() {
         const rows = [
-            ["Event", "Category", "Audience and eligibility", "Organizer", "Date", "Time", "Duration", "Venue", "Status", "Participants", "Capacity"],
-            ...filteredRows.map((r) => [r.name, r.category, audienceLabel(r), r.organizer, r.date, eventTimeLabel(r), durationLabel(r), r.venue, r.status, r.participants, r.hasCapacity ? r.capacity : "No limit"]),
+            ["Event", "Organizer", "Audience and eligibility", "Date", "Time", "Duration", "Venue", "Status", "Participants", "Capacity", "Budget", "Certificate"],
+            ...filteredRows.map((r) => [r.name, r.organizer, audienceLabel(r), r.date, eventTimeLabel(r), durationLabel(r), r.venue, r.status, r.participants, r.hasCapacity ? r.capacity : "No limit", r.budget, r.hasCertificate ? "Yes" : "No"]),
         ];
-        downloadCSV(`events-${dateStamp()}.csv`, rows);
+        downloadCSV(`${showArchived ? "archived-" : ""}events-${dateStamp()}.csv`, rows);
         showToast(`Exported ${filteredRows.length} event${filteredRows.length === 1 ? "" : "s"}.`);
     }
 
@@ -326,8 +399,8 @@ function Events() {
     /** Same columns as exportCSV, narrowed to whatever is ticked. */
     function exportSelectedCSV() {
         const rows = [
-            ["Event", "Category", "Audience and eligibility", "Organizer", "Date", "Time", "Duration", "Venue", "Status", "Participants", "Capacity"],
-            ...selection.selectedRows.map((r) => [r.name, r.category, audienceLabel(r), r.organizer, r.date, eventTimeLabel(r), durationLabel(r), r.venue, r.status, r.participants, r.hasCapacity ? r.capacity : "No limit"]),
+            ["Event", "Organizer", "Audience and eligibility", "Date", "Time", "Duration", "Venue", "Status", "Participants", "Capacity", "Budget", "Certificate"],
+            ...selection.selectedRows.map((r) => [r.name, r.organizer, audienceLabel(r), r.date, eventTimeLabel(r), durationLabel(r), r.venue, r.status, r.participants, r.hasCapacity ? r.capacity : "No limit", r.budget, r.hasCertificate ? "Yes" : "No"]),
         ];
         downloadCSV(`events-selected-${dateStamp()}.csv`, rows);
         showToast(`Exported ${selection.selectedRows.length} selected event${selection.selectedRows.length === 1 ? "" : "s"}.`);
@@ -364,11 +437,13 @@ function Events() {
         )));
 
         const failed = [];
+        const succeeded = [];
 
         for (const row of rows) {
             try {
                 const updated = await api.update("events", row.id, mapEventToApi({ ...row, status }));
                 setEvents((prev) => prev.map((e) => (e._id === row._id ? mapEventFromApi(updated) : e)));
+                succeeded.push(row);
             } catch (err) {
                 failed.push(`${row.name} (${err.message})`);
             }
@@ -382,38 +457,61 @@ function Events() {
             }));
         }
 
-        logActivity({
-            category: "Event",
-            action: `${status} ${rows.length} event${rows.length === 1 ? "" : "s"}`,
-            details: rows.map((r) => `${r.name} (${r.id})`).join(", "),
-        });
+        if (succeeded.length > 0) {
+            logActivity({
+                category: "Event",
+                action: `${status} ${succeeded.length} event${succeeded.length === 1 ? "" : "s"}`,
+                details: succeeded.map((r) => `${r.name} (${r.id})`).join(", "),
+            });
+        }
 
         showToast(
             failed.length > 0
                 ? `${rows.length - failed.length} updated, ${failed.length} failed: ${failed[0]}`
-                : `${rows.length} event${rows.length === 1 ? "" : "s"} marked as ${status}.`,
+                : `${succeeded.length} event${succeeded.length === 1 ? "" : "s"} marked as ${status}.`,
             failed.length > 0 ? "danger" : "success"
         );
 
         setBulkBusy(false);
     }
 
-    function confirmDelete() {
+    async function confirmDelete() {
         const rows = pendingDelete?.rows ?? [];
-        const ids = rows.map((r) => r.id);
+        if (rows.length === 0) return;
+        setBulkBusy(true);
+        try {
+            const results = await Promise.allSettled(rows.map((row) => api.remove("events", row.id)));
+            const deleted = rows.filter((_, index) => results[index].status === "fulfilled");
+            const failed = rows.filter((_, index) => results[index].status === "rejected");
+            const deletedIds = deleted.map((row) => row.id);
 
-        Promise.all(rows.map((r) => api.remove("events", r.id)))
-            .then(() => {
-                setEvents((prev) => prev.filter((e) => !ids.includes(e.id)));
+            if (deletedIds.length > 0) {
+                setEvents((prev) => prev.filter((event) => !deletedIds.includes(event.id)));
+                setArchivedEvents((prev) => prev.filter((event) => !deletedIds.includes(event.id)));
+                selection.deselect(deletedIds);
                 logActivity({
                     category: "Event",
-                    action: `Deleted ${ids.length} event${ids.length === 1 ? "" : "s"}`,
-                    details: rows.map((r) => `${r.name} (${r.id})`).join(", "),
+                    action: `Deleted ${deleted.length} event${deleted.length === 1 ? "" : "s"}`,
+                    details: deleted.map((row) => `${row.name} (${row.id})`).join(", "),
                 });
-                showToast(`${ids.length} event${ids.length === 1 ? "" : "s"} deleted.`);
-            })
-            .catch((err) => showToast(err.message, "danger"))
-            .finally(() => setPendingDelete(null));
+            }
+
+            if (failed.length > 0) {
+                const firstFailure = results.find((result) => result.status === "rejected");
+                const reason = firstFailure?.reason?.message || "Request failed.";
+                showToast(
+                    `${deleted.length} deleted, ${failed.length} failed: ${failed[0].name} (${reason})`,
+                    "danger",
+                );
+            } else {
+                showToast(`${deleted.length} event${deleted.length === 1 ? "" : "s"} deleted.`);
+            }
+        } catch (error) {
+            showToast(error.message || "Could not delete the selected events.", "danger");
+        } finally {
+            setBulkBusy(false);
+            setPendingDelete(null);
+        }
     }
 
     function openEdit(row) {
@@ -437,6 +535,11 @@ function Events() {
             end_date: "endDate",
             end_time: "endTime",
             registration_deadline: "registrationDeadline",
+            target_department: "targetDepartment",
+            target_course: "targetCourse",
+            target_year: "targetYear",
+            target_role: "targetRole",
+            attendance_compulsory: "attendanceCompulsory",
         };
         const fieldIds = {
             name: "evName",
@@ -450,6 +553,10 @@ function Events() {
             budget: "evBudget",
             penalty_amount: "evPenaltyAmount",
             venue: "evVenue",
+            organizer: "evOrganizer",
+            targetDepartment: "evTargetDepartment",
+            targetCourse: "evAudience",
+            targetRole: "evTargetRole",
         };
         const mappedErrors = Object.fromEntries(
             Object.entries(error.payload?.errors ?? {}).map(([field, messages]) => [
@@ -478,7 +585,6 @@ function Events() {
         setEditingEvent({
             id: nextId(events, "EVT", 3001),
             name: "",
-            category: "",
             bannerUrl: "",
             bannerFile: null,
             organizer: "",
@@ -493,7 +599,7 @@ function Events() {
             targetRole: "All",
             targetCourse: PUBLIC_AUDIENCE,
             description: "",
-            budget: 0,
+            budget: "",
             status: "Draft",
             participants: 0,
             hasCapacity: true,
@@ -524,6 +630,9 @@ function Events() {
         if (!item.date) errors.date = "Choose a start date.";
         if (isNewEvent && item.date && item.date < localDateInputValue()) errors.date = "The event date cannot be in the past.";
         if (!item.venue.trim()) errors.venue = "Enter a venue.";
+        if (item.budget !== "" && (!Number.isInteger(Number(item.budget)) || Number(item.budget) < 0)) {
+            errors.budget = "Enter a whole-number budget of zero or more.";
+        }
         if (isNewEvent && String(item.description || "").trim().length < 20) errors.description = "Add an event description of at least 20 characters.";
         if (!item.allDay && !item.startTime) errors.startTime = "Choose a start time, or mark the event as all-day.";
         if (!item.allDay && !item.endTime) errors.endTime = "Choose an end time, or mark the event as all-day.";
@@ -548,6 +657,7 @@ function Events() {
                 name: "evName", date: "evDate", startTime: "evTime", endDate: "evEndDate",
                 endTime: "evEndTime", registrationDeadline: "evRegistrationDeadline",
                 capacity: "evCapacity", budget: "evBudget", penalty_amount: "evPenaltyAmount", venue: "evVenue",
+                organizer: "evOrganizer",
                 targetDepartment: "evTargetDepartment", targetCourse: "evAudience", audienceType: "evAudienceType", description: "evDescription",
             };
             requestAnimationFrame(() => document.getElementById(fieldIds[Object.keys(errors)[0]])?.focus());
@@ -645,10 +755,23 @@ function Events() {
 
             <section className="events-panel">
                 <div className="events-panel-header">
-                    <h2>All Events</h2>
-                    <button className="events-btn events-btn-primary" onClick={openCreate}>+ Create Event</button>
+                    <h2>{showArchived ? "Archived Events" : "All Events"}</h2>
+                    <div className="events-panel-header-actions">
+                        <button
+                            type="button"
+                            className="events-btn events-btn-secondary events-archive-toggle"
+                            onClick={showArchived ? () => { setShowArchived(false); setSearch(""); setArchiveError(""); } : loadArchivedEvents}
+                            disabled={archiveLoading}
+                        >
+                            {showArchived ? "Back to active events" : "Archive"}
+                        </button>
+                        {!showArchived && <button className="events-btn events-btn-primary" onClick={openCreate}>+ Create Event</button>}
+                    </div>
                 </div>
 
+                {archiveError && showArchived && (
+                    <div className="events-empty-row" role="alert">Could not load archived events: {archiveError}</div>
+                )}
                 <div className="events-toolbar">
                     <input
                         type="search"
@@ -685,12 +808,12 @@ function Events() {
                         )}
 
                         <div className="bulk-bar-actions">
-                            <button className="events-btn events-btn-secondary" onClick={() => bulkSetStatus("Approved")} disabled={bulkBusy}>
+                            {!showArchived && <button className="events-btn events-btn-secondary" onClick={() => bulkSetStatus("Approved")} disabled={bulkBusy}>
                                 Approve selected
-                            </button>
-                            <button className="events-btn events-btn-secondary" onClick={() => bulkSetStatus("Rejected")} disabled={bulkBusy}>
+                            </button>}
+                            {!showArchived && <button className="events-btn events-btn-secondary" onClick={() => bulkSetStatus("Rejected")} disabled={bulkBusy}>
                                 Reject selected
-                            </button>
+                            </button>}
                             <button className="events-btn events-btn-secondary" onClick={exportSelectedCSV} disabled={bulkBusy}>
                                 Export selected
                             </button>
@@ -724,7 +847,9 @@ function Events() {
                                         Event Name <SortIcon active={sortKey === "name"} dir={sortDir} />
                                     </button>
                                 </th>
+                                <th>Schedule &amp; venue</th>
                                 <th>About the Event</th>
+                                <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -745,43 +870,57 @@ function Events() {
                                             <div className="events-cell-text">
                                                 <span className="events-cell-name">{row.name}</span>
                                                 <span className="events-cell-id">{row.id}</span>
+                                                {row.organizer && <span className="events-cell-organizer">{row.organizer}</span>}
+                                                <span className="events-cell-registrations">
+                                                    {Number(row.participants || 0)} registered
+                                                    {row.hasCapacity ? ` · ${Math.max(0, Number(row.capacity) - Number(row.participants || 0))} slots left` : ""}
+                                                </span>
                                             </div>
                                         </div>
                                     </td>
+                                    <td className="events-cell-schedule">
+                                        <strong>{eventDateLabel(row.date)}</strong>
+                                        <span>{eventTimeLabel(row)}</span>
+                                        <span>{row.venue || "Venue to be announced"}</span>
+                                    </td>
                                     <td className="events-cell-description">{row.description || "No event description has been provided."}</td>
+                                    <td><span className={`events-status events-status-${String(row.status || "Draft").toLowerCase()}`}>{row.status || "Draft"}</span></td>
                                     <td className="events-cell-actions">
                                         <ActionIcon icon={IconView} label="View" onClick={() => setViewingEvent(row)} />
-                                        <ActionIcon icon={IconEdit} label="Edit" onClick={() => openEdit(row)} />
-                                        {row.status === "Pending" && (
-                                            <ActionIcon icon={IconCheck} label="Approve" tone="approve" onClick={() => setStatus(row, "Approved")} />
-                                        )}
-                                        {(row.status === "Approved" || row.status === "Pending") && (
-                                            <ActionIcon icon={IconX} label="Cancel" tone="danger" onClick={() => setStatus(row, "Cancelled")} />
+                                        {showArchived ? (
+                                            <ActionIcon icon={IconRestore} label="Restore" onClick={() => restoreEvent(row)} />
+                                        ) : (
+                                            <>
+                                                <ActionIcon icon={IconEdit} label="Edit" onClick={() => openEdit(row)} />
+                                                {row.status === "Pending" && (
+                                                    <ActionIcon icon={IconCheck} label="Approve" tone="approve" onClick={() => setStatus(row, "Approved")} />
+                                                )}
+                                                {(row.status === "Approved" || row.status === "Pending") && (
+                                                    <ActionIcon icon={IconX} label="Cancel" tone="danger" onClick={() => setStatus(row, "Cancelled")} />
+                                                )}
+                                                {row.status === "Completed" && (
+                                                    <ActionIcon icon={IconArchive} label="Archive" onClick={() => archiveEvent(row)} />
+                                                )}
+                                            </>
                                         )}
                                         <ActionIcon icon={IconTrash} label="Delete" tone="danger" onClick={() => requestDelete(row)} />
                                     </td>
                                 </tr>
                             ))}
-                            {loading && filteredRows.length === 0 && (
+                            {(loading || archiveLoading) && filteredRows.length === 0 && (
                                 <tr>
-                                    <td colSpan="4" className="events-empty-row" role="status">Loading events…</td>
+                                    <td colSpan="6" className="events-empty-row" role="status">Loading events…</td>
                                 </tr>
                             )}
-                            {!loading && !loadError && filteredRows.length === 0 && (
+                            {!loading && !archiveLoading && !loadError && !archiveError && filteredRows.length === 0 && (
                                 <tr>
-                                    <td colSpan="4" className="events-empty-row">
-                                        {events.length === 0 ? (
+                                    <td colSpan="6" className="events-empty-row">
+                                        {(showArchived ? archivedEvents : events).length === 0 ? (
                                             <>
-                                                <strong className="events-empty-title">No events have been created yet.</strong>
-                                                <div className="events-empty-actions">
-                                                    <button
-                                                        type="button"
-                                                        className="events-btn events-btn-primary events-empty-action"
-                                                        onClick={openCreate}
-                                                    >
-                                                        Create Event
-                                                    </button>
-                                                </div>
+                                                <strong className="events-empty-title">{showArchived ? "No archived events yet." : "No events have been created yet."}</strong>
+                                                {!showArchived && <div className="events-empty-actions">
+                                                    <button type="button" className="events-btn events-btn-primary events-empty-action" onClick={openCreate}>Create Event</button>
+                                                </div>}
                                             </>
                                         ) : (
                                             <>
@@ -801,9 +940,9 @@ function Events() {
                                     </td>
                                 </tr>
                             )}
-                            {!loading && loadError && events.length === 0 && (
+                            {!loading && !archiveLoading && ((loadError && events.length === 0) || (archiveError && showArchived)) && (
                                 <tr>
-                                    <td colSpan="4" className="events-empty-row">Events could not be displayed.</td>
+                                    <td colSpan="6" className="events-empty-row">{showArchived ? "Archived events could not be displayed." : "Events could not be displayed."}</td>
                                 </tr>
                             )}
                         </tbody>
@@ -813,12 +952,12 @@ function Events() {
                 <Pagination
                     {...pager}
                     unit="events"
-                    loading={loading}
+                    loading={loading || archiveLoading}
                 />
             </section>
 
 
-            {viewingEvent && (
+            {viewingEvent && createPortal(
                 <div className="events-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setViewingEvent(null); }}>
                     <div ref={eventDetailRef} tabIndex={-1} className="events-modal-card events-detail-modal" role="dialog" aria-modal="true" aria-labelledby="event-details-title" onClick={(e) => e.stopPropagation()}>
                         <div className="events-detail-topbar">
@@ -829,7 +968,7 @@ function Events() {
                         <div className="events-detail-body">
                             <div className={`events-detail-hero${viewingEvent.bannerUrl ? " has-banner" : ""}`} style={viewingEvent.bannerUrl ? { backgroundImage: `linear-gradient(90deg, rgba(8, 36, 74, .78), rgba(8, 36, 74, .15)), url("${viewingEvent.bannerUrl}")` } : undefined}>
                                 {!viewingEvent.bannerUrl && <span className="events-detail-hero-mark" aria-hidden="true">✓</span>}
-                                <span className="events-detail-category">{viewingEvent.category || "Campus event"}</span>
+                                <span className="events-detail-category">Event overview</span>
                             </div>
                             <div className="events-detail-content">
                                 <div className="events-detail-title-row">
@@ -849,9 +988,16 @@ function Events() {
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">P</span><div><small>Eligible participants</small><strong>{eventAudienceSummary(viewingEvent, departments)}</strong></div></div>
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">C</span><div><small>Allowed courses</small><strong>{viewingEvent.targetCourse || "All programs"}</strong></div></div>
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">Y</span><div><small>Year level</small><strong>{viewingEvent.targetYear || "All year levels (1st–4th Year)"}</strong></div></div>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">R</span><div><small>Audience role</small><strong>{viewingEvent.targetRole === "All" ? "All account roles" : `${viewingEvent.targetRole} accounts`}</strong></div></div>
+                                    {viewingEvent.targetBlock && <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">B</span><div><small>Target block</small><strong>{viewingEvent.targetBlock}</strong></div></div>}
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">P</span><div><small>Registered users</small><strong>{Number(viewingEvent.participants || 0)} {Number(viewingEvent.participants || 0) === 1 ? "user" : "users"} registered</strong></div></div>
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">S</span><div><small>Available slots</small><strong>{viewingEvent.hasCapacity ? `${Math.max(0, Number(viewingEvent.capacity) - Number(viewingEvent.participants || 0))} available out of ${viewingEvent.capacity} slots` : "No capacity limit"}</strong></div></div>
                                     <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">D</span><div><small>Registration deadline</small><strong>{viewingEvent.registrationDeadline ? eventDateLabel(viewingEvent.registrationDeadline) : "Until the event date"}</strong></div></div>
+                                </section>
+                                <section className="events-detail-section events-detail-eligibility">
+                                    <h4>Event planning</h4>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">₱</span><div><small>Planned budget</small><strong>{Number(viewingEvent.budget || 0).toLocaleString(undefined, { style: "currency", currency: "PHP", maximumFractionDigits: 0 })}</strong></div></div>
+                                    <div className="events-detail-info-row"><span className="events-detail-info-icon" aria-hidden="true">C</span><div><small>Certificate</small><strong>{viewingEvent.hasCertificate ? "Certificate enabled" : "No certificate"}</strong></div></div>
                                 </section>
                                 <section className="events-detail-section events-detail-attendees" aria-labelledby="event-attendees-title">
                                     <div className="events-detail-attendees-heading">
@@ -880,10 +1026,16 @@ function Events() {
                                 </section>
                                 {viewingEvent.attendanceCompulsory && <section className="events-detail-section events-detail-eligibility">
                                     <h4>Compulsory attendance</h4>
-                                    <p>Required-student roster: {attendanceRoster?.event?.roster_finalized_at ? `${attendanceRoster?.obligations?.length ?? 0} students finalized` : "Not finalized"}. QR attendance is validated by the server; proposed fines require review.</p>
+                                    <p>{attendanceLoading
+                                        ? "Loading the required-student roster…"
+                                        : `Required-student roster: ${attendanceRoster?.event?.roster_finalized_at ? `${attendanceRoster?.obligations?.length ?? 0} students finalized` : "Not finalized"}. QR attendance is validated by the server; proposed fines require review.`}</p>
+                                    {attendanceError && <div className="events-detail-attendees-state is-error" role="alert">
+                                        {attendanceError}
+                                        <button type="button" className="events-btn events-btn-secondary" onClick={() => loadAttendanceRoster(viewingEvent.id)} disabled={attendanceLoading}>Retry</button>
+                                    </div>}
                                     <div className="events-detail-actions">
-                                        <button type="button" className="events-btn events-btn-secondary" disabled={attendanceBusy || Boolean(attendanceRoster?.event?.roster_finalized_at) || !["Approved", "Completed"].includes(viewingEvent.status)} onClick={() => runAttendanceAction("finalize")}>{attendanceRoster?.event?.roster_finalized_at ? "Roster finalized" : ["Approved", "Completed"].includes(viewingEvent.status) ? "Finalize student roster" : "Approve event to finalize roster"}</button>
-                                        <button type="button" className="events-btn events-btn-primary" disabled={attendanceBusy || !attendanceRoster?.event?.roster_finalized_at} onClick={() => runAttendanceAction("assess")}>Assess proposed fines</button>
+                                        <button type="button" className="events-btn events-btn-secondary" disabled={attendanceBusy || attendanceLoading || Boolean(attendanceRoster?.event?.roster_finalized_at) || !["Approved", "Completed"].includes(viewingEvent.status)} onClick={() => runAttendanceAction("finalize")}>{attendanceRoster?.event?.roster_finalized_at ? "Roster finalized" : ["Approved", "Completed"].includes(viewingEvent.status) ? "Finalize student roster" : "Approve event to finalize roster"}</button>
+                                        <button type="button" className="events-btn events-btn-primary" disabled={attendanceBusy || attendanceLoading || !attendanceRoster?.event?.roster_finalized_at} onClick={() => runAttendanceAction("assess")}>Assess proposed fines</button>
                                     </div>
                                     {attendanceRoster?.obligations?.filter((item) => item.fine?.assessment_status === "proposed").map((item) => <div className="events-detail-info-row" key={item.id}>
                                         <span className="events-detail-info-icon" aria-hidden="true">₱</span><div><small>{item.student_name} · {item.fine.reason === "absence" ? "Absent" : "Incomplete attendance"}</small><strong>₱{Number(item.fine.amount).toFixed(2)} proposed</strong></div>
@@ -896,13 +1048,14 @@ function Events() {
                         </div>
                         <div className="events-modal-footer">
                             <button className="events-btn events-btn-secondary" onClick={() => setViewingEvent(null)}>Close</button>
-                            <button className="events-btn events-btn-primary" onClick={() => { setViewingEvent(null); openEdit(viewingEvent); }}>Edit Event</button>
+                            {!viewingEvent.archivedAt && <button className="events-btn events-btn-primary" onClick={() => { setViewingEvent(null); openEdit(viewingEvent); }}>Edit Event</button>}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
-            {editingEvent && (
+            {editingEvent && createPortal(
                 <div className="events-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget && !isSavingEvent) setEditingEvent(null); }}>
                     <div ref={eventEditorRef} tabIndex={-1} className="events-modal-card events-editor-modal" role="dialog" aria-modal="true" aria-labelledby="event-editor-title" onClick={(e) => e.stopPropagation()}>
                         <form className="events-editor-form" onSubmit={saveEvent} noValidate>
@@ -931,6 +1084,57 @@ function Events() {
                                 />
                                 {formErrors.name && <small className="events-field-error" id="evName-error">{formErrors.name}</small>}
                                 </div>
+                                <div className="events-form-row-split">
+                                    <div className="events-form-group">
+                                        <label htmlFor="evOrganizer">Organizer</label>
+                                        <input
+                                            id="evOrganizer"
+                                            type="text"
+                                            maxLength="255"
+                                            value={editingEvent.organizer || ""}
+                                            onChange={(e) => updateEventField("organizer", e.target.value)}
+                                            aria-invalid={Boolean(formErrors.organizer)}
+                                            aria-describedby={formErrors.organizer ? "evOrganizer-error" : undefined}
+                                        />
+                                        {formErrors.organizer && <small className="events-field-error" id="evOrganizer-error">{formErrors.organizer}</small>}
+                                    </div>
+                                    <div className="events-form-group">
+                                        <label htmlFor="evBudget">Planned budget (₱)</label>
+                                        <input
+                                            id="evBudget"
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            value={editingEvent.budget ?? ""}
+                                            onChange={(e) => updateEventField("budget", e.target.value === "" ? "" : Number(e.target.value))}
+                                            aria-invalid={Boolean(formErrors.budget)}
+                                            aria-describedby={formErrors.budget ? "evBudget-error" : undefined}
+                                        />
+                                        {formErrors.budget && <small className="events-field-error" id="evBudget-error">{formErrors.budget}</small>}
+                                    </div>
+                                </div>
+                                {editingEvent.bannerUrl && <div className="events-banner-preview">
+                                    <img src={editingEvent.bannerUrl} alt="Current event banner" />
+                                    <button type="button" className="events-btn events-btn-secondary" onClick={() => setEditingEvent((current) => ({ ...current, bannerUrl: "", bannerFile: null }))}>Remove banner</button>
+                                </div>}
+                                <div className="events-form-group">
+                                    <label htmlFor="evBanner">Event banner</label>
+                                    <input
+                                        id="evBanner"
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        onChange={(e) => updateEventField("bannerFile", e.target.files?.[0] ?? null)}
+                                    />
+                                    <small className="events-form-hint">{editingEvent.bannerFile?.name || (editingEvent.bannerUrl ? "Choose an image to replace the current banner." : "Optional. Choose a JPG, PNG, or WebP image (up to 5 MB).")}</small>
+                                </div>
+                                <label className="events-form-checkbox">
+                                    <input
+                                        type="checkbox"
+                                        checked={editingEvent.hasCertificate !== false}
+                                        onChange={(e) => updateEventField("hasCertificate", e.target.checked)}
+                                    />
+                                    <span>Issue certificates for this event</span>
+                                </label>
                             </div>
 
                             <div className="events-form-section events-audience-section">
@@ -958,11 +1162,25 @@ function Events() {
                                         </select>
                                         {formErrors.audienceType && <small className="events-field-error">{formErrors.audienceType}</small>}
                                     </div>
+                                    <div className="events-form-group">
+                                        <label htmlFor="evTargetRole">Eligible account roles</label>
+                                        <select
+                                            id="evTargetRole"
+                                            value={editingEvent.targetRole || "All"}
+                                            onChange={(e) => updateEventField("targetRole", e.target.value)}
+                                        >
+                                            <option value="All">All roles</option>
+                                            <option value="Student">Students</option>
+                                            <option value="Admin">Administrators</option>
+                                        </select>
+                                    </div>
                                     {editingEvent.audienceType === "Department-Specific" && <div className="events-form-group">
                                         <label htmlFor="evTargetDepartment">Target department <span className="events-required"></span></label>
                                         <select
                                             id="evTargetDepartment"
                                             value={editingEvent.targetDepartment ?? ""}
+                                            aria-invalid={Boolean(formErrors.targetDepartment)}
+                                            aria-describedby={formErrors.targetDepartment ? "evTargetDepartment-error" : undefined}
                                             onChange={(e) => {
                                                 const targetDepartment = e.target.value;
                                                 setEditingEvent({
@@ -982,13 +1200,15 @@ function Events() {
                                                 </option>
                                             ))}
                                         </select>
-                                        {formErrors.targetDepartment && <small className="events-field-error">{formErrors.targetDepartment}</small>}
+                                        {formErrors.targetDepartment && <small className="events-field-error" id="evTargetDepartment-error">{formErrors.targetDepartment}</small>}
                                     </div>}
                                     {editingEvent.audienceType === "Department-Specific" && <div className="events-form-group">
                                         <label htmlFor="evAudience">Target program</label>
                                         <select
                                             id="evAudience"
                                             value={editingEvent.targetCourse ?? PUBLIC_AUDIENCE}
+                                            aria-invalid={Boolean(formErrors.targetCourse)}
+                                            aria-describedby={formErrors.targetCourse ? "evAudience-error" : undefined}
                                             onChange={(e) => {
                                                 setEditingEvent({ ...editingEvent, targetCourse: e.target.value });
                                                 setFormErrors((current) => ({ ...current, targetCourse: "" }));
@@ -999,6 +1219,7 @@ function Events() {
                                                 <option key={course} value={course}>{course}</option>
                                             ))}
                                         </select>
+                                        {formErrors.targetCourse && <small className="events-field-error" id="evAudience-error">{formErrors.targetCourse}</small>}
                                     </div>}
                                     {editingEvent.audienceType === "Department-Specific" && <div className="events-form-group">
                                         <label htmlFor="evTargetYear">Target year level</label>
@@ -1293,7 +1514,8 @@ function Events() {
                         </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             <ConfirmDialog
@@ -1303,6 +1525,8 @@ function Events() {
                 confirmLabel="Delete event"
                 onConfirm={confirmDelete}
                 onCancel={() => setPendingDelete(null)}
+                isBusy={bulkBusy}
+                busyLabel="Deleting..."
             />
 
             {toast && <Toast message={toast.message} tone={toast.tone} onDismiss={dismissToast} />}

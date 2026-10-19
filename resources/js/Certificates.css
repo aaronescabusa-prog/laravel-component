@@ -877,6 +877,12 @@ body {
     color: #1a1f26;
 }
 
+.cert-cell-email {
+    overflow-wrap: anywhere;
+    font-size: 11px;
+    color: #6b7280;
+}
+
 .cert-cell-id {
     font-size: 11px;
     color: #8a919c;

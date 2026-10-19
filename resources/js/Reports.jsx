@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./Reports.css";
 import AppShell from "./components/AppShell";
+import StatusBadge from "./components/StatusBadge";
 import { reportsApi } from "./lib/api";
 import { downloadCSV } from "./lib/csv";
 
@@ -19,11 +20,13 @@ function Reports() {
     const [reportType, setReportType] = useState("registration");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
+    const [eventFilter, setEventFilter] = useState("");
     const [exportMessage, setExportMessage] = useState("");
 
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
+    const [lastRefreshed, setLastRefreshed] = useState(null);
 
     useEffect(() => {
         let active = true;
@@ -34,17 +37,31 @@ function Reports() {
         if (dateTo) params.to = dateTo;
 
         reportsApi.get(params)
-            .then((payload) => { if (active) setData(payload); })
+            .then((payload) => { if (active) { setData(payload); setLastRefreshed(new Date()); } })
             .catch((err) => { if (active) setLoadError(err.message); })
             .finally(() => { if (active) setLoading(false); });
 
         return () => { active = false; };
-    }, [dateFrom, dateTo]);
+    }, [dateFrom, dateTo, eventFilter]);
 
-    const registrations = useMemo(() => data?.registrations ?? [], [data]);
-    const attendance = useMemo(() => data?.attendance ?? [], [data]);
-    const financial = useMemo(() => data?.financial ?? [], [data]);
-    const eventSummary = useMemo(() => data?.events ?? [], [data]);
+    const eventOptions = useMemo(() => (data?.events ?? []).map((e) => e.title), [data]);
+
+    const registrations = useMemo(() => {
+        const rows = data?.registrations ?? [];
+        return eventFilter ? rows.filter((r) => r.event === eventFilter) : rows;
+    }, [data, eventFilter]);
+    const attendance = useMemo(() => {
+        const rows = data?.attendance ?? [];
+        return eventFilter ? rows.filter((r) => r.event === eventFilter) : rows;
+    }, [data, eventFilter]);
+    const financial = useMemo(() => {
+        const rows = data?.financial ?? [];
+        return eventFilter ? rows.filter((r) => r.event === eventFilter) : rows;
+    }, [data, eventFilter]);
+    const eventSummary = useMemo(() => {
+        const rows = data?.events ?? [];
+        return eventFilter ? rows.filter((e) => e.title === eventFilter) : rows;
+    }, [data, eventFilter]);
 
     const financialTotals = useMemo(() => {
         const income = financial.reduce((sum, r) => sum + Number(r.income || 0), 0);
@@ -78,16 +95,18 @@ function Reports() {
             rows = [
                 ["Event", "Income", "Expenses", "Net"],
                 ...financial.map((r) => [r.event, r.income, r.expenses, r.net]),
+                ["TOTAL", financialTotals.income, financialTotals.expenses, financialTotals.net],
             ];
         } else {
             rows = [
-                ["Event", "Category", "Organizer", "Status", "Date", "Participants", "Capacity"],
-                ...eventSummary.map((r) => [r.title, r.category, r.organizer, r.status, r.event_date, r.participants, r.capacity]),
+                ["Event", "Organizer", "Status", "Date", "Venue", "Participants", "Capacity"],
+                ...eventSummary.map((r) => [r.title, r.organizer, r.status, r.event_date, r.venue, r.participants, r.capacity]),
             ];
         }
 
         downloadCSV(filename, rows);
-        flashExport(`Exported ${rows.length - 1} rows to ${filename}.`);
+        const dataRowCount = rows.filter((r) => r[0] !== "TOTAL").length - 1;
+        flashExport(`Exported ${dataRowCount} rows to ${filename}.`);
     }
 
     function dateKey() {
@@ -104,11 +123,25 @@ function Reports() {
         <AppShell title="Reports" prefix="rpt-">
 
             <section className="rpt-controls">
-                <div className="rpt-report-filter">
-                    <label htmlFor="reportType">Report type</label>
-                    <select id="reportType" value={reportType} onChange={(e) => setReportType(e.target.value)}>
-                        {REPORT_TYPES.map((type) => (
-                            <option key={type.key} value={type.key}>{type.label}</option>
+                <div className="rpt-report-tabs">
+                    {REPORT_TYPES.map((type) => (
+                        <button
+                            key={type.key}
+                            className={`rpt-report-tab${reportType === type.key ? " active" : ""}`}
+                            onClick={() => setReportType(type.key)}
+                            aria-pressed={reportType === type.key}
+                        >
+                            {type.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="rpt-event-filter">
+                    <label htmlFor="eventFilter">Event</label>
+                    <select id="eventFilter" value={eventFilter} onChange={(e) => setEventFilter(e.target.value)}>
+                        <option value="">All events</option>
+                        {eventOptions.map((title) => (
+                            <option key={title} value={title}>{title}</option>
                         ))}
                     </select>
                 </div>
@@ -123,6 +156,11 @@ function Reports() {
                         <input id="dateTo" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
                     </div>
                 </div>
+                {lastRefreshed && (
+                    <div className="rpt-updated">
+                        Data refreshed {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                )}
                 <div className="rpt-export-actions">
                     <button className="rpt-btn rpt-btn-secondary" onClick={handleExport} disabled={loading}>Export CSV</button>
                     <button className="rpt-btn rpt-btn-secondary" onClick={handlePrint}>Print</button>
@@ -269,7 +307,7 @@ function Reports() {
                             <span className="rpt-kpi-value">{peso(financialTotals.income)}</span>
                         </div>
                         <div className="rpt-kpi-item">
-                            <span className="rpt-kpi-label">Total Expenses</span>
+                            <span className="rpt-kpi-label">Total Budget</span>
                             <span className="rpt-kpi-value">{peso(financialTotals.expenses)}</span>
                         </div>
                         <div className={`rpt-kpi-item ${financialTotals.net < 0 ? "rpt-kpi-alert" : ""}`}>
@@ -279,7 +317,7 @@ function Reports() {
                     </div>
 
                     <section className="rpt-panel">
-                        <h2>Income vs. Expenses by Event</h2>
+                        <h2>Income vs. Budget by Event</h2>
                         {financial.length === 0 ? (
                             <p className="rpt-empty">No financial data in this date range.</p>
                         ) : (
@@ -292,7 +330,7 @@ function Reports() {
                                                 <div className="rpt-bar-fill rpt-bar-income" style={{ width: `${(Number(row.income || 0) / financialMax) * 100}%` }}></div>
                                             </div>
                                             <div className="rpt-bar-track">
-                                                <div className="rpt-bar-fill rpt-bar-expense" style={{ width: `${(Number(row.expenses || 0) / financialMax) * 100}%` }}></div>
+                                                <div className="rpt-bar-fill rpt-bar-budget" style={{ width: `${(Number(row.expenses || 0) / financialMax) * 100}%` }}></div>
                                             </div>
                                         </div>
                                         <span className="rpt-bar-value">{peso(row.income)} / {peso(row.expenses)}</span>
@@ -302,7 +340,7 @@ function Reports() {
                         )}
                         <div className="rpt-legend">
                             <span className="rpt-legend-item"><span className="rpt-legend-dot rpt-legend-income"></span>Income</span>
-                            <span className="rpt-legend-item"><span className="rpt-legend-dot rpt-legend-expense"></span>Expenses</span>
+                            <span className="rpt-legend-item"><span className="rpt-legend-dot rpt-legend-budget"></span>Budget</span>
                         </div>
                     </section>
 
@@ -314,7 +352,7 @@ function Reports() {
                                     <tr>
                                         <th>Event</th>
                                         <th>Income</th>
-                                        <th>Expenses</th>
+                                        <th>Budget</th>
                                         <th>Net</th>
                                     </tr>
                                 </thead>
@@ -373,9 +411,10 @@ function Reports() {
                                 <thead>
                                     <tr>
                                         <th>Event</th>
-                                        <th>Category</th>
                                         <th>Organizer</th>
                                         <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Venue</th>
                                         <th>Participants</th>
                                     </tr>
                                 </thead>
@@ -383,14 +422,15 @@ function Reports() {
                                     {eventSummary.map((row) => (
                                         <tr key={row.reference}>
                                             <td>{row.title}</td>
-                                            <td className="rpt-cell-muted">{row.category}</td>
                                             <td className="rpt-cell-muted">{row.organizer}</td>
-                                            <td><span className={`rpt-status rpt-status-${row.status.toLowerCase()}`}>{row.status}</span></td>
+                                            <td><StatusBadge status={row.status} /></td>
+                                            <td className="rpt-cell-muted">{row.event_date || "—"}</td>
+                                            <td className="rpt-cell-muted">{row.venue || "—"}</td>
                                             <td className="rpt-cell-muted">{row.participants}{row.capacity ? `/${row.capacity}` : ""}</td>
                                         </tr>
                                     ))}
                                     {eventSummary.length === 0 && (
-                                        <tr><td colSpan={5} className="rpt-cell-muted">No data.</td></tr>
+                                        <tr><td colSpan={6} className="rpt-cell-muted">No data.</td></tr>
                                     )}
                                 </tbody>
                             </table>

@@ -259,6 +259,11 @@ export const eventScannersApi = {
       method: "PUT",
       body: JSON.stringify({ scanner_ids: scannerIds }),
     }),
+  assignToAllEvents: (scannerIds) =>
+    request("/events/scanners/assign-all", {
+      method: "PUT",
+      body: JSON.stringify({ scanner_ids: scannerIds }),
+    }),
 };
 
 /**
@@ -446,6 +451,9 @@ export const reportsApi = {
 };
 
 export const eventsApi = {
+  archived: () => api.list("events/archived"),
+  archive: (eventReference) => request(`/events/${encodeURIComponent(eventReference)}/archive`, { method: "POST" }),
+  restore: (eventReference) => request(`/events/${encodeURIComponent(eventReference)}/restore`, { method: "POST" }),
   uploadBanner: (eventReference, file) => {
     const form = new FormData();
     form.append("banner", file);
@@ -547,6 +555,7 @@ export function mapEventFromApi(row) {
     hasCapacity: row.capacity !== null && row.capacity !== undefined,
     participants: row.registrations_count ?? row.participants ?? 0,
     status: row.status,
+    archivedAt: row.archived_at ?? row.archivedAt ?? null,
     targetRole: row.target_role ?? row.targetRole ?? "All",
     targetCourse: row.target_course ?? row.targetCourse ?? null,
     targetDepartment: row.target_department ?? row.targetDepartment ?? null,
@@ -600,12 +609,23 @@ export function mapEventToApi(row) {
 }
 
 export function mapAnnouncementFromApi(row) {
+  const targetRole = row.target_role ?? row.targetRole ?? (row.audience === "Students" ? "Student" : "All");
+  const targetDepartment = row.target_department ?? row.targetDepartment ?? "";
+  const targetCourse = row.target_course ?? row.targetCourse ?? "";
+  const targetYear = row.target_year ?? row.targetYear ?? "";
+  const targetBlock = row.target_block ?? row.targetBlock ?? "";
   return {
     _id: row.id,
     id: row.reference,
     title: row.title,
     message: row.message,
     audience: row.audience,
+    targetRole,
+    targetDepartment,
+    targetCourse,
+    targetYear,
+    targetBlock,
+    audienceType: targetDepartment || targetCourse || targetYear || targetBlock ? "Department-Specific" : "School-Wide",
     category: row.category,
     status: row.status,
     publishDate: row.publish_date ?? "",
@@ -619,6 +639,11 @@ export function mapAnnouncementToApi(row) {
     title: row.title,
     message: row.message,
     audience: row.audience,
+    target_role: row.targetRole || "All",
+    target_department: row.targetDepartment || null,
+    target_course: row.targetCourse || null,
+    target_year: row.targetYear || null,
+    target_block: row.targetBlock || null,
     category: row.category,
     status: row.status,
     publish_date: row.publishDate || null,

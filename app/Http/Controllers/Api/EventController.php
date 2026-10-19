@@ -21,9 +21,12 @@ class EventController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index(Request $request, bool $archived = false)
     {
         $query = Event::query();
+        $archived
+            ? $query->whereNotNull('archived_at')
+            : $query->whereNull('archived_at');
 
         // Return a live count instead of trusting the denormalized participants
         // column, which can lag behind registrations created from mobile.
@@ -76,6 +79,12 @@ class EventController extends Controller
                 $this->perPage($request)
             )
         );
+    }
+
+    /** Display the archived events for the administrator. */
+    public function archivedIndex(Request $request)
+    {
+        return $this->index($request, true);
     }
 
     /**
@@ -274,6 +283,32 @@ class EventController extends Controller
         $event->delete();
 
         return response()->noContent();
+    }
+
+    /** Archive a completed event without deleting its registrations or reports. */
+    public function archive(Event $event)
+    {
+        if ($event->status !== 'Completed') {
+            throw ValidationException::withMessages([
+                'status' => 'Only completed events can be archived.',
+            ]);
+        }
+
+        if ($event->archived_at === null) {
+            $event->forceFill(['archived_at' => now()])->save();
+        }
+
+        return response()->json($event->refresh());
+    }
+
+    /** Restore an event from the archive. */
+    public function restore(Event $event)
+    {
+        if ($event->archived_at !== null) {
+            $event->forceFill(['archived_at' => null])->save();
+        }
+
+        return response()->json($event->refresh());
     }
 
     /** Store the event banner uploaded by the web admin or event organizer. */

@@ -151,7 +151,7 @@ function StudentPortal({ view = "home" }) {
                     <SectionHeading title="Recommended events" link="/events" linkText="View all" />
                     {!loadError && (upcomingEvents.length ? <div className="student-card-grid">{upcomingEvents.slice(0, 3).map((event) => <EventCard key={event.id} event={event} onViewDetails={setSelectedEvent} />)}</div> : <div className="student-empty student-inline-empty"><h3>No events to recommend yet</h3><p>New approved events will appear here when registration opens.</p></div>)}
                     <SectionHeading title="Latest announcements" link="/announcements" linkText="View all" />
-                    {!loadError && (announcements.length ? <div className="student-announcement-list">{announcements.slice(0, 3).map((item) => <article key={item.id} className="student-announcement"><span className="student-announcement-tag">{item.category || "Announcement"}</span><h3>{item.title}</h3><p>{item.message}</p></article>)}</div> : <div className="student-empty student-inline-empty"><h3>No announcements yet</h3><p>Campus updates will appear here.</p></div>)}
+                    {!loadError && (announcements.length ? <div className="student-announcement-list">{announcements.slice(0, 3).map((item) => <article key={item.id} className="student-announcement"><span className="student-announcement-tag">{item.category || "Announcement"}</span><h3>{item.title}</h3><div className="student-announcement-meta">{item.author && <span>Posted by {item.author}</span>}{(item.publish_date || item.publishDate) && <time dateTime={item.publish_date || item.publishDate}>{formatDate(item.publish_date || item.publishDate)}</time>}{item.audience && <span>For {item.audience}</span>}</div><p>{item.message}</p></article>)}</div> : <div className="student-empty student-inline-empty"><h3>No announcements yet</h3><p>Campus updates will appear here.</p></div>)}
                 </>}
 
                 {!loading && view === "events" && <>
@@ -187,7 +187,13 @@ function StudentPortal({ view = "home" }) {
                         const event = events.find((item) => item.name === row.event);
                         const canCancel = event && new Date(`${event.date}T23:59:59`) > new Date() && row.attendance === "Not Yet Recorded";
                         return <article className="student-registration" key={row.id}>
-                            <div className="student-registration-main"><span className="student-announcement-tag">{row.attendance || "Registered"}</span><h2>{row.event}</h2><p>{event ? `${formatDate(event.date)}${event.venue ? ` Â· ${event.venue}` : ""}` : "Your registration is confirmed."}</p><span className="student-reference">Pass {row.id}</span>
+                            <div className="student-registration-main"><span className="student-announcement-tag">{row.attendance || "Registered"}</span><h2>{row.event}</h2><div className="student-registration-meta">
+                                <span><strong>Schedule</strong>{event ? formatEventSchedule(event) : "To be announced"}{event?.startTime ? ` · ${formatTime(event.startTime)}` : ""}{event?.endTime ? `–${formatTime(event.endTime)}` : ""}</span>
+                                {event?.venue && <span><strong>Location</strong>{event.venue}</span>}
+                                <span><strong>Registered</strong>{formatDate(row.regDate)}</span>
+                                {row.role && <span><strong>Registrant</strong>{row.role}{row.blockNo ? ` · ${row.blockNo}` : ""}</span>}
+                                {row.paymentStatus && <span><strong>Payment</strong>{row.paymentStatus}{row.payment ? ` · ${row.payment}` : ""}</span>}
+                            </div><span className="student-reference">Pass {row.id}</span>
                                 <div className="student-card-actions"><button className="student-secondary-button" onClick={() => { setEvaluation({ id: event?.id, name: row.event }); setRating(5); setComment(""); }} disabled={!event || row.attendance !== "Present" || busy === row.id}>{row.attendance === "Present" ? "Give feedback" : "Feedback after check-in"}</button>{canCancel && <button className="student-text-button" onClick={() => cancel(row)} disabled={busy === row.id}>{busy === row.id ? "Cancellingâ€¦" : "Cancel registration"}</button>}</div>
                             </div>
                             {row.qrCode && <div className="student-pass"><QrCode value={`${STUDENT_PASS_QR_PREFIX}${row.qrCode}`} alt={`Student pass QR code for ${row.event}`} /><span>Show this pass at check-in</span></div>}
@@ -210,11 +216,23 @@ function StudentPortal({ view = "home" }) {
                 <button className="student-modal-close" type="button" onClick={() => setSelectedEvent(null)} aria-label="Close event details">Ã—</button>
                 {selectedEvent.bannerUrl ? <img className="student-detail-banner" src={selectedEvent.bannerUrl} alt="" /> : <div className="student-detail-banner student-event-banner-placeholder"><IconCalendar size={32} /></div>}
                 <div className="student-detail-content">
-                    <span className="student-announcement-tag">{selectedEvent.category || "Campus event"}</span>
+                    <div className="student-event-source-row">
+                        <span className="student-event-source">LIVE LARAVEL EVENT</span>
+                        <span className="student-announcement-tag">{selectedEvent.category || "Campus event"}</span>
+                    </div>
                     <h2 id="student-event-detail-title">{selectedEvent.name}</h2>
-                    <div className="student-event-meta"><span>{formatDate(selectedEvent.date)}</span>{selectedEvent.startTime && <span>{selectedEvent.startTime}</span>}{selectedEvent.venue && <span>{selectedEvent.venue}</span>}</div>
+                    <p className="student-event-reference">Event reference: <strong>{selectedEvent.id}</strong><span className={`student-event-status status-${String(selectedEvent.status || "Draft").toLowerCase()}`}>{selectedEvent.status || "Draft"}</span></p>
+                    <div className="student-detail-grid">
+                        <DetailItem label="Schedule" value={`${formatEventSchedule(selectedEvent)}${selectedEvent.startTime ? ` · ${formatTime(selectedEvent.startTime)}` : ""}${selectedEvent.endTime ? `–${formatTime(selectedEvent.endTime)}` : ""}`} />
+                        <DetailItem label="Venue" value={selectedEvent.venue} />
+                        <DetailItem label="Organizer" value={selectedEvent.organizer} />
+                        <DetailItem label="Audience" value={formatAudience(selectedEvent)} />
+                        <DetailItem label="Capacity" value={selectedEvent.hasCapacity ? `${selectedEvent.participants} of ${selectedEvent.capacity} registered${selectedEvent.capacity > selectedEvent.participants ? ` · ${selectedEvent.capacity - selectedEvent.participants} spots left` : ""}` : `${selectedEvent.participants} registered · no capacity limit`} />
+                        <DetailItem label="Certificate" value={selectedEvent.hasCertificate ? "Certificate offered" : "No certificate offered"} />
+                    </div>
                     <p>{selectedEvent.description || "Join the TMC community for this campus event."}</p>
                     {selectedEvent.registrationDeadline && <p className="student-detail-deadline">Registration closes {formatDate(selectedEvent.registrationDeadline)}.</p>}
+                    {selectedEvent.attendanceCompulsory && <p className="student-detail-deadline">Attendance is required{selectedEvent.attendanceRequiresCheckout ? ", including check-out" : ""} to complete this event.</p>}
                     <div className="student-detail-actions">
                         <button className="student-secondary-button" type="button" onClick={() => setSelectedEvent(null)}>Close details</button>
                         <button className="student-primary-link" type="button" onClick={() => register(selectedEvent)} disabled={busy === selectedEvent.id}>{busy === selectedEvent.id ? "Registeringâ€¦" : "Register for event"}</button>
@@ -241,12 +259,28 @@ function EventCard({ event, onViewDetails }) {
             <span className="student-announcement-tag">{event.category || "Campus event"}</span>
             <h3>{event.name}</h3>
             <p>{event.description || "Join the TMC community for this campus event."}</p>
-            <div className="student-event-meta"><span>{formatDate(event.date)}</span>{event.startTime && <span>{event.startTime}</span>}{event.venue && <span>{event.venue}</span>}</div>
+            <div className="student-event-meta"><span>{formatEventSchedule(event)}{event.startTime ? ` · ${formatTime(event.startTime)}` : ""}</span>{event.venue && <span>{event.venue}</span>}{event.organizer && <span>Hosted by {event.organizer}</span>}{event.registrationDeadline && <span>Registration closes {formatDate(event.registrationDeadline)}</span>}</div>
             <div className="student-event-actions">
                 <button type="button" className="student-primary-link" onClick={() => onViewDetails(event)}>View details &amp; registration</button>
             </div>
         </div>
     </article>;
+}
+function DetailItem({ label, value }) { return value ? <div className="student-detail-item"><span>{label}</span><strong>{value}</strong></div> : null; }
+function formatAudience(event) {
+    return [event.targetRole && event.targetRole !== "All" ? event.targetRole : "All roles", event.targetCourse, event.targetDepartment, event.targetYear, event.targetBlock]
+        .filter(Boolean)
+        .join(" · ");
+}
+function formatEventSchedule(event) {
+    if (!event?.date) return "Date to be announced";
+    const start = formatDate(event.date);
+    return event.endDate && event.endDate !== event.date ? `${start} – ${formatDate(event.endDate)}` : start;
+}
+function formatTime(value) {
+    const [hours, minutes] = String(value).split(":").map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return value;
+    return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(2000, 0, 1, hours, minutes));
 }
 function formatDate(value) { if (!value) return "Date to be announced"; const date = new Date(`${value}T00:00:00`); return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date); }
 

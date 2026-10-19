@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { createPortal } from "react-dom";
 import useDialogA11y from "./useDialogA11y";
 
 function Modal({
@@ -24,7 +25,7 @@ function Modal({
     wide: "modal-card--wide",
   }[size] || "";
 
-  return (
+  return createPortal(
     <div
       className="modal-overlay"
       role="presentation"
@@ -55,7 +56,8 @@ function Modal({
         <div className="modal-body">{children}</div>
         {footer ? <div className="modal-footer">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

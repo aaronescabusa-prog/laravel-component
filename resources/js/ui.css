@@ -11,8 +11,8 @@
    - Pages that predate AppShell use a class prefix (events-, regs-, cert-,
      ann-, eval-, log-, rpt-, settings-). Those variants are grouped with the
      canonical class via :is() so they always resolve to the same values.
-   - Motion is limited to colour/shadow transitions (120-280ms). Hover lifts
-     and decorative gradients are intentionally avoided.
+   - Motion is restrained and functional: short feedback transitions, small
+     content entrances and no decorative looping effects outside loading states.
 
    Sections
    01 Layout shell          07 Toolbars & inputs     13 Page specifics II
@@ -66,9 +66,9 @@
   flex-direction: column;
   height: 100vh;
   height: 100dvh;
-  padding: 6px 0 0;
+  padding: 4px 0 0;
   background-color: var(--ui-navy-900);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--ui-sidebar-text);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -79,8 +79,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 20px 18px 19px;
-  margin-bottom: 8px;
+  padding: 18px 18px 17px;
+  margin-bottom: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
@@ -90,9 +90,10 @@
   padding: 4px;
   flex-shrink: 0;
   object-fit: contain;
-  background-color: rgba(255, 255, 255, 0.92);
-  border-radius: var(--ui-radius);
-  box-shadow: var(--ui-shadow-xs);
+  background-color: #fff;
+  border: 1px solid var(--ui-border);
+  border-radius: 11px;
+  box-shadow: none;
 }
 
 :root :is(.sidebar-brand-text, .ann-sidebar-brand-text, .cert-sidebar-brand-text, .eval-sidebar-brand-text, .events-sidebar-brand-text, .log-sidebar-brand-text, .regs-sidebar-brand-text, .rpt-sidebar-brand-text, .settings-sidebar-brand-text) {
@@ -105,7 +106,7 @@
 :root :is(.sidebar-title, .ann-sidebar-title, .cert-sidebar-title, .eval-sidebar-title, .events-sidebar-title, .log-sidebar-title, .regs-sidebar-title, .rpt-sidebar-title, .settings-sidebar-title) {
   font-size: 14.5px;
   font-weight: 650;
-  color: var(--ui-text-invert);
+  color: #ffffff;
   letter-spacing: -0.01em;
   white-space: nowrap;
 }
@@ -121,8 +122,8 @@
 :root :is(.sidebar-nav, .ann-sidebar-nav, .cert-sidebar-nav, .eval-sidebar-nav, .events-sidebar-nav, .log-sidebar-nav, .regs-sidebar-nav, .rpt-sidebar-nav, .settings-sidebar-nav) {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px 14px 16px;
+  gap: 3px;
+  padding: 4px 12px 14px;
 }
 
 :root :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link) {
@@ -130,13 +131,13 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  min-height: 44px;
-  padding: 10px 14px;
+  min-height: 40px;
+  padding: 8px 12px;
   border: 0;
   border-radius: var(--ui-radius-sm);
   color: var(--ui-sidebar-text);
   text-decoration: none;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1.35;
   transition: background-color var(--ui-transition), color var(--ui-transition);
@@ -156,15 +157,13 @@
 
 :root :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link):hover {
   background-color: rgba(255, 255, 255, 0.08);
-  color: var(--ui-text-invert);
+  color: #ffffff;
 }
 
-/* Gold active state: navy text on gold reads as the institutional accent
-   used across the mobile app. */
 :root :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link).active {
-  background-color: var(--ui-gold);
-  box-shadow: inset 3px 0 0 0 var(--ui-gold-strong);
-  color: var(--ui-navy-900);
+  background-color: rgba(255, 202, 27, 0.12);
+  box-shadow: inset 3px 0 0 0 var(--ui-gold);
+  color: var(--ui-gold);
   font-weight: 650;
 }
 
@@ -176,15 +175,15 @@
 :root :is(.sidebar-footer, .ann-sidebar-footer, .cert-sidebar-footer, .eval-sidebar-footer, .events-sidebar-footer, .log-sidebar-footer, .regs-sidebar-footer, .rpt-sidebar-footer, .settings-sidebar-footer) {
   margin-top: auto;
   padding: 14px 16px 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 :root :is(.sidebar-logout, .ann-sidebar-logout, .cert-sidebar-logout, .eval-sidebar-logout, .events-sidebar-logout, .log-sidebar-logout, .regs-sidebar-logout, .rpt-sidebar-logout, .settings-sidebar-logout) {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: var(--ui-radius-sm);
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: rgba(255, 255, 255, 0.05);
   color: var(--ui-sidebar-text);
   font-size: 13px;
   font-weight: 600;
@@ -193,8 +192,69 @@
 
 :root :is(.sidebar-logout, .ann-sidebar-logout, .cert-sidebar-logout, .eval-sidebar-logout, .events-sidebar-logout, .log-sidebar-logout, .regs-sidebar-logout, .rpt-sidebar-logout, .settings-sidebar-logout):hover {
   background-color: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.35);
-  color: var(--ui-text-invert);
+  border-color: rgba(255, 255, 255, 0.34);
+  color: #ffffff;
+}
+
+:root :is(.sidebar, .ann-sidebar, .cert-sidebar, .eval-sidebar, .events-sidebar, .log-sidebar, .regs-sidebar, .rpt-sidebar, .settings-sidebar) {
+  transition: width var(--ui-transition-slow), flex-basis var(--ui-transition-slow);
+}
+
+:root :is(.sidebar-brand, .ann-sidebar-brand, .cert-sidebar-brand, .eval-sidebar-brand, .events-sidebar-brand, .log-sidebar-brand, .regs-sidebar-brand, .rpt-sidebar-brand, .settings-sidebar-brand) {
+  position: relative;
+}
+
+:root .sidebar-collapse-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ui-sidebar-text);
+  cursor: pointer;
+  transition: color var(--ui-transition), background-color var(--ui-transition), border-color var(--ui-transition);
+}
+
+:root .sidebar-collapse-toggle:hover {
+  border-color: var(--ui-gold-border);
+  background: rgba(255, 202, 27, 0.13);
+  color: var(--ui-gold);
+}
+
+:root .sidebar-collapse-toggle:focus-visible {
+  outline: 2px solid var(--ui-gold);
+  outline-offset: 2px;
+}
+
+:root .sidebar-collapse-icon {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--ui-transition-slow);
+}
+
+:root .sidebar-link-label,
+:root .sidebar-logout-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root :is(.sidebar-logout, .ann-sidebar-logout, .cert-sidebar-logout, .eval-sidebar-logout, .events-sidebar-logout, .log-sidebar-logout, .regs-sidebar-logout, .rpt-sidebar-logout, .settings-sidebar-logout) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
 }
 
 /* ---------- 03. Topbar & mobile navigation ---------- */
@@ -214,7 +274,7 @@
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--ui-border);
-  box-shadow: 0 4px 18px rgba(4, 29, 56, 0.045);
+  box-shadow: 0 1px 3px rgba(4, 29, 56, 0.035);
 }
 
 :root :is(.breadcrumb, .ann-breadcrumb, .cert-breadcrumb, .eval-breadcrumb, .events-breadcrumb, .log-breadcrumb, .regs-breadcrumb, .rpt-breadcrumb, .settings-breadcrumb) {
@@ -245,11 +305,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 14px 6px 6px;
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
-  background-color: var(--ui-surface);
-  box-shadow: var(--ui-shadow-xs);
+  padding: 5px 12px 5px 5px;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-pill);
+  background-color: rgba(237, 242, 248, 0.72);
+  box-shadow: none;
 }
 
 :root :is(.user-avatar, .ann-avatar, .cert-avatar, .eval-avatar, .events-avatar, .log-avatar, .regs-avatar, .rpt-avatar, .settings-avatar) {
@@ -394,8 +454,8 @@
 
 :root :is(.kpi-strip, .ann-kpi-strip, .cert-kpi-strip, .eval-kpi-strip, .events-kpi-strip, .log-kpi-strip, .regs-kpi-strip, .rpt-kpi-strip) {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
   padding: 0;
   margin-bottom: 18px;
   background: none;
@@ -410,9 +470,9 @@
   padding: 18px 20px 18px 22px;
   overflow: hidden;
   background-color: var(--ui-surface);
-  border: 1px solid rgba(203, 215, 228, 0.85);
+  border: 1px solid rgba(203, 215, 228, 0.72);
   border-radius: var(--ui-radius-lg);
-  box-shadow: 0 3px 10px rgba(15, 35, 59, 0.035), 0 14px 28px -24px rgba(4, 29, 56, 0.3);
+  box-shadow: 0 2px 5px rgba(15, 35, 59, 0.025), 0 12px 24px -22px rgba(4, 29, 56, 0.28);
   transition: border-color var(--ui-transition), box-shadow var(--ui-transition);
 }
 
@@ -420,7 +480,7 @@
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
-  width: 4px;
+  width: 3px;
   background-color: var(--ui-gold);
 }
 
@@ -498,13 +558,13 @@
   background-color: var(--ui-surface);
   border: 1px solid rgba(203, 215, 228, 0.82);
   border-radius: var(--ui-radius-lg);
-  box-shadow: 0 2px 6px rgba(15, 35, 59, 0.025), 0 12px 30px -24px rgba(4, 29, 56, 0.22);
+  box-shadow: 0 2px 5px rgba(15, 35, 59, 0.025), 0 12px 26px -22px rgba(4, 29, 56, 0.2);
   transition: border-color var(--ui-transition), box-shadow var(--ui-transition);
 }
 
 :root :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel, .dash-panel):hover {
-  border-color: #c4d3e2;
-  box-shadow: 0 8px 24px -20px rgba(4, 29, 56, 0.34);
+  border-color: var(--ui-border-strong);
+  box-shadow: 0 4px 14px -12px rgba(4, 29, 56, 0.24);
 }
 
 :root :is(.panel-header, .ann-panel-header, .cert-panel-header, .eval-panel-header, .events-panel-header, .log-panel-header, .regs-panel-header, .rpt-panel-header, .settings-panel-header, .dash-panel-header) {
@@ -519,16 +579,14 @@
   border-bottom: 1px solid var(--ui-border);
 }
 
-/* Short gold rule under the header — the one decorative accent shared by
-   every panel. */
 :root :is(.panel-header, .dash-panel-header)::after {
   content: "";
   position: absolute;
   bottom: 0;
   left: 0;
-  width: 40px;
+  width: 28px;
   height: 2px;
-  background-color: var(--ui-gold);
+  background-color: var(--ui-gold-strong);
   border-radius: var(--ui-radius-pill);
 }
 
@@ -647,8 +705,8 @@
 :root textarea {
   min-height: 40px;
   padding: 8px 13px;
-  border: 1px solid #d5dfeb;
-  border-radius: var(--ui-radius);
+  border: 1px solid #d9e1eb;
+  border-radius: 8px;
   background-color: var(--ui-surface);
   color: var(--ui-text);
   font-size: 13.5px;
@@ -886,8 +944,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--ui-radius-pill);
@@ -931,13 +989,14 @@
 :root .dash-action-link {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 16px;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 14px;
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius);
   background-color: var(--ui-surface);
-  box-shadow: var(--ui-shadow-xs);
+  box-shadow: 0 1px 2px rgba(15, 35, 59, 0.025);
   color: var(--ui-text);
   font-size: 13.5px;
   font-weight: 600;
@@ -1009,7 +1068,7 @@
 }
 
 :root thead {
-  background-color: #f1f5f9;
+  background-color: #f8fafc;
 }
 
 :root thead th {
@@ -1018,7 +1077,7 @@
   z-index: 2;
   padding: 11px 14px;
   border-bottom: 1px solid var(--ui-border);
-  background-color: #f1f5f9;
+  background-color: #f8fafc;
   box-shadow: inset 0 -1px 0 var(--ui-border);
   color: #64748b;
   font-size: 11px;
@@ -1042,7 +1101,7 @@
 }
 
 :root tbody tr:nth-child(even) {
-  background-color: #fbfcfe;
+  background-color: #fcfdff;
 }
 
 :root tbody tr {
@@ -1050,8 +1109,8 @@
 }
 
 :root tbody tr:hover {
-  background-color: #f0f4ff;
-  box-shadow: inset 3px 0 0 0 var(--ui-gold);
+  background-color: #f3f7fb;
+  box-shadow: inset 3px 0 0 0 rgba(27, 90, 131, 0.42);
 }
 
 :root .row-selected,
@@ -1344,10 +1403,10 @@
 }
 
 :root :is(.rpt-report-tab, .settings-tab).active {
-  background-color: var(--ui-gold);
+  background-color: var(--ui-gold-soft);
   border-color: transparent;
   color: var(--ui-navy-900);
-  box-shadow: 0 6px 16px -12px rgba(8, 36, 72, 0.65);
+  box-shadow: inset 0 -2px 0 var(--ui-gold-strong);
 }
 
 :root :is(.rpt-export-toast, .settings-toast) {
@@ -1556,8 +1615,8 @@
 :root .dash-feed-item {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 12px 0;
+  gap: 10px;
+  padding: 11px 0;
   border-bottom: 1px solid var(--ui-border);
 }
 
@@ -1685,6 +1744,180 @@
 
 :root .dash-refresh-btn:hover:not(:disabled) {
   box-shadow: 0 4px 12px -4px rgba(8, 36, 72, 0.25);
+}
+
+:root .dash-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-left: auto;
+}
+
+:root .dash-header-actions .dash-refresh-stamp {
+  color: var(--ui-text-muted);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+:root .dash-header-actions .dash-refresh-auto {
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+:root .dash-header-actions .dash-refresh-btn {
+  min-height: 38px;
+  padding: 7px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font-size: 12px;
+}
+
+:root .dash-header-actions .dash-refresh-btn:hover:not(:disabled) {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-surface-muted);
+}
+
+:root .dash-create-link {
+  min-height: 38px;
+  padding: 8px 13px;
+  border-radius: var(--ui-radius-sm);
+  font-size: 12px;
+}
+
+:root .dash-approval-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--ui-warning-border);
+  border-left: 3px solid var(--ui-warning);
+  border-radius: var(--ui-radius);
+  background: var(--ui-warning-bg);
+  color: var(--ui-text);
+}
+
+:root .dash-approval-notice strong {
+  color: #854d0e;
+  font-size: 13px;
+}
+
+:root .dash-approval-notice span {
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+:root .dash-approval-link {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 1px solid rgba(180, 83, 9, 0.2);
+  border-radius: var(--ui-radius-sm);
+  background: #fff;
+  color: #854d0e;
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background-color var(--ui-transition), border-color var(--ui-transition);
+}
+
+:root .dash-approval-link:hover {
+  border-color: rgba(180, 83, 9, 0.38);
+  background: #fffdf7;
+}
+
+:root .dash-actions {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin: 4px 0 18px;
+}
+
+:root .dash-action-link {
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: var(--ui-radius-sm);
+  font-size: 12.5px;
+}
+
+:root .dash-action-icon {
+  width: 16px;
+  height: 16px;
+}
+
+:root .dash-bento-grid {
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+:root .dash-bento-card {
+  padding: 18px;
+}
+
+:root .dash-panel-header {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+}
+
+:root .dash-feed-item {
+  flex-wrap: wrap;
+}
+
+:root .dash-feed-main {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+:root .dash-feed-time {
+  flex: 0 1 100%;
+  margin-left: 0;
+  padding-left: 0;
+}
+
+:root .dash-snapshot-grid {
+  gap: 10px;
+}
+
+:root .dash-refresh-bar {
+  padding: 8px 12px;
+}
+
+@media (max-width: 1200px) {
+  :root .topbar .dash-header-actions {
+    order: 3;
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 640px) {
+  :root .topbar .dash-header-actions {
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  :root .dash-header-actions .dash-refresh-stamp {
+    flex: 1 1 100%;
+  }
+
+  :root .dash-header-actions .dash-refresh-auto {
+    margin-right: auto;
+  }
+
+  :root .dash-approval-notice {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  :root .dash-approval-link {
+    width: 100%;
+    text-align: center;
+  }
 }
 
 :root :is(.rpt-chart) {
@@ -2367,7 +2600,7 @@
   z-index: var(--ui-student-header-z);
   border-bottom: 1px solid var(--ui-border);
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 4px 18px rgba(4, 29, 56, 0.045);
+  box-shadow: 0 1px 2px rgba(4, 29, 56, 0.025);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
 }
@@ -2450,7 +2683,7 @@
   left: 12px;
   height: 2px;
   border-radius: var(--ui-radius-pill);
-  background: var(--ui-gold);
+  background: var(--ui-gold-strong);
   content: "";
 }
 
@@ -2706,6 +2939,56 @@
 
 /* ---------- 16. Responsive behaviour ---------- */
 
+@media (min-width: 1025px) {
+  :root :is(.app-shell.sidebar-collapsed, .ann-shell.sidebar-collapsed, .cert-shell.sidebar-collapsed, .eval-shell.sidebar-collapsed, .events-shell.sidebar-collapsed, .log-shell.sidebar-collapsed, .regs-shell.sidebar-collapsed, .rpt-shell.sidebar-collapsed, .settings-shell.sidebar-collapsed) :is(.sidebar, .ann-sidebar, .cert-sidebar, .eval-sidebar, .events-sidebar, .log-sidebar, .regs-sidebar, .rpt-sidebar, .settings-sidebar) {
+    width: 76px;
+    flex-basis: 76px;
+  }
+
+  :root :is(.app-shell.sidebar-collapsed, .ann-shell.sidebar-collapsed, .cert-shell.sidebar-collapsed, .eval-shell.sidebar-collapsed, .events-shell.sidebar-collapsed, .log-shell.sidebar-collapsed, .regs-shell.sidebar-collapsed, .rpt-shell.sidebar-collapsed, .settings-shell.sidebar-collapsed) :is(.sidebar-brand, .ann-sidebar-brand, .cert-sidebar-brand, .eval-sidebar-brand, .events-sidebar-brand, .log-sidebar-brand, .regs-sidebar-brand, .rpt-sidebar-brand, .settings-sidebar-brand) {
+    flex-direction: column;
+    gap: 11px;
+    padding: 15px 8px 13px;
+  }
+
+  :root :is(.app-shell.sidebar-collapsed, .ann-shell.sidebar-collapsed, .cert-shell.sidebar-collapsed, .eval-shell.sidebar-collapsed, .events-shell.sidebar-collapsed, .log-shell.sidebar-collapsed, .regs-shell.sidebar-collapsed, .rpt-shell.sidebar-collapsed, .settings-shell.sidebar-collapsed) :is(.sidebar-brand-text, .ann-sidebar-brand-text, .cert-sidebar-brand-text, .eval-sidebar-brand-text, .events-sidebar-brand-text, .log-sidebar-brand-text, .regs-sidebar-brand-text, .rpt-sidebar-brand-text, .settings-sidebar-brand-text, .sidebar-link-label, .sidebar-logout-label) {
+    display: none;
+  }
+
+  :root :is(.app-shell.sidebar-collapsed, .ann-shell.sidebar-collapsed, .cert-shell.sidebar-collapsed, .eval-shell.sidebar-collapsed, .events-shell.sidebar-collapsed, .log-shell.sidebar-collapsed, .regs-shell.sidebar-collapsed, .rpt-shell.sidebar-collapsed, .settings-shell.sidebar-collapsed) .sidebar-collapse-toggle {
+    margin: 0;
+  }
+
+  :root :is(.app-shell.sidebar-collapsed, .ann-shell.sidebar-collapsed, .cert-shell.sidebar-collapsed, .eval-shell.sidebar-collapsed, .events-shell.sidebar-collapsed, .log-shell.sidebar-collapsed, .regs-shell.sidebar-collapsed, .rpt-shell.sidebar-collapsed, .settings-shell.sidebar-collapsed) :is(.sidebar-nav, .ann-sidebar-nav, .cert-sidebar-nav, .eval-sidebar-nav, .events-sidebar-nav, .log-sidebar-nav, .regs-sidebar-nav, .rpt-sidebar-nav, .settings-sidebar-nav) {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+
+  :root :is(.app-shell.sidebar-collapsed, .ann-shell.sidebar-collapsed, .cert-shell.sidebar-collapsed, .eval-shell.sidebar-collapsed, .events-shell.sidebar-collapsed, .log-shell.sidebar-collapsed, .regs-shell.sidebar-collapsed, .rpt-shell.sidebar-collapsed, .settings-shell.sidebar-collapsed) :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link) {
+    justify-content: center;
+    gap: 0;
+    padding: 10px 8px;
+  }
+
+  :root :is(.app-shell.sidebar-collapsed, .ann-shell.sidebar-collapsed, .cert-shell.sidebar-collapsed, .eval-shell.sidebar-collapsed, .events-shell.sidebar-collapsed, .log-shell.sidebar-collapsed, .regs-shell.sidebar-collapsed, .rpt-shell.sidebar-collapsed, .settings-shell.sidebar-collapsed) :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link).active {
+    box-shadow: inset 0 -3px 0 0 var(--ui-gold-strong);
+  }
+
+  :root :is(.app-shell.sidebar-collapsed, .ann-shell.sidebar-collapsed, .cert-shell.sidebar-collapsed, .eval-shell.sidebar-collapsed, .events-shell.sidebar-collapsed, .log-shell.sidebar-collapsed, .regs-shell.sidebar-collapsed, .rpt-shell.sidebar-collapsed, .settings-shell.sidebar-collapsed) :is(.sidebar-footer, .ann-sidebar-footer, .cert-sidebar-footer, .eval-sidebar-footer, .events-sidebar-footer, .log-sidebar-footer, .regs-sidebar-footer, .rpt-sidebar-footer, .settings-sidebar-footer) {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+
+  :root :is(.app-shell.sidebar-collapsed, .ann-shell.sidebar-collapsed, .cert-shell.sidebar-collapsed, .eval-shell.sidebar-collapsed, .events-shell.sidebar-collapsed, .log-shell.sidebar-collapsed, .regs-shell.sidebar-collapsed, .rpt-shell.sidebar-collapsed, .settings-shell.sidebar-collapsed) :is(.sidebar-logout, .ann-sidebar-logout, .cert-sidebar-logout, .eval-sidebar-logout, .events-sidebar-logout, .log-sidebar-logout, .regs-sidebar-logout, .rpt-sidebar-logout, .settings-sidebar-logout) {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  :root :is(.app-shell.sidebar-collapsed, .ann-shell.sidebar-collapsed, .cert-shell.sidebar-collapsed, .eval-shell.sidebar-collapsed, .events-shell.sidebar-collapsed, .log-shell.sidebar-collapsed, .regs-shell.sidebar-collapsed, .rpt-shell.sidebar-collapsed, .settings-shell.sidebar-collapsed) .sidebar-collapse-icon {
+    transform: rotate(180deg);
+  }
+}
+
 /* Tablet & below: the sidebar becomes an off-canvas drawer */
 @media (max-width: 1024px) {
   :root :is(.sidebar, .ann-sidebar, .cert-sidebar, .eval-sidebar, .events-sidebar, .log-sidebar, .regs-sidebar, .rpt-sidebar, .settings-sidebar) {
@@ -2731,6 +3014,10 @@
 
   :root .nav-toggle {
     display: inline-flex;
+  }
+
+  :root .sidebar-collapse-toggle {
+    display: none;
   }
 
   :root .nav-backdrop {
@@ -3129,5 +3416,1218 @@
     tbody tr, .student-event-card
   ) {
     transition: none;
+  }
+}
+
+/* Extend the same motion language to page-specific authenticated workflows. */
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell, .student-app-shell) :where(a, button, input, select, textarea, [role="button"], [role="tab"]) {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: var(--ui-transition);
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.eval-response-card, .cert-student-event, .scanner-event-card, .scanner-event-summary, .scanner-panel, .attendance-filter-panel, .attendance-event-summary, .attendance-selected-event, .attendance-event-result, .checkin-empty-panel) {
+  transition: transform var(--ui-transition), border-color var(--ui-transition), box-shadow var(--ui-transition), background-color var(--ui-transition);
+}
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.eval-response-card, .cert-student-event, .scanner-event-card, .scanner-event-summary, .scanner-panel, .attendance-filter-panel, .attendance-event-summary, .attendance-selected-event, .checkin-empty-panel):hover {
+  transform: translateY(-2px);
+  border-color: #c7d5e2;
+  box-shadow: 0 14px 26px -22px rgba(4, 29, 56, 0.52);
+}
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.ann-list, .eval-response-list, .cert-student-event-list, .cert-eligible-list, .scanner-list, .attendance-event-results, .student-card-grid, .student-stat-grid, .student-registration-list, .student-announcement-list) > * {
+  animation: ui-content-enter 380ms var(--ui-ease-spring) both;
+}
+
+:root :is(.ann-list, .eval-response-list, .cert-student-event-list, .cert-eligible-list, .scanner-list, .attendance-event-results, .student-card-grid, .student-stat-grid, .student-registration-list, .student-announcement-list) > :nth-child(2) {
+  animation-delay: 45ms;
+}
+
+:root :is(.ann-list, .eval-response-list, .cert-student-event-list, .cert-eligible-list, .scanner-list, .attendance-event-results, .student-card-grid, .student-stat-grid, .student-registration-list, .student-announcement-list) > :nth-child(3) {
+  animation-delay: 90ms;
+}
+
+:root :is(.ann-list, .eval-response-list, .cert-student-event-list, .cert-eligible-list, .scanner-list, .attendance-event-results, .student-card-grid, .student-stat-grid, .student-registration-list, .student-announcement-list) > :nth-child(n + 4) {
+  animation-delay: 135ms;
+}
+
+:root .attendance-event-result {
+  transition: background-color var(--ui-transition), border-color var(--ui-transition), color var(--ui-transition);
+}
+
+:root .scanner-row {
+  transition: background-color var(--ui-transition), border-color var(--ui-transition);
+}
+
+:root :is(.rpt-report-tab, .settings-tab, .checkin-session-tab) {
+  transition: color var(--ui-transition), background-color var(--ui-transition), border-color var(--ui-transition), box-shadow var(--ui-transition), transform var(--ui-transition);
+}
+
+:root .student-nav-link::after {
+  transform: scaleX(0.45);
+  transform-origin: left center;
+  transition: transform var(--ui-transition);
+}
+
+:root .student-nav-link.active::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell, .student-app-shell) * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  :root .student-app-shell .student-nav-link::after {
+    transition: none !important;
+  }
+
+  :root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel, .dash-bento-card, .ann-card, .eval-response-card, .cert-student-event, .scanner-event-card, .scanner-event-summary, .scanner-panel, .attendance-filter-panel, .attendance-event-summary, .attendance-selected-event, .checkin-empty-panel):hover,
+  :root :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link):hover,
+  :root :is(.student-event-card, .student-summary-card, .student-registration, .student-announcement, .student-primary-link, .student-secondary-button):is(:hover, :active) {
+    transform: none !important;
+  }
+}
+
+/* ---------- Dashboard: richer workspace styling ---------- */
+
+:root .app-shell .page-content {
+  background:
+    radial-gradient(ellipse at 96% 0%, rgba(213, 169, 57, 0.09), transparent 34%),
+    linear-gradient(145deg, #f4f7fb 0%, #f7f8fa 58%, #f3f5f8 100%);
+}
+
+:root .app-shell .kpi-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+:root .app-shell .kpi-item {
+  min-height: 116px;
+  justify-content: center;
+  padding: 18px 22px;
+  border-color: #dce4ee;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(213, 169, 57, 0.13), transparent 42%),
+    linear-gradient(145deg, #ffffff 0%, #f9fbfd 100%);
+  box-shadow: 0 8px 22px -18px rgba(8, 36, 72, 0.42);
+  transition: transform var(--ui-transition), border-color var(--ui-transition), box-shadow var(--ui-transition);
+}
+
+:root .app-shell .kpi-item > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root .app-shell .kpi-item::before {
+  width: 4px;
+}
+
+:root .app-shell .kpi-item:nth-child(2)::before {
+  background-color: var(--ui-navy-700);
+}
+
+:root .app-shell .kpi-item:hover {
+  transform: translateY(-2px);
+  border-color: #c6d3e1;
+  box-shadow: 0 14px 26px -20px rgba(8, 36, 72, 0.48);
+}
+
+:root .app-shell .kpi-item .kpi-value {
+  font-size: clamp(28px, 2.5vw, 34px);
+}
+
+:root .app-shell .kpi-item .kpi-label {
+  letter-spacing: 0.075em;
+}
+
+:root .app-shell .dash-actions {
+  gap: 9px;
+  margin: 2px 0 20px;
+}
+
+:root .app-shell .dash-action-link {
+  min-height: 42px;
+  padding: 9px 14px;
+  border-color: #d6e0eb;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #ffffff, #f7f9fc);
+  box-shadow: 0 4px 12px -10px rgba(8, 36, 72, 0.38);
+  transition: transform var(--ui-transition), border-color var(--ui-transition), box-shadow var(--ui-transition), background-color var(--ui-transition);
+}
+
+:root .app-shell .dash-action-link:hover {
+  transform: translateY(-2px);
+  border-color: #d9b85d;
+  background: linear-gradient(135deg, #fffdf7, #fff8e6);
+  box-shadow: 0 9px 18px -14px rgba(8, 36, 72, 0.45);
+}
+
+:root .app-shell .dash-action-icon {
+  box-sizing: content-box;
+  padding: 6px;
+  border-radius: 8px;
+  background: #f7edcf;
+  color: var(--ui-navy-800);
+}
+
+:root .app-shell .dash-bento-grid {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+:root .app-shell .dash-bento-card {
+  min-width: 0;
+  overflow: hidden;
+  border-color: #dce4ed;
+  border-radius: 16px;
+  background: linear-gradient(150deg, #ffffff 0%, #fbfcfe 100%);
+  box-shadow: 0 8px 24px -22px rgba(8, 36, 72, 0.5);
+  transition: transform var(--ui-transition), border-color var(--ui-transition), box-shadow var(--ui-transition);
+}
+
+:root .app-shell .dash-bento-card:hover {
+  transform: translateY(-2px);
+  border-color: #c7d4e1;
+  box-shadow: 0 16px 28px -22px rgba(8, 36, 72, 0.45);
+}
+
+:root .app-shell .dash-bento-card.bento-wide {
+  grid-column: span 8;
+}
+
+:root .app-shell .dash-bento-card.bento-tall {
+  grid-column: span 4;
+  grid-row: auto;
+  align-self: stretch;
+  max-height: 560px;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(224, 183, 83, 0.16), transparent 43%),
+    linear-gradient(150deg, #123b62 0%, #082744 100%);
+  border-color: #173f64;
+  color: #f5f8fc;
+  box-shadow: 0 12px 28px -20px rgba(5, 31, 54, 0.72);
+}
+
+:root .app-shell .dash-bento-card.bento-tall .dash-feed {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-color: rgba(255, 255, 255, 0.34) transparent;
+  scrollbar-width: thin;
+}
+
+:root .app-shell .dash-bento-card.bento-tall:hover {
+  border-color: #315b7e;
+  box-shadow: 0 18px 32px -22px rgba(5, 31, 54, 0.8);
+}
+
+:root .app-shell .dash-bento-card:not(.bento-wide):not(.bento-tall) {
+  grid-column: span 4;
+}
+
+:root .app-shell .dash-bento-card.bento-tall .dash-panel-header {
+  border-bottom-color: rgba(255, 255, 255, 0.16);
+}
+
+:root .app-shell .dash-bento-card.bento-tall .dash-panel-header::after {
+  background-color: var(--ui-gold);
+}
+
+:root .app-shell .dash-bento-card.bento-tall .dash-panel-header h2 {
+  color: #ffffff;
+}
+
+:root .app-shell .dash-bento-card.bento-tall .dash-link {
+  color: #f4d77e;
+}
+
+:root .app-shell .dash-bento-card.bento-tall .dash-link:hover {
+  color: #ffffff;
+}
+
+:root .app-shell .dash-bento-card.bento-tall .dash-feed-item {
+  border-bottom-color: rgba(255, 255, 255, 0.14);
+}
+
+:root .app-shell .dash-bento-card.bento-tall .dash-feed-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+:root .app-shell .dash-bento-card.bento-tall .dash-feed-action {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+:root .app-shell .dash-bento-card.bento-tall :is(.dash-feed-meta, .dash-feed-time) {
+  color: #bfd0df;
+}
+
+:root .app-shell .dash-bento-card.bento-tall .dash-feed-time {
+  font-variant-numeric: tabular-nums;
+}
+
+:root .app-shell .dash-panel-header {
+  margin-bottom: 15px;
+  padding-bottom: 12px;
+}
+
+:root .app-shell .dash-bento-card:not(.bento-tall) .dash-panel-header h2 {
+  font-size: 15px;
+}
+
+:root .app-shell .dash-bento-card .table-wrapper {
+  border-radius: 10px;
+}
+
+:root .app-shell .dash-progress {
+  height: 7px;
+  background-color: #e9edf3;
+}
+
+:root .app-shell .dash-progress-fill {
+  background-image: linear-gradient(90deg, var(--ui-navy-700), #426f96 72%, var(--ui-gold));
+}
+
+:root .app-shell .dash-snapshot {
+  gap: 16px;
+}
+
+:root .app-shell .dash-stat-value {
+  font-size: 34px;
+  letter-spacing: -0.045em;
+  color: var(--ui-navy-900);
+}
+
+:root .app-shell .dash-snapshot-grid {
+  gap: 10px;
+  padding-top: 14px;
+  border-top-color: #e8edf3;
+}
+
+:root .app-shell .dash-mini {
+  padding: 10px;
+  border: 1px solid #e6ebf1;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #ffffff, #f6f8fb);
+}
+
+:root .app-shell .dash-mini-value {
+  font-size: 18px;
+  color: var(--ui-navy-900);
+}
+
+:root .app-shell .dash-mini-label {
+  line-height: 1.4;
+}
+
+:root .app-shell .dash-approval-notice {
+  padding: 16px 18px;
+  border: 1px solid #e8d69d;
+  border-left: 4px solid var(--ui-gold-strong);
+  border-radius: 13px;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(213, 169, 57, 0.16), transparent 46%),
+    linear-gradient(115deg, #fffaf0, #fffdf8);
+  box-shadow: 0 8px 20px -20px rgba(8, 36, 72, 0.46);
+}
+
+:root .app-shell .dash-approval-notice strong {
+  color: var(--ui-navy-900);
+  font-size: 14px;
+}
+
+:root .app-shell .dash-approval-link {
+  padding: 9px 14px;
+  border: 1px solid var(--ui-navy-800);
+  border-radius: 9px;
+  background: var(--ui-navy-800);
+  color: #ffffff;
+  transition: background-color var(--ui-transition), transform var(--ui-transition);
+}
+
+:root .app-shell .dash-approval-link:hover {
+  transform: translateY(-1px);
+  background: var(--ui-navy-900);
+}
+
+@media (max-width: 1100px) {
+  :root .app-shell .kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  :root .app-shell .dash-bento-card.bento-wide {
+    grid-column: span 2;
+  }
+
+  :root .app-shell .dash-bento-card.bento-tall,
+  :root .app-shell .dash-bento-card:not(.bento-wide):not(.bento-tall) {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 720px) {
+  :root .app-shell .kpi-strip,
+  :root .app-shell .dash-bento-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :root .app-shell .kpi-item {
+    min-height: 102px;
+  }
+
+  :root .app-shell .dash-bento-card.bento-wide,
+  :root .app-shell .dash-bento-card.bento-tall,
+  :root .app-shell .dash-bento-card:not(.bento-wide):not(.bento-tall) {
+    grid-column: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root .app-shell :is(.kpi-item, .dash-action-link, .dash-bento-card, .dash-approval-link) {
+    transition: none;
+  }
+}
+
+/* ---------- Authenticated pages: shared SaaS visual treatment ---------- */
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) {
+  background:
+    radial-gradient(ellipse at 92% 0%, rgba(213, 169, 57, 0.07), transparent 32%),
+    linear-gradient(145deg, #f2f6fa 0%, #f7f8fa 54%, #f2f5f8 100%);
+}
+
+:root :is(.main-column, .ann-main-column, .cert-main-column, .eval-main-column, .events-main-column, .log-main-column, .regs-main-column, .rpt-main-column, .settings-main-column) {
+  background: transparent;
+}
+
+:root :is(.topbar, .ann-topbar, .cert-topbar, .eval-topbar, .events-topbar, .log-topbar, .regs-topbar, .rpt-topbar, .settings-topbar) {
+  position: sticky;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 252, 254, 0.97) 100%);
+  box-shadow: 0 5px 18px -18px rgba(4, 29, 56, 0.65);
+}
+
+:root :is(.topbar, .ann-topbar, .cert-topbar, .eval-topbar, .events-topbar, .log-topbar, .regs-topbar, .rpt-topbar, .settings-topbar)::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--ui-gold-strong), rgba(227, 169, 0, 0.18) 34%, transparent 78%);
+  content: "";
+  pointer-events: none;
+}
+
+:root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content) {
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(213, 169, 57, 0.06), transparent 35%),
+    transparent;
+}
+
+:root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content) :is(.kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item) {
+  min-height: 104px;
+  justify-content: center;
+  border-color: #d9e2ec;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(213, 169, 57, 0.11), transparent 44%),
+    linear-gradient(145deg, #ffffff, #f8fafc);
+  box-shadow: 0 8px 20px -19px rgba(4, 29, 56, 0.55);
+  transition: transform var(--ui-transition), border-color var(--ui-transition), box-shadow var(--ui-transition);
+}
+
+:root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content) :is(.kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item):hover {
+  transform: translateY(-2px);
+  border-color: #c6d4e2;
+  box-shadow: 0 14px 24px -20px rgba(4, 29, 56, 0.55);
+}
+
+:root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content) :is(.kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item)::before {
+  width: 4px;
+}
+
+:root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content) :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel) {
+  border-color: #d8e1eb;
+  background-color: var(--ui-surface);
+  box-shadow: 0 3px 12px -10px rgba(4, 29, 56, 0.3);
+}
+
+:root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content) :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel):hover {
+  border-color: #c9d6e3;
+  box-shadow: 0 5px 16px -13px rgba(4, 29, 56, 0.34);
+}
+
+:root :is(.panel-header, .ann-panel-header, .cert-panel-header, .eval-panel-header, .events-panel-header, .log-panel-header, .regs-panel-header, .rpt-panel-header, .settings-panel-header) {
+  border-bottom-color: #e7edf3;
+}
+
+:root :is(.table-wrapper, .cert-table-wrapper, .eval-table-wrapper, .events-table-wrapper, .log-table-wrapper, .regs-table-wrapper, .rpt-table-wrapper, .settings-table-wrapper) {
+  border-color: #dce5ee;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px -12px rgba(4, 29, 56, 0.38);
+}
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) thead th {
+  background: linear-gradient(180deg, #f4f7fa, #edf2f7);
+  box-shadow: inset 0 -2px 0 rgba(227, 169, 0, 0.48);
+  color: var(--ui-navy-800);
+}
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) tbody tr:nth-child(even) {
+  background-color: rgba(242, 246, 250, 0.58);
+}
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) tbody tr:hover {
+  background-color: #fffaf0;
+  box-shadow: inset 3px 0 0 var(--ui-gold-strong);
+}
+
+:root :is(.toolbar, .ann-toolbar, .cert-toolbar, .eval-toolbar, .events-toolbar, .log-toolbar, .regs-toolbar, .rpt-controls) {
+  padding: 10px;
+  border: 1px solid #e0e7ee;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.96));
+}
+
+:root :is(.btn-secondary, .ann-btn-secondary, .cert-btn-secondary, .events-btn-secondary, .log-btn-secondary, .regs-btn-secondary, .rpt-btn-secondary, .settings-btn-secondary):hover:not(:disabled) {
+  border-color: #b9c9d8;
+  background: linear-gradient(135deg, #f2f6fa, #eaf0f6);
+  color: var(--ui-navy-900);
+}
+
+:root .bulk-bar {
+  border-color: #cfdae6;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(213, 169, 57, 0.12), transparent 46%),
+    linear-gradient(115deg, #ffffff, #f7f9fb);
+}
+
+:root :is(.pagination, .log-pagination, .events-pagination, .regs-pagination, .cert-pagination, .eval-pagination, .ann-pagination) {
+  padding-top: 12px;
+  border-top: 1px solid #e2e9f0;
+}
+
+/* Student views use the same brand cues while keeping their wider, open layout. */
+:root .student-app-shell {
+  background:
+    radial-gradient(ellipse at 94% 0%, rgba(213, 169, 57, 0.09), transparent 30%),
+    linear-gradient(145deg, #f2f6fa, #f8f9fb 54%, #f2f5f8);
+}
+
+:root .student-app-header {
+  position: sticky;
+  background: linear-gradient(105deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 254, 0.97));
+}
+
+:root .student-app-header::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--ui-gold-strong), rgba(227, 169, 0, 0.18) 34%, transparent 78%);
+  content: "";
+  pointer-events: none;
+}
+
+:root .student-page-heading {
+  position: relative;
+  padding-left: 16px;
+}
+
+:root .student-page-heading::before {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 4px;
+  border-radius: var(--ui-radius-pill);
+  background: linear-gradient(180deg, var(--ui-gold), var(--ui-gold-strong));
+  content: "";
+}
+
+:root :is(.student-summary-card, .student-event-card, .student-announcement, .student-registration, .student-profile-card) {
+  border-color: #d8e2ec;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(213, 169, 57, 0.075), transparent 42%),
+    linear-gradient(150deg, #ffffff, #fbfcfe);
+  box-shadow: 0 12px 26px -23px rgba(4, 29, 56, 0.6), 0 2px 6px rgba(4, 29, 56, 0.025);
+}
+
+:root .student-event-card:hover {
+  transform: translateY(-3px);
+  border-color: #c3d2e0;
+  box-shadow: 0 20px 36px -26px rgba(4, 29, 56, 0.58);
+}
+
+:root .student-summary-card {
+  position: relative;
+  overflow: hidden;
+}
+
+:root .student-summary-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--ui-gold-strong);
+  content: "";
+}
+
+:root .student-event-filters {
+  padding: 10px;
+  border: 1px solid #dce5ee;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 20px -20px rgba(4, 29, 56, 0.48);
+}
+
+:root .student-summary-icon {
+  border: 1px solid rgba(227, 169, 0, 0.24);
+  background: linear-gradient(145deg, #fff8df, #f8edc8);
+  color: var(--ui-navy-800);
+}
+
+:root .student-primary-link {
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, var(--ui-gold), #f5bd12);
+  box-shadow: 0 8px 18px -13px rgba(4, 29, 56, 0.66);
+  color: var(--ui-navy-900);
+  transition: transform var(--ui-transition), background-color var(--ui-transition), box-shadow var(--ui-transition);
+}
+
+:root .student-primary-link:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, var(--ui-gold-hover), #eab116);
+  box-shadow: 0 12px 22px -14px rgba(4, 29, 56, 0.72);
+  color: var(--ui-navy-900);
+}
+
+:root .student-secondary-button:hover:not(:disabled) {
+  border-color: #c7d5e2;
+  background: linear-gradient(135deg, #f3f7fa, #eaf0f6);
+}
+
+:root .student-section-heading {
+  padding-bottom: 10px;
+  border-bottom: 1px solid #dce5ee;
+}
+
+:root .student-section-heading h2 {
+  position: relative;
+  padding-left: 12px;
+}
+
+:root .student-section-heading h2::before {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 3px;
+  border-radius: var(--ui-radius-pill);
+  background-color: var(--ui-gold-strong);
+  content: "";
+}
+
+:root .ann-shell .ann-list {
+  display: grid;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+}
+
+:root .ann-shell .ann-card {
+  position: relative;
+  overflow: hidden;
+  padding: 16px 18px;
+  border: 1px solid #dce5ee;
+  border-left: 3px solid var(--ui-gold-strong);
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(213, 169, 57, 0.1), transparent 40%),
+    linear-gradient(145deg, #ffffff, #fafbfd);
+  box-shadow: 0 8px 20px -20px rgba(4, 29, 56, 0.55);
+  transition: transform var(--ui-transition), border-color var(--ui-transition), box-shadow var(--ui-transition);
+}
+
+:root .ann-shell .ann-card:last-child {
+  border-bottom: 1px solid #dce5ee;
+}
+
+:root .ann-shell .ann-card:hover {
+  transform: translateY(-2px);
+  border-color: #c8d5e2;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(213, 169, 57, 0.14), transparent 40%),
+    linear-gradient(145deg, #ffffff, #fafbfd);
+  box-shadow: 0 15px 24px -21px rgba(4, 29, 56, 0.58);
+}
+
+:root .ann-shell .ann-card-icon {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(227, 169, 0, 0.25);
+  border-radius: 11px;
+  background: linear-gradient(145deg, #fff8df, #f8edc8);
+  color: var(--ui-navy-800);
+}
+
+:root .ann-shell .ann-kpi-item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 5px;
+  padding: 16px 18px;
+}
+
+:root .ann-shell .ann-kpi-icon {
+  position: static;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+  flex: 0 0 auto;
+}
+
+:root .ann-shell .ann-kpi-label {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+:root .ann-shell .ann-kpi-value {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+}
+
+:root .ann-shell .ann-card-meta .ann-audience-badge {
+  max-width: 100%;
+  white-space: normal;
+}
+
+:root .student-empty {
+  border: 1px dashed #cbd7e3;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(247, 249, 252, 0.9));
+}
+
+@media (max-width: 720px) {
+  :root :is(.toolbar, .ann-toolbar, .cert-toolbar, .eval-toolbar, .events-toolbar, .log-toolbar, .regs-toolbar, .rpt-controls) {
+    padding: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item, .panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel),
+  :root :is(.student-event-card, .student-summary-card, .student-primary-link, .ann-card) {
+    transition: none;
+  }
+}
+
+/* ---------- Authenticated interface motion ---------- */
+
+@keyframes ui-content-enter {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content) {
+  animation: ui-content-enter 420ms var(--ui-ease-spring) both;
+}
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.kpi-strip, .ann-kpi-strip, .cert-kpi-strip, .eval-kpi-strip, .events-kpi-strip, .log-kpi-strip, .regs-kpi-strip, .rpt-kpi-strip) > :is(.kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item) {
+  animation: ui-content-enter 380ms var(--ui-ease-spring) both;
+}
+
+:root :is(.kpi-strip, .ann-kpi-strip, .cert-kpi-strip, .eval-kpi-strip, .events-kpi-strip, .log-kpi-strip, .regs-kpi-strip, .rpt-kpi-strip) > :is(.kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item):nth-child(2) {
+  animation-delay: 45ms;
+}
+
+:root :is(.kpi-strip, .ann-kpi-strip, .cert-kpi-strip, .eval-kpi-strip, .events-kpi-strip, .log-kpi-strip, .regs-kpi-strip, .rpt-kpi-strip) > :is(.kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item):nth-child(3) {
+  animation-delay: 90ms;
+}
+
+:root :is(.kpi-strip, .ann-kpi-strip, .cert-kpi-strip, .eval-kpi-strip, .events-kpi-strip, .log-kpi-strip, .regs-kpi-strip, .rpt-kpi-strip) > :is(.kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item):nth-child(4) {
+  animation-delay: 135ms;
+}
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel, .dash-bento-card) {
+  transition: transform var(--ui-transition), border-color var(--ui-transition), box-shadow var(--ui-transition);
+}
+
+:root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel):hover {
+  transform: none;
+}
+
+:root :is(.ann-list, .eval-response-list, .student-card-grid, .student-stat-grid) > :is(.ann-card, .eval-response-card, .student-event-card, .student-summary-card) {
+  animation: ui-content-enter 400ms var(--ui-ease-spring) both;
+}
+
+:root :is(.ann-list, .eval-response-list, .student-card-grid, .student-stat-grid) > :is(.ann-card, .eval-response-card, .student-event-card, .student-summary-card):nth-child(2) {
+  animation-delay: 55ms;
+}
+
+:root :is(.ann-list, .eval-response-list, .student-card-grid, .student-stat-grid) > :is(.ann-card, .eval-response-card, .student-event-card, .student-summary-card):nth-child(3) {
+  animation-delay: 110ms;
+}
+
+:root :is(.ann-list, .eval-response-list, .student-card-grid, .student-stat-grid) > :is(.ann-card, .eval-response-card, .student-event-card, .student-summary-card):nth-child(4) {
+  animation-delay: 165ms;
+}
+
+:root :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link) {
+  transition: transform var(--ui-transition), background-color var(--ui-transition), color var(--ui-transition);
+}
+
+:root :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link):hover {
+  transform: translateX(2px);
+}
+
+:root .student-app-main {
+  animation: ui-content-enter 420ms var(--ui-ease-spring) both;
+}
+
+:root :is(.student-event-card, .student-summary-card, .student-registration, .student-announcement, .student-profile-card) {
+  transition: transform var(--ui-transition), border-color var(--ui-transition), box-shadow var(--ui-transition);
+}
+
+:root :is(.student-registration, .student-announcement):hover {
+  transform: translateY(-2px);
+  border-color: #c3d2e0;
+  box-shadow: 0 18px 32px -25px rgba(4, 29, 56, 0.55);
+}
+
+:root :is(.btn, .btn-danger, .ann-btn, .cert-btn, .events-btn, .log-btn, .regs-btn, .rpt-btn, .settings-btn, .student-primary-link, .student-secondary-button):active:not(:disabled) {
+  transform: scale(0.98);
+  transition-duration: 90ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content),
+  :root :is(.student-app-shell, .student-app-main),
+  :root :is(.kpi-strip, .ann-kpi-strip, .cert-kpi-strip, .eval-kpi-strip, .events-kpi-strip, .log-kpi-strip, .regs-kpi-strip, .rpt-kpi-strip) > *,
+  :root :is(.ann-list, .eval-response-list, .student-card-grid, .student-stat-grid) > * {
+    animation: none !important;
+  }
+
+  :root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel, .ann-card, .sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link),
+  :root :is(.sidebar, .ann-sidebar, .cert-sidebar, .eval-sidebar, .events-sidebar, .log-sidebar, .regs-sidebar, .rpt-sidebar, .settings-sidebar),
+  :root .sidebar-collapse-icon,
+  :root .app-shell :is(.kpi-item, .dash-action-link, .dash-bento-card, .dash-approval-link),
+  :root :is(.student-event-card, .student-summary-card, .student-registration, .student-announcement, .student-profile-card, .btn, .btn-danger, .ann-btn, .cert-btn, .events-btn, .log-btn, .regs-btn, .rpt-btn, .settings-btn, .student-primary-link, .student-secondary-button) {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  :root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) :is(.kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item, .panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel, .dash-bento-card, .ann-card):hover,
+  :root .app-shell :is(.dash-action-link, .dash-approval-link):hover,
+  :root :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link):hover,
+  :root :is(.student-event-card, .student-summary-card, .student-registration, .student-announcement, .student-primary-link, .student-secondary-button):is(:hover, :active),
+  :root :is(.btn, .btn-danger, .ann-btn, .cert-btn, .events-btn, .log-btn, .regs-btn, .rpt-btn, .settings-btn):active:not(:disabled) {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* ---------- Phase 4: consistent admin surfaces and theme support ---------- */
+
+:root :is(.ann-shell, .cert-shell, .eval-shell, .log-shell, .rpt-shell, .settings-shell, .app-shell) :is(.ann-panel, .cert-panel, .eval-panel, .log-panel, .rpt-panel, .settings-panel, .scanner-panel, .scanner-bulk-card, .scanner-event-summary) {
+  border-color: var(--ui-border);
+  border-radius: 10px;
+  background: var(--ui-surface);
+  box-shadow: none;
+}
+
+:root :is(.ann-shell, .cert-shell, .eval-shell, .log-shell, .rpt-shell, .settings-shell, .app-shell) :is(.ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .log-kpi-item, .rpt-kpi-item) {
+  border-color: var(--ui-border);
+  border-radius: 10px;
+  background: var(--ui-surface);
+  box-shadow: none;
+}
+
+:root :is(.ann-shell, .cert-shell, .eval-shell, .log-shell, .rpt-shell, .settings-shell, .app-shell) :is(.ann-table-wrapper, .cert-table-wrapper, .eval-table-wrapper, .log-table-wrapper, .rpt-table-wrapper, .settings-table-wrapper) {
+  border-color: var(--ui-border);
+  border-radius: 9px;
+  background: var(--ui-surface);
+}
+
+:root :is(.ann-shell, .cert-shell, .eval-shell, .log-shell, .rpt-shell, .settings-shell, .app-shell) :is(.ann-table-wrapper, .cert-table-wrapper, .eval-table-wrapper, .log-table-wrapper, .rpt-table-wrapper, .settings-table-wrapper) th {
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-muted);
+  font-size: 10.5px;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+:root :is(.ann-shell, .cert-shell, .eval-shell, .log-shell, .rpt-shell, .settings-shell, .app-shell) :is(.ann-table-wrapper, .cert-table-wrapper, .eval-table-wrapper, .log-table-wrapper, .rpt-table-wrapper, .settings-table-wrapper) td {
+  color: var(--ui-text);
+}
+
+:root :is(.ann-shell, .cert-shell, .eval-shell, .log-shell, .rpt-shell, .settings-shell, .app-shell) :is(.ann-table-wrapper, .cert-table-wrapper, .eval-table-wrapper, .log-table-wrapper, .rpt-table-wrapper, .settings-table-wrapper) tbody tr:hover,
+:root :is(.ann-shell, .cert-shell, .eval-shell, .log-shell, .rpt-shell, .settings-shell, .app-shell) :is(.ann-card, .eval-response-card, .scanner-event-card, .scanner-row):hover {
+  background: var(--ui-surface-hover);
+}
+
+:root :is(.ann-shell, .cert-shell, .eval-shell, .log-shell, .rpt-shell, .settings-shell, .app-shell) :is(.ann-card, .eval-response-card, .scanner-event-card, .scanner-panel, .scanner-bulk-card, .scanner-event-summary) {
+  border-color: var(--ui-border);
+  box-shadow: none;
+}
+
+:root :is(.ann-shell, .cert-shell, .eval-shell, .log-shell, .rpt-shell, .settings-shell, .app-shell) :is(.ann-card, .eval-response-card, .scanner-event-card):hover {
+  transform: none;
+}
+
+:root :is(.ann-shell, .cert-shell, .eval-shell, .log-shell, .rpt-shell, .settings-shell, .app-shell) :is(input, select, textarea, .settings-tab, .attendance-workspace-tab):focus-visible,
+:root .scanner-page :is(input, select, textarea, button):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ui-accent) 28%, transparent);
+  outline-offset: 2px;
+}
+
+:root .theme-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+:root .theme-toggle svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+:root .theme-toggle:hover {
+  background: var(--ui-surface-hover);
+}
+
+:root .theme-toggle:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ui-accent) 28%, transparent);
+  outline-offset: 2px;
+}
+
+:root[data-theme="dark"]:is(:has(.app-shell), :has(.ann-shell), :has(.cert-shell), :has(.eval-shell), :has(.events-shell), :has(.log-shell), :has(.regs-shell), :has(.rpt-shell), :has(.settings-shell), :has(.student-app-shell)) {
+  color-scheme: dark;
+  --ui-bg: #0c1422;
+  --ui-bg-soft: #111d2d;
+  --ui-surface: #152235;
+  --ui-surface-muted: #1a2a40;
+  --ui-surface-hover: #20334c;
+  --ui-border: #2a3b52;
+  --ui-border-subtle: #26374d;
+  --ui-border-strong: #3b506a;
+  --ui-text: #e8eef6;
+  --ui-text-muted: #b3c0d0;
+  --ui-text-soft: #91a2b7;
+  --ui-text-invert: #ffffff;
+  --ui-primary: #345f8a;
+  --ui-primary-strong: #4778a5;
+  --ui-primary-soft: #203a57;
+  --ui-accent: #84b8ec;
+  --ui-gold-soft: #332d1b;
+  --ui-gold-border: #685a2d;
+  --ui-success-bg: #163b31;
+  --ui-success-border: #28634d;
+  --ui-success: #a2dfbd;
+  --ui-warning-bg: #453719;
+  --ui-warning-border: #765c20;
+  --ui-warning: #f3d486;
+  --ui-danger-bg: #472525;
+  --ui-danger-border: #784141;
+  --ui-danger: #f1b0aa;
+  --ui-info-bg: #1d354d;
+  --ui-info-border: #365673;
+  --ui-info: #acd1f3;
+}
+
+:root[data-theme="dark"] :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell, .student-app-shell),
+:root[data-theme="dark"] :is(.main-column, .ann-main-column, .cert-main-column, .eval-main-column, .events-main-column, .log-main-column, .regs-main-column, .rpt-main-column, .settings-main-column, .student-app-main) {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(.topbar, .ann-topbar, .cert-topbar, .eval-topbar, .events-topbar, .log-topbar, .regs-topbar, .rpt-topbar, .settings-topbar, .student-app-header) {
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(.page-title, .ann-page-title, .cert-page-title, .eval-page-title, .events-page-title, .log-page-title, .regs-page-title, .rpt-page-title, .settings-page-title, .dash-panel-header h2, .panel-header h2, .ann-panel-header h2, .cert-panel-header h2, .eval-panel-header h2, .events-panel-header h2, .log-panel-header h2, .regs-panel-header h2, .rpt-panel h2, .settings-panel-header h2) {
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(.panel, .ann-panel, .cert-panel, .eval-panel, .events-panel, .log-panel, .regs-panel, .rpt-panel, .settings-panel, .dash-bento-card, .ann-card, .eval-response-card, .attendance-filter-panel, .attendance-event-summary, .attendance-selected-event, .scanner-panel, .scanner-bulk-card, .scanner-event-summary, .scanner-savebar, .checkin-empty-panel) {
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] :is(.kpi-item, .ann-kpi-item, .cert-kpi-item, .eval-kpi-item, .events-kpi-item, .log-kpi-item, .regs-kpi-item, .rpt-kpi-item, .scanner-page-metrics > div) {
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] :is(.table-wrapper, .ann-table-wrapper, .cert-table-wrapper, .eval-table-wrapper, .events-table-wrapper, .log-table-wrapper, .regs-table-wrapper, .rpt-table-wrapper, .settings-table-wrapper) {
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+}
+
+:root[data-theme="dark"] :is(table th, .table-wrapper th, .ann-table-wrapper th, .cert-table-wrapper th, .eval-table-wrapper th, .events-table-wrapper th, .log-table-wrapper th, .regs-table-wrapper th, .rpt-table-wrapper th, .settings-table-wrapper th) {
+  border-color: var(--ui-border);
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-muted);
+}
+
+:root[data-theme="dark"] :is(table td, .table-wrapper td, .ann-table-wrapper td, .cert-table-wrapper td, .eval-table-wrapper td, .events-table-wrapper td, .log-table-wrapper td, .regs-table-wrapper td, .rpt-table-wrapper td, .settings-table-wrapper td) {
+  border-color: var(--ui-border-subtle);
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(table tbody tr:nth-child(even), .table-wrapper tbody tr:nth-child(even), .ann-table-wrapper tbody tr:nth-child(even), .cert-table-wrapper tbody tr:nth-child(even), .eval-table-wrapper tbody tr:nth-child(even), .events-table-wrapper tbody tr:nth-child(even), .log-table-wrapper tbody tr:nth-child(even), .regs-table-wrapper tbody tr:nth-child(even), .rpt-table-wrapper tbody tr:nth-child(even)) {
+  background: #18283c;
+}
+
+:root[data-theme="dark"] :is(table tbody tr:hover, .table-wrapper tbody tr:hover, .ann-table-wrapper tbody tr:hover, .cert-table-wrapper tbody tr:hover, .eval-table-wrapper tbody tr:hover, .events-table-wrapper tbody tr:hover, .log-table-wrapper tbody tr:hover, .regs-table-wrapper tbody tr:hover, .rpt-table-wrapper tbody tr:hover, .ann-card:hover, .eval-response-card:hover, .scanner-row:hover) {
+  background: var(--ui-surface-hover);
+}
+
+:root[data-theme="dark"] :is(input, select, textarea, .scanner-select-wrap select, .checkin-window-form input) {
+  border-color: var(--ui-border-strong);
+  background-color: var(--ui-surface-muted);
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(.btn-secondary, .ann-btn-secondary, .cert-btn-secondary, .events-btn-secondary, .log-btn-secondary, .regs-btn-secondary, .rpt-btn-secondary, .settings-btn-secondary, .theme-toggle) {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-surface-muted);
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(.modal-card, .ann-modal-card, .cert-modal-card, .events-modal-card, .log-modal-card, .regs-modal-card) {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(.modal-header, .ann-modal-header, .cert-modal-header, .events-modal-header, .log-modal-header, .regs-modal-header, .modal-footer, .ann-modal-footer, .cert-modal-footer, .events-modal-footer, .log-modal-footer, .regs-modal-footer) {
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(.settings-tab, .attendance-workspace-tab, .checkin-session-tab) {
+  border-color: var(--ui-border);
+  background: transparent;
+  color: var(--ui-text-muted);
+}
+
+:root[data-theme="dark"] :is(.settings-tab.active, .attendance-workspace-tab.active, .checkin-session-tab.active) {
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(.ann-intro, .scanner-bulk-summary, .student-welcome) {
+  border-color: var(--ui-border);
+}
+
+:root[data-theme="dark"] .ann-modal-header {
+  background: var(--ui-primary-strong);
+}
+
+@media (max-width: 720px) {
+  :root .theme-toggle span {
+    display: none;
+  }
+
+  :root .theme-toggle {
+    width: 40px;
+    padding: 0;
+  }
+}
+
+:root[data-theme="dark"] :is(.student-app-shell, .student-app-main) {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(.student-page-heading h1, .student-page-heading p, .student-card-title, .student-event-title, .student-announcement-title, .student-profile-name, .student-summary-value) {
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(.student-event-card, .student-summary-card, .student-registration, .student-announcement, .student-profile-card, .student-empty-state) {
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] :is(.student-event-meta, .student-card-meta, .student-profile-meta, .student-empty-state p) {
+  color: var(--ui-text-muted);
+}
+
+:root[data-theme="dark"] :is(.student-primary-link, .student-secondary-button) {
+  color: var(--ui-text);
+}
+
+:root[data-theme="dark"] :is(.rpt-bar-track, .rpt-chart-track) {
+  background: var(--ui-surface-muted);
+}
+
+:root[data-theme="dark"] :is(.rpt-bar-label, .rpt-bar-value, .rpt-legend-item, .rpt-cell-muted) {
+  color: var(--ui-text-muted);
+}
+
+/* ---------- Phase 5: responsive and keyboard-accessibility finish ---------- */
+
+:root .skip-link {
+  position: fixed;
+  z-index: 10000;
+  top: 8px;
+  left: 8px;
+  transform: translateY(calc(-100% - 12px));
+  padding: 10px 14px;
+  border: 2px solid var(--ui-gold);
+  border-radius: 8px;
+  background: var(--ui-navy-900);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+:root .skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid var(--ui-gold);
+  outline-offset: 2px;
+}
+
+:root :is(.sidebar-link, .ann-sidebar-link, .cert-sidebar-link, .eval-sidebar-link, .events-sidebar-link, .log-sidebar-link, .regs-sidebar-link, .rpt-sidebar-link, .settings-sidebar-link, .settings-tab, .attendance-workspace-tab, .student-nav-link) {
+  min-height: 44px;
+}
+
+:root :is(.action-btn, .theme-toggle, .nav-toggle, .student-menu-toggle, .sidebar-collapse-toggle, .regs-modal-close, .events-modal-close, .ann-modal-close, .cert-modal-close, .log-modal-close) {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+:root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content, .student-app-main) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:root :is(.table-wrapper, .ann-table-wrapper, .cert-table-wrapper, .eval-table-wrapper, .events-table-wrapper, .log-table-wrapper, .regs-table-wrapper, .rpt-table-wrapper, .settings-table-wrapper) {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+  touch-action: pan-x pan-y;
+}
+
+:root[data-theme="dark"] :is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline-color: var(--ui-gold);
+}
+
+@media (max-width: 768px) {
+  :root :is(.app-shell, .ann-shell, .cert-shell, .eval-shell, .events-shell, .log-shell, .regs-shell, .rpt-shell, .settings-shell) {
+    min-width: 0;
+    width: 100%;
+  }
+
+  :root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content, .student-app-main) {
+    overflow-wrap: anywhere;
+  }
+
+  :root :is(.events-panel-header, .regs-panel-header, .ann-panel-header, .cert-panel-header, .log-panel-header, .rpt-panel-header, .settings-panel-header) {
+    flex-wrap: wrap;
+  }
+
+  :root :is(.events-panel-header-actions, .regs-panel-actions, .ann-panel-actions, .cert-panel-actions, .log-panel-actions, .rpt-export-actions) {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  :root .theme-toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 560px) {
+  :root :is(.topbar, .ann-topbar, .cert-topbar, .eval-topbar, .events-topbar, .log-topbar, .regs-topbar, .rpt-topbar, .settings-topbar) {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  :root .topbar-lead {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  :root .topbar-lead > div {
+    min-width: 0;
+  }
+
+  :root .topbar .dash-header-actions {
+    order: 3;
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  :root :is(.events-panel-header-actions, .regs-panel-actions, .ann-panel-actions, .cert-panel-actions, .log-panel-actions, .rpt-export-actions) > * {
+    flex: 1 1 auto;
+  }
+
+  :root :is(.modal-overlay, .ann-modal-overlay, .cert-modal-overlay, .events-modal-overlay, .log-modal-overlay, .regs-modal-overlay) {
+    padding: 8px;
+  }
+
+  :root :is(.modal-card, .ann-modal-card, .cert-modal-card, .events-modal-card, .log-modal-card, .regs-modal-card) {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 16px);
+    min-width: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  :root :is(.page-content, .ann-page-content, .cert-page-content, .eval-page-content, .events-page-content, .log-page-content, .regs-page-content, .rpt-page-content, .settings-page-content, .student-app-main) {
+    padding-inline: 12px;
+  }
+
+  :root :is(.events-kpi-strip, .regs-kpi-strip, .ann-kpi-strip, .cert-kpi-strip, .eval-kpi-strip, .log-kpi-strip, .rpt-kpi-strip) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :root :is(.events-panel, .regs-panel, .ann-panel, .cert-panel, .eval-panel, .log-panel, .rpt-panel, .settings-panel) {
+    padding: 12px;
   }
 }

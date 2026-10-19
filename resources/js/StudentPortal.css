@@ -21,17 +21,22 @@
 .student-event-banner, .student-event-banner-placeholder { display: grid; place-items: center; width: 100%; height: 145px; object-fit: cover; color: var(--ui-accent); background: var(--ui-primary-soft); }
 .student-event-content { display: grid; align-content: start; gap: 11px; padding: 18px; }
 .student-event-content h3, .student-announcement h3 { margin: 0; font-size: 18px; color: var(--ui-navy-900); }
-.student-event-content p, .student-announcement p { display: -webkit-box; overflow: hidden; margin: 0; color: var(--ui-text-muted); font-size: 14px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.student-event-content p { display: -webkit-box; overflow: hidden; margin: 0; color: var(--ui-text-muted); font-size: 14px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.student-announcement p { margin: 0; color: var(--ui-text-muted); font-size: 14px; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
 .student-announcement-tag { width: fit-content; padding: 5px 9px; border-radius: 999px; color: var(--ui-accent); background: var(--ui-primary-soft); font-size: 11px; font-weight: 700; }
 .student-event-meta { display: flex; flex-wrap: wrap; gap: 7px 12px; color: var(--ui-text-muted); font-size: 12px; }
 .student-event-content .student-primary-link { margin-top: 4px; }
 .student-announcement-list { display: grid; gap: 12px; }
 .student-announcement { display: grid; gap: 8px; padding: 17px 19px; background: #fff; border: 1px solid var(--ui-border); border-radius: 13px; }
+.student-announcement-meta { display: flex; flex-wrap: wrap; gap: 5px 12px; color: var(--ui-text-soft); font-size: 12px; }
 .student-registration-list { display: grid; gap: 15px; }
 .student-registration { display: flex; justify-content: space-between; gap: 24px; padding: 22px; background: #fff; border: 1px solid var(--ui-border); border-radius: 15px; }
 .student-registration-main { display: grid; align-content: start; justify-items: start; gap: 9px; }
 .student-registration-main h2 { margin: 0; color: var(--ui-navy-900); font-size: 20px; }
 .student-registration-main p { margin: 0; color: var(--ui-text-muted); }
+.student-registration-meta { display: grid; gap: 8px; width: 100%; color: var(--ui-text-muted); font-size: 13px; }
+.student-registration-meta span { display: flex; flex-wrap: wrap; gap: 5px 9px; }
+.student-registration-meta strong { min-width: 82px; color: var(--ui-navy-900); }
 .student-reference { color: var(--ui-text-soft); font-size: 12px; }
 .student-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 11px; margin-top: 5px; }
 .student-secondary-button { border: 1px solid var(--ui-border-strong); background: #fff; color: var(--ui-primary); }
@@ -69,9 +74,22 @@
 .student-event-detail-modal { position: relative; overflow: auto; width: min(100%, 680px); max-height: min(90vh, 780px); max-height: min(90dvh, 780px); border-radius: 16px; background: #fff; box-shadow: 0 20px 60px rgb(4 20 43 / 22%); }
 .student-detail-banner { display: block; width: 100%; height: 230px; object-fit: cover; background: var(--ui-primary-soft); }
 .student-detail-content { display: grid; gap: 14px; padding: 25px; }
+.student-event-source-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.student-event-source { width: fit-content; padding: 5px 9px; border: 1px solid var(--ui-border); border-radius: 999px; color: var(--ui-text-muted); background: var(--ui-surface-muted); font-size: 10px; font-weight: 750; letter-spacing: .07em; }
+.student-detail-content .student-event-reference { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--ui-text-muted); font-size: 12px; }
+.student-event-reference strong { color: var(--ui-navy-900); font-variant-numeric: tabular-nums; }
+.student-event-status { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-radius: 999px; color: var(--ui-text-muted); background: var(--ui-surface-muted); font-size: 10px; font-weight: 700; }
+.student-event-status.status-approved { color: #17613a; background: #e8f6ed; }
+.student-event-status.status-pending { color: #805c06; background: #fff4d2; }
+.student-event-status.status-cancelled,
+.student-event-status.status-rejected { color: #8a3030; background: #fdecec; }
 .student-detail-content h2, .student-detail-content p { margin: 0; }
 .student-detail-content h2 { padding-right: 32px; color: var(--ui-navy-900); font-size: 24px; }
 .student-detail-content > p { color: var(--ui-text-muted); line-height: 1.65; white-space: pre-line; }
+.student-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.student-detail-item { display: grid; align-content: start; gap: 5px; min-width: 0; padding: 12px; border: 1px solid var(--ui-border); border-radius: 10px; background: var(--ui-surface-muted, #f7f9fc); }
+.student-detail-item span { color: var(--ui-text-soft); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.student-detail-item strong { color: var(--ui-navy-900); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
 .student-detail-content .student-detail-deadline { color: var(--ui-accent); font-size: 13px; font-weight: 700; }
 .student-detail-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; padding-top: 5px; }
 .student-detail-actions button { min-height: 42px; }
@@ -82,6 +100,7 @@
     .student-event-actions button { width: 100%; }
     .student-detail-banner { height: 180px; }
     .student-detail-content { padding: 21px; }
+    .student-detail-grid { grid-template-columns: 1fr; }
     .student-detail-actions { display: grid; grid-template-columns: 1fr; }
     .student-detail-actions button { width: 100%; }
 }

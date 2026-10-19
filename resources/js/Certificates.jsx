@@ -427,6 +427,7 @@ function Certificates() {
                                             <span className="cert-row-avatar">{initialsOf(row.participant)}</span>
                                             <div className="cert-cell-text">
                                                 <span className="cert-cell-name">{row.participant}</span>
+                                                <span className="cert-cell-email">{row.email || "No email on file"}</span>
                                                 <span className="cert-cell-id">{row.id}</span>
                                             </div>
                                         </div>

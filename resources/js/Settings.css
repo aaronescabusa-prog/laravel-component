@@ -270,6 +270,17 @@ body {
     margin-bottom: 16px;
 }
 
+.settings-load-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.settings-load-error .settings-btn {
+    flex: 0 0 auto;
+}
+
 /* ---------- Form fields ---------- */
 
 .settings-form-group {

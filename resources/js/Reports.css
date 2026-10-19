@@ -402,7 +402,7 @@ body {
     background-color: #276739;
 }
 
-.rpt-bar-expense {
+.rpt-bar-budget {
     background-color: #a3271f;
 }
 
@@ -440,7 +440,7 @@ body {
     background-color: #276739;
 }
 
-.rpt-legend-expense {
+.rpt-legend-budget {
     background-color: #a3271f;
 }
 
@@ -591,5 +591,45 @@ body {
     .rpt-kpi-item {
         flex: 1 1 100%;
         border-right: none !important;
+    }
+}
+
+/* ---------- Last refreshed timestamp ---------- */
+
+.rpt-updated {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* ---------- Print ---------- */
+
+@media print {
+    .rpt-shell .rpt-sidebar,
+    .rpt-shell .rpt-topbar,
+    .rpt-export-actions,
+    .rpt-updated,
+    .rpt-btn,
+    [class*=\"-toast\"],
+    .rpt-loading {
+        display: none !important;
+    }
+    .rpt-shell .rpt-main-column {
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+    .rpt-panel {
+        border: 1px solid #dfe2e8;
+        break-inside: avoid;
+    }
+    table {
+        break-inside: auto;
+    }
+    tr {
+        break-inside: avoid;
+    }
+    body {
+        background: #fff !important;
+        color: #111 !important;
     }
 }

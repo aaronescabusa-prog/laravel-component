@@ -12,6 +12,44 @@ use Illuminate\Validation\Rule;
 
 class EventScannerController extends Controller
 {
+    /** Add selected active scanner accounts to every non-archived event. */
+    public function assignToAllEvents(Request $request)
+    {
+        $validated = $request->validate([
+            'scanner_ids' => ['required', 'array', 'min:1', 'max:500'],
+            'scanner_ids.*' => [
+                'required',
+                'integer',
+                'distinct',
+                Rule::exists('user_accounts', 'id')->where(
+                    fn ($query) => $query->where('role', 'Scanner')
+                        ->where('status', 'Active')
+                        ->whereNull('deleted_at')
+                ),
+            ],
+        ]);
+
+        $scannerIds = array_map('intval', $validated['scanner_ids']);
+        $assignedBy = $request->user()->getKey();
+        $events = Event::query()->whereNull('archived_at')->orderBy('id')->get();
+        $pivot = collect($scannerIds)->mapWithKeys(
+            fn (int $id) => [$id => ['assigned_by' => $assignedBy]],
+        )->all();
+
+        DB::transaction(function () use ($events, $pivot): void {
+            foreach ($events as $event) {
+                // Preserve other scanner assignments while adding the selected accounts.
+                $event->scannerAccounts()->syncWithoutDetaching($pivot);
+            }
+        });
+
+        return response()->json([
+            'message' => 'Scanner access added across all non-archived events.',
+            'events_updated' => $events->count(),
+            'scanner_ids' => $scannerIds,
+        ]);
+    }
+
     public function index(Event $event)
     {
         return response()->json([

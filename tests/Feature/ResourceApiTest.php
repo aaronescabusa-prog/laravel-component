@@ -2,6 +2,7 @@
 
 use App\Models\ActivityLog;
 use App\Models\Event;
+use App\Models\Registration;
 use App\Models\Setting;
 use App\Models\UserAccount;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -269,6 +270,67 @@ test('admin can list, create, show, update and delete events', function () {
     $this->deleteJson('/api/events/EVE-1001')->assertStatus(204);
 
     expect(Event::count())->toBe(0);
+});
+
+test('admins can archive and restore completed events', function () {
+    Sanctum::actingAs(makeAdmin());
+
+    $completed = Event::create([
+        'reference' => 'EVE-ARCHIVE-1',
+        'title' => 'Completed event',
+        'status' => 'Completed',
+    ]);
+    Event::create([
+        'reference' => 'EVE-ARCHIVE-2',
+        'title' => 'Active event',
+        'status' => 'Approved',
+    ]);
+
+    $this->postJson('/api/events/EVE-ARCHIVE-1/archive')
+        ->assertOk()
+        ->assertJsonPath('reference', 'EVE-ARCHIVE-1');
+
+    expect($completed->fresh()->archived_at)->not->toBeNull();
+    $this->getJson('/api/events')->assertJsonCount(1, 'data');
+    $this->getJson('/api/events/archived')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.reference', 'EVE-ARCHIVE-1');
+
+    $this->postJson('/api/events/EVE-ARCHIVE-1/restore')
+        ->assertOk()
+        ->assertJsonPath('archived_at', null);
+
+    expect($completed->fresh()->archived_at)->toBeNull();
+    $this->getJson('/api/events')->assertJsonCount(2, 'data');
+    $this->getJson('/api/events/archived')->assertJsonCount(0, 'data');
+});
+
+test('only completed events can be archived', function () {
+    Sanctum::actingAs(makeAdmin());
+    $event = Event::create([
+        'reference' => 'EVE-NOT-COMPLETE',
+        'title' => 'Upcoming event',
+        'status' => 'Approved',
+    ]);
+
+    $this->postJson('/api/events/EVE-NOT-COMPLETE/archive')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('status');
+
+    expect($event->fresh()->archived_at)->toBeNull();
+});
+
+test('event archive endpoints are restricted to administrators', function () {
+    Event::create([
+        'reference' => 'EVE-ARCHIVE-ACCESS',
+        'title' => 'Completed event',
+        'status' => 'Completed',
+    ]);
+    Sanctum::actingAs(makeStudent());
+
+    $this->getJson('/api/events/archived')->assertForbidden();
+    $this->postJson('/api/events/EVE-ARCHIVE-ACCESS/archive')->assertForbidden();
 });
 
 test('create requires a unique reference and title', function () {
@@ -572,6 +634,43 @@ test('search and status filters narrow the listing', function () {
 
     $this->getJson('/api/events?search=Workshop')->assertJsonCount(1, 'data');
     $this->getJson('/api/events?status=Approved')->assertJsonCount(1, 'data');
+});
+
+test('event registration details include legacy rows without an event id', function () {
+    Sanctum::actingAs(makeAdmin());
+    $event = Event::create([
+        'reference' => 'EVE-REG-LEGACY',
+        'title' => 'Legacy registration event',
+        'status' => 'Approved',
+    ]);
+
+    $linked = Registration::create([
+        'reference' => 'REG-LINKED',
+        'participant' => 'Linked Participant',
+        'email' => 'linked@example.test',
+        'event' => $event->title,
+    ]);
+    $linked->forceFill(['event_id' => $event->id])->save();
+
+    Registration::create([
+        'reference' => 'REG-LEGACY',
+        'participant' => 'Legacy Participant',
+        'email' => 'legacy@example.test',
+        'event' => $event->title,
+    ]);
+    Registration::create([
+        'reference' => 'REG-OTHER',
+        'participant' => 'Other Participant',
+        'email' => 'other@example.test',
+        'event' => 'Different event',
+    ]);
+
+    $this->getJson('/api/registrations?event_reference=EVE-REG-LEGACY')
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonFragment(['reference' => 'REG-LINKED'])
+        ->assertJsonFragment(['reference' => 'REG-LEGACY'])
+        ->assertJsonMissing(['reference' => 'REG-OTHER']);
 });
 
 test('students can read events but cannot write', function () {
